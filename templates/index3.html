@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GestióPro · Gestió de Tasques i Empleats</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f5f4f1; --bg2:#eeece7; --surface:#fff; --border:#dddbd5;
+  --text:#1a1916; --text-muted:#7a7870;
+  --accent:#2c4a3e; --accent-light:#d4e4df; --accent2:#8b6f47;
+  --danger:#b94a48; --success:#3a7d5a;
+  --sidebar-w:240px; --header-h:60px; --radius:8px;
+  --shadow:0 2px 12px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+
+/* LOGIN */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--accent);background-image:radial-gradient(ellipse at 20% 50%,rgba(255,255,255,.05) 0%,transparent 60%),repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(255,255,255,.02) 40px,rgba(255,255,255,.02) 80px)}
+.login-card{background:var(--surface);border-radius:16px;padding:52px 48px;width:420px;box-shadow:0 24px 64px rgba(0,0,0,.3);position:relative;overflow:hidden}
+.login-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.login-logo{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:var(--accent);margin-bottom:6px}
+.login-sub{color:var(--text-muted);font-size:13px;margin-bottom:36px}
+.login-hint{margin-top:24px;padding:14px;background:var(--bg);border-radius:var(--radius);font-size:12px;color:var(--text-muted);border:1px solid var(--border);line-height:1.8}
+.login-hint strong{color:var(--text)}
+.login-error{color:var(--danger);font-size:13px;margin-top:10px;display:none}
+
+/* FORMS */
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:7px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--bg);transition:border-color .2s,box-shadow .2s;outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(44,74,62,.1);background:#fff}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#1e3529;transform:translateY(-1px);box-shadow:0 4px 12px rgba(44,74,62,.3)}
+.btn-full{width:100%;justify-content:center}
+.btn-sm{padding:6px 14px;font-size:13px}
+.btn-outline{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
+.btn-outline:hover{background:var(--accent-light)}
+.btn-ghost{background:transparent;color:var(--text-muted);border:1.5px solid var(--border)}
+.btn-ghost:hover{background:var(--bg2);color:var(--text)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#9e3937}
+.btn-icon{background:none;border:none;cursor:pointer;padding:5px 8px;border-radius:5px;transition:background .15s;font-size:13px;color:var(--text-muted);line-height:1;font-family:'DM Sans',sans-serif;font-weight:500}
+.btn-icon:hover{background:var(--bg2);color:var(--text)}
+.btn-icon.red:hover{background:#fde8e8;color:var(--danger)}
+
+/* APP */
+#app{display:none;min-height:100vh}
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:var(--accent);display:flex;flex-direction:column;z-index:100}
+.sidebar-logo{padding:20px 24px;font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:#fff;border-bottom:1px solid rgba(255,255,255,.1)}
+.sidebar-logo span{color:rgba(255,255,255,.4);font-size:10px;display:block;font-family:'DM Sans',sans-serif;font-weight:300;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
+.sidebar-nav{flex:1;padding:14px 0;overflow-y:auto}
+.nav-section-title{padding:14px 24px 5px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.3)}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 24px;color:rgba(255,255,255,.7);cursor:pointer;transition:all .15s;font-size:13.5px;border-left:3px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav-item.active{background:rgba(255,255,255,.12);color:#fff;border-left-color:rgba(255,255,255,.55)}
+.nav-item .icon{width:18px;text-align:center;font-size:15px}
+.nav-badge{margin-left:auto;background:var(--accent2);color:#fff;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px}
+.sidebar-user{padding:15px 24px;border-top:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:10px}
+.s-avatar{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;flex-shrink:0}
+.s-name{color:#fff;font-size:13px;font-weight:500}
+.s-role{color:rgba(255,255,255,.4);font-size:11px}
+.s-logout{background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:17px;padding:3px;transition:color .2s;margin-left:auto}
+.s-logout:hover{color:#fff}
+
+.main{margin-left:var(--sidebar-w);min-height:100vh;display:flex;flex-direction:column}
+.topbar{height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;gap:16px;position:sticky;top:0;z-index:50}
+.topbar-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:500;flex:1}
+.content{flex:1;padding:28px 32px}
+
+/* SECTIONS */
+.section{display:none}
+.section.active{display:block}
+.sec-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;gap:16px}
+.sec-hdr-text h2{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:500;line-height:1.15}
+.sec-hdr-text p{color:var(--text-muted);font-size:13px;margin-top:4px}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:var(--surface);border-radius:var(--radius);padding:20px 22px;border:1px solid var(--border);box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--accent);opacity:.25}
+.stat-card.green::after{background:var(--success);opacity:.5}
+.stat-card.amber::after{background:var(--accent2);opacity:.5}
+.stat-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px}
+.stat-value{font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:500;line-height:1}
+.stat-sub{font-size:12px;color:var(--text-muted);margin-top:5px}
+
+/* CARDS */
+.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden}
+.card-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:500}
+.card-body{padding:18px 20px}
+.dash-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:20px}
+.task-item{display:flex;align-items:flex-start;gap:11px;padding:11px 0;border-bottom:1px solid var(--bg2)}
+.task-item:last-child{border-bottom:none}
+.t-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);margin-top:5px;flex-shrink:0}
+.t-dot.amber{background:var(--accent2)}
+.t-dot.red{background:var(--danger)}
+.t-title{font-size:13px;font-weight:500}
+.t-meta{font-size:12px;color:var(--text-muted);margin-top:2px}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.tag-green{background:#d4f0e4;color:var(--success)}
+.tag-amber{background:#f5e9d9;color:#7a4e1e}
+.tag-blue{background:#d5e8f5;color:#1e4e7a}
+.tag-gray{background:var(--bg2);color:var(--text-muted)}
+.tag-red{background:#f5d5d5;color:var(--danger)}
+
+/* CALENDAR */
+.calendar-wrapper{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden}
+.cal-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px}
+.cal-title{flex:1;font-family:'Cormorant Garamond',serif;font-size:21px;font-weight:500}
+.cal-nav{background:none;border:1.5px solid var(--border);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:14px;transition:all .15s}
+.cal-nav:hover{background:var(--bg2)}
+.cal-grid{padding:18px 22px}
+.cal-days-header{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px}
+.cal-day-name{text-align:center;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);padding:5px 0}
+.cal-cells{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-cell{min-height:88px;padding:7px;border-radius:6px;border:1px solid transparent;cursor:pointer;transition:all .15s}
+.cal-cell:hover:not(.empty){background:var(--bg2);border-color:var(--border)}
+.cal-cell.empty{cursor:default;pointer-events:none}
+.cal-cell.today{background:var(--accent-light);border-color:var(--accent)}
+.cal-cell.today .cell-num{color:var(--accent);font-weight:700}
+.cell-num{font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:3px}
+.cell-event{font-size:10px;padding:2px 5px;border-radius:3px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--accent-light);color:var(--accent);font-weight:500;cursor:pointer}
+.cell-event:hover{opacity:.8}
+.cell-event.amber{background:#f5e9d9;color:#7a4e1e}
+.cell-event.red{background:#f5d5d5;color:var(--danger)}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:14px;padding:32px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.2);position:relative}
+.modal-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:500;margin-bottom:5px}
+.modal-sub{color:var(--text-muted);font-size:13px;margin-bottom:24px}
+.modal-close{position:absolute;top:18px;right:18px;background:none;border:none;font-size:19px;color:var(--text-muted);cursor:pointer;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all .15s}
+.modal-close:hover{background:var(--bg2);color:var(--text)}
+.modal-actions{display:flex;gap:10px;margin-top:24px;justify-content:flex-end;flex-wrap:wrap}
+.form-err{color:var(--danger);font-size:13px;display:none;margin-top:-8px;margin-bottom:8px}
+
+/* USERS TABLE */
+.table-wrap{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden}
+.table-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:11px 16px;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);background:var(--bg);border-bottom:1px solid var(--border)}
+td{padding:11px 16px;border-bottom:1px solid var(--bg2);font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg)}
+.user-cell{display:flex;align-items:center;gap:9px}
+.mini-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--accent);flex-shrink:0}
+.action-btns{display:flex;gap:4px;align-items:center}
+
+/* SERVICES - diseno limpio sin emojis */
+.srv-list{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden}
+.srv-item{display:flex;align-items:center;gap:16px;padding:15px 20px;border-bottom:1px solid var(--bg2);transition:background .15s}
+.srv-item:last-child{border-bottom:none}
+.srv-item:hover{background:var(--bg)}
+.srv-num{width:32px;height:32px;border-radius:6px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-muted);flex-shrink:0;border:1px solid var(--border)}
+.srv-info{flex:1;min-width:0}
+.srv-name{font-size:14px;font-weight:500;color:var(--text)}
+.srv-desc{font-size:12px;color:var(--text-muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* APPOINTMENTS LIST */
+.appt-list{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;margin-top:20px}
+.appt-item{display:flex;align-items:center;gap:14px;padding:13px 20px;border-bottom:1px solid var(--bg2);transition:background .15s}
+.appt-item:last-child{border-bottom:none}
+.appt-item:hover{background:var(--bg)}
+.appt-time-col{min-width:72px;font-size:12px;color:var(--text-muted);text-align:center}
+.appt-time-col strong{display:block;font-size:15px;color:var(--text);font-family:'Cormorant Garamond',serif}
+.appt-info{flex:1;min-width:0}
+.appt-client{font-size:14px;font-weight:500}
+.appt-meta{font-size:12px;color:var(--text-muted);margin-top:2px}
+
+/* MENSAJERIA PRIVADA */
+.msg-layout{display:grid;grid-template-columns:280px 1fr;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);height:calc(100vh - 160px);overflow:hidden}
+.msg-sidebar{border-right:1px solid var(--border);display:flex;flex-direction:column}
+.msg-sidebar-header{padding:16px 18px;border-bottom:1px solid var(--border)}
+.msg-search{padding:10px 18px;border-bottom:1px solid var(--border)}
+.msg-search input{width:100%;padding:7px 12px;border:1.5px solid var(--border);border-radius:20px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);outline:none;transition:border-color .2s}
+.msg-search input:focus{border-color:var(--accent)}
+.msg-list{overflow-y:auto;flex:1}
+.msg-conv{display:flex;align-items:center;gap:10px;padding:12px 18px;cursor:pointer;border-bottom:1px solid var(--bg2);transition:background .15s}
+.msg-conv:hover{background:var(--bg)}
+.msg-conv.active{background:var(--accent-light)}
+.msg-conv-info{flex:1;min-width:0}
+.msg-conv-name{font-size:13px;font-weight:500;margin-bottom:2px}
+.msg-conv-preview{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-conv-time{font-size:11px;color:var(--text-muted);white-space:nowrap}
+.msg-main{display:flex;flex-direction:column}
+.msg-main-header{padding:14px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.msg-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;background:var(--bg)}
+.msg-bubble-wrap{display:flex;flex-direction:column;gap:3px}
+.msg-bubble-wrap.me{align-items:flex-end}
+.msg-bubble{max-width:65%;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.5}
+.msg-bubble-wrap.me .msg-bubble{background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.msg-bubble-wrap:not(.me) .msg-bubble{background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:4px}
+.msg-time-label{font-size:11px;color:var(--text-muted);padding:0 4px}
+.msg-composer{padding:16px 20px;border-top:2px solid var(--border);display:flex;gap:10px;align-items:flex-end;background:var(--surface)}
+.msg-composer textarea{flex:1;border:2px solid var(--border);border-radius:10px;padding:12px 16px;font-family:'DM Sans',sans-serif;font-size:14px;resize:none;min-height:52px;max-height:120px;outline:none;transition:border-color .2s,box-shadow .2s;background:var(--bg);line-height:1.5}
+.msg-composer textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(44,74,62,.08);background:#fff}
+.msg-send-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:0 20px;height:52px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.msg-send-btn:hover{background:#1e3529;transform:translateY(-1px)}
+.msg-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-muted);gap:10px}
+.msg-empty-icon{font-size:44px;opacity:.25}
+
+/* CHAT GENERAL */
+.gchat-wrap{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);height:calc(100vh - 160px);display:flex;flex-direction:column;overflow:hidden}
+.gchat-header{padding:16px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:var(--surface)}
+.gchat-header-icon{width:38px;height:38px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;flex-shrink:0;font-weight:600}
+.gchat-header-info{}
+.gchat-header-name{font-size:15px;font-weight:600;color:var(--text);font-family:'Cormorant Garamond',serif}
+.gchat-header-sub{font-size:12px;color:var(--text-muted);margin-top:2px}
+.gchat-messages{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:2px;background:var(--bg)}
+.gchat-day-sep{text-align:center;padding:12px 0;margin:6px 0}
+.gchat-day-sep span{font-size:11px;color:var(--text-muted);background:var(--border);padding:3px 12px;border-radius:10px;letter-spacing:.3px}
+.gchat-msg-group{display:flex;flex-direction:column;margin-bottom:10px}
+.gchat-msg-group.me{align-items:flex-end}
+.gchat-msg-group:not(.me){align-items:flex-start}
+.gchat-msg-meta{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.gchat-msg-meta.me{flex-direction:row-reverse}
+.gchat-uavatar{width:26px;height:26px;border-radius:50%;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.gchat-uavatar.me{background:var(--accent);color:#fff}
+.gchat-sender{font-size:12px;font-weight:500;color:var(--text-muted)}
+.gchat-bubble{max-width:62%;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.55;word-break:break-word}
+.gchat-msg-group.me .gchat-bubble{background:var(--accent);color:#fff;border-bottom-right-radius:4px;align-self:flex-end}
+.gchat-msg-group:not(.me) .gchat-bubble{background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:4px}
+.gchat-time{font-size:11px;color:var(--text-muted);padding:3px 4px 0}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">GestióPro</div>
+    <div class="login-sub">Gestió de Tasques i Empleats</div>
+    <div class="form-group">
+      <label>Nom d'usuari</label>
+      <input type="text" id="login-user" placeholder="admin / empleado">
+    </div>
+    <div class="form-group">
+      <label>Contrasenya</label>
+      <input type="password" id="login-pass" placeholder="••••••••">
+    </div>
+    <div class="login-error" id="login-error">Usuari o contrasenya incorrectes.</div>
+    <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="doLogin()">Iniciar sessió &rarr;</button>
+    <div class="login-hint">
+      <strong>Credencials de prova:</strong><br>
+      Admin &rarr; <strong>admin</strong> / <strong>admin123</strong><br>
+      Empleado &rarr; <strong>empleado</strong> / <strong>emp123</strong>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <nav class="sidebar">
+    <div class="sidebar-logo">GestióPro <span>Panel de Gestió</span></div>
+    <div class="sidebar-nav">
+      <div class="nav-section-title">Principal</div>
+      <div class="nav-item" data-sec="dashboard" onclick="showSection('dashboard')"><span class="icon">&#9672;</span> Dashboard</div>
+      <div class="nav-item" data-sec="my-calendar" onclick="showSection('my-calendar')"><span class="icon">&#9638;</span> Mi Calendario</div>
+      <div class="nav-item admin-only" data-sec="global-calendar" onclick="showSection('global-calendar')"><span class="icon">&#10012;</span> Calendario Global</div>
+      <div class="nav-section-title">Empresa</div>
+      <div class="nav-item admin-only" data-sec="users" onclick="showSection('users')"><span class="icon">&#8857;</span> Usuarios</div>
+      <div class="nav-item" data-sec="services" onclick="showSection('services')"><span class="icon">&#9671;</span> Servicios</div>
+      <div class="nav-section-title">Comunicación</div>
+      <div class="nav-item" data-sec="general-chat" onclick="showSection('general-chat')">
+        <span class="icon">&#9635;</span> Chat General
+        <span class="nav-badge" id="gchat-badge" style="display:none">0</span>
+      </div>
+      <div class="nav-item" data-sec="messages" onclick="showSection('messages')">
+        <span class="icon">&#10003;</span> Mensajería
+        <span class="nav-badge" id="msg-badge" style="display:none">0</span>
+      </div>
+    </div>
+    <div class="sidebar-user">
+      <div class="s-avatar" id="sidebar-avatar">?</div>
+      <div><div class="s-name" id="sidebar-name">—</div><div class="s-role" id="sidebar-role">—</div></div>
+      <button class="s-logout" onclick="doLogout()" title="Cerrar sesión">&#9211;</button>
+    </div>
+  </nav>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div style="font-size:12px;color:var(--text-muted)" id="topbar-date"></div>
+    </header>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="section" id="section-dashboard">
+        <div class="sec-hdr">
+          <div class="sec-hdr-text"><h2 id="dash-greeting">Buenos días</h2><p id="dash-sub">Resumen de actividad de hoy</p></div>
+        </div>
+        <div class="stats-grid" id="stats-grid"></div>
+        <div class="dash-grid">
+          <div class="card">
+            <div class="card-hdr"><div class="card-title">Próximas citas</div><button class="btn btn-sm btn-outline" onclick="showSection('my-calendar')">Ver calendario</button></div>
+            <div class="card-body" id="upcoming-events"></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><div class="card-title">Actividad reciente</div></div>
+            <div class="card-body" id="recent-activity"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MI CALENDARIO -->
+      <div class="section" id="section-my-calendar">
+        <div class="sec-hdr">
+          <div class="sec-hdr-text"><h2>Mi Calendario</h2><p>Tus citas personales</p></div>
+          <button class="btn btn-primary btn-sm" onclick="openEventModal(false,null)">+ Nueva cita</button>
+        </div>
+        <div class="calendar-wrapper">
+          <div class="cal-header">
+            <button class="cal-nav" onclick="changeMonth(-1,'my')">&lsaquo;</button>
+            <div class="cal-title" id="my-cal-title"></div>
+            <button class="cal-nav" onclick="changeMonth(1,'my')">&rsaquo;</button>
+          </div>
+          <div class="cal-grid">
+            <div class="cal-days-header"><div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mié</div><div class="cal-day-name">Jue</div><div class="cal-day-name">Vie</div><div class="cal-day-name">Sáb</div><div class="cal-day-name">Dom</div></div>
+            <div class="cal-cells" id="my-cal-cells"></div>
+          </div>
+        </div>
+        <div class="appt-list" id="my-appt-list"></div>
+      </div>
+
+      <!-- CALENDARIO GLOBAL -->
+      <div class="section" id="section-global-calendar">
+        <div class="sec-hdr">
+          <div class="sec-hdr-text"><h2>Calendario Global</h2><p>Todas las citas del equipo</p></div>
+          <button class="btn btn-primary btn-sm" onclick="openEventModal(true,null)">+ Agendar cita</button>
+        </div>
+        <div class="calendar-wrapper">
+          <div class="cal-header">
+            <button class="cal-nav" onclick="changeMonth(-1,'global')">&lsaquo;</button>
+            <div class="cal-title" id="global-cal-title"></div>
+            <button class="cal-nav" onclick="changeMonth(1,'global')">&rsaquo;</button>
+          </div>
+          <div class="cal-grid">
+            <div class="cal-days-header"><div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mié</div><div class="cal-day-name">Jue</div><div class="cal-day-name">Vie</div><div class="cal-day-name">Sáb</div><div class="cal-day-name">Dom</div></div>
+            <div class="cal-cells" id="global-cal-cells"></div>
+          </div>
+        </div>
+        <div class="appt-list" id="global-appt-list"></div>
+      </div>
+
+      <!-- USUARIOS -->
+      <div class="section" id="section-users">
+        <div class="sec-hdr">
+          <div class="sec-hdr-text"><h2>Gestión de Usuarios</h2><p>Empleados y administradores</p></div>
+          <button class="btn btn-primary btn-sm" onclick="openUserModal()">+ Nuevo usuario</button>
+        </div>
+        <div class="table-wrap">
+          <div class="table-header"><div class="card-title">Equipo</div><span id="user-count" style="font-size:13px;color:var(--text-muted)"></span></div>
+          <table>
+            <thead><tr><th>Usuario</th><th>Rol</th><th>Email</th><th>Teléfono</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody id="users-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SERVICIOS -->
+      <div class="section" id="section-services">
+        <div class="sec-hdr">
+          <div class="sec-hdr-text"><h2>Servicios</h2><p>Catálogo de servicios disponibles</p></div>
+          <button class="btn btn-primary btn-sm admin-only" onclick="openServiceModal()">+ Nuevo servicio</button>
+        </div>
+        <div class="srv-list" id="services-list"></div>
+      </div>
+
+      <!-- CHAT GENERAL -->
+      <div class="section" id="section-general-chat">
+        <div class="sec-hdr">
+          <div class="sec-hdr-text"><h2>Chat General</h2><p id="gchat-members-label">Canal compartido por todo el equipo</p></div>
+        </div>
+        <div class="gchat-wrap">
+          <div class="gchat-header">
+            <div class="gchat-header-icon">#</div>
+            <div class="gchat-header-info">
+              <div class="gchat-header-name">Chat General</div>
+              <div class="gchat-header-sub" id="gchat-online-count">Cargando...</div>
+            </div>
+          </div>
+          <div class="gchat-messages" id="gchat-messages"></div>
+          <div class="msg-composer">
+            <textarea id="gchat-input" placeholder="Escribe un mensaje para todo el equipo... (Enter para enviar)" onkeydown="gchatKeydown(event)"></textarea>
+            <button class="msg-send-btn" onclick="sendGchatMsg()">Enviar &uarr;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MENSAJERIA PRIVADA -->
+      <div class="section" id="section-messages">
+        <div class="sec-hdr">
+          <div class="sec-hdr-text"><h2>Mensajería</h2><p>Conversaciones privadas del equipo</p></div>
+        </div>
+        <div class="msg-layout">
+          <div class="msg-sidebar">
+            <div class="msg-sidebar-header"><div class="card-title">Conversaciones</div></div>
+            <div class="msg-search"><input type="text" id="msg-search-inp" placeholder="Buscar..." oninput="filterConvs()"></div>
+            <div class="msg-list" id="msg-list"></div>
+          </div>
+          <div class="msg-main" id="msg-main">
+            <div class="msg-empty" id="msg-empty-state">
+              <div class="msg-empty-icon">&#10003;</div>
+              <div style="font-size:15px;font-weight:500">Selecciona una conversación</div>
+              <div style="font-size:13px;margin-top:4px;color:var(--text-muted)">Elige un contacto para iniciar</div>
+            </div>
+            <div id="msg-active-chat" style="display:none;flex-direction:column;height:100%">
+              <div class="msg-main-header">
+                <div class="s-avatar" id="chat-avatar" style="background:var(--accent-light);color:var(--accent)">?</div>
+                <div><div style="font-size:14px;font-weight:500" id="chat-name">—</div><div style="font-size:12px;color:var(--success)">&#9679; En línea</div></div>
+              </div>
+              <div class="msg-messages" id="msg-messages"></div>
+              <div class="msg-composer">
+                <textarea id="msg-input" placeholder="Escribe un mensaje... (Enter para enviar)" onkeydown="msgKeydown(event)"></textarea>
+                <button class="msg-send-btn" onclick="sendMsg()">Enviar &uarr;</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: CITA (crear / editar) -->
+<div class="modal-overlay" id="event-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('event-modal')">&times;</button>
+    <div class="modal-title" id="event-modal-title">Nueva cita</div>
+    <div class="modal-sub" id="event-modal-sub">Rellena los datos de la cita</div>
+    <div class="form-row">
+      <div class="form-group"><label>Fecha *</label><input type="date" id="ev-date"></div>
+      <div class="form-group"><label>Hora *</label><input type="time" id="ev-time" value="09:00"></div>
+    </div>
+    <div class="form-group"><label>Cliente *</label><input type="text" id="ev-client" placeholder="Nombre del cliente"></div>
+    <div class="form-group"><label>Tipo de servicio</label>
+      <select id="ev-service"></select>
+    </div>
+    <div class="form-group" id="ev-employee-group">
+      <label>Empleado asignado</label>
+      <select id="ev-employee"></select>
+    </div>
+    <div class="form-group"><label>Notas</label><textarea id="ev-notes" rows="3" placeholder="Información adicional..."></textarea></div>
+    <div class="form-err" id="ev-err">Rellena los campos obligatorios (*).</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('event-modal')">Cancelar</button>
+      <button class="btn btn-primary" id="ev-save-btn" onclick="saveEvent()">Guardar cita</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DETALLE CITA -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal" style="width:440px">
+    <button class="modal-close" onclick="closeModal('detail-modal')">&times;</button>
+    <div class="modal-title" id="detail-title">Detalle de la cita</div>
+    <div id="detail-body" style="line-height:2;font-size:14px;margin-top:16px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" id="det-del-btn" onclick="deleteCurrentEvent()">Eliminar</button>
+      <button class="btn btn-outline btn-sm" id="det-edit-btn" onclick="editCurrentEvent()">Editar</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('detail-modal')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: USUARIO (crear / editar) -->
+<div class="modal-overlay" id="user-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('user-modal')">&times;</button>
+    <div class="modal-title" id="user-modal-title">Nuevo usuario</div>
+    <div class="modal-sub">Añade un nuevo miembro al equipo</div>
+    <div class="form-row">
+      <div class="form-group"><label>Nombre completo *</label><input type="text" id="nu-name" placeholder="Nombre Apellido"></div>
+      <div class="form-group"><label>Rol *</label>
+        <select id="nu-role"><option value="empleado">Empleado</option><option value="admin">Administrador</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Usuario *</label><input type="text" id="nu-user" placeholder="nombre.usuario"></div>
+      <div class="form-group"><label>Contraseña *</label><input type="password" id="nu-pass" placeholder="••••••••"></div>
+    </div>
+    <div class="form-group"><label>Email</label><input type="email" id="nu-email" placeholder="correo@empresa.com"></div>
+    <div class="form-group"><label>Teléfono</label><input type="tel" id="nu-phone" placeholder="+34 600 000 000"></div>
+    <div class="form-err" id="nu-err"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('user-modal')">Cancelar</button>
+      <button class="btn btn-primary" id="nu-save-btn" onclick="saveUser()">Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SERVICIO (crear / editar) - sin campo de icono -->
+<div class="modal-overlay" id="service-modal">
+  <div class="modal" style="width:440px">
+    <button class="modal-close" onclick="closeModal('service-modal')">&times;</button>
+    <div class="modal-title" id="srv-modal-title">Nuevo servicio</div>
+    <div class="modal-sub">Define el nombre y la descripción del servicio</div>
+    <div class="form-group"><label>Nombre del servicio *</label><input type="text" id="srv-name" placeholder="Ej: Consultoría Empresarial"></div>
+    <div class="form-group"><label>Descripción</label><textarea id="srv-desc" rows="4" placeholder="Descripción breve del servicio ofrecido..."></textarea></div>
+    <div class="form-err" id="srv-err">El nombre del servicio es obligatorio.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('service-modal')">Cancelar</button>
+      <button class="btn btn-primary" id="srv-save-btn" onclick="saveService()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════
+
+let USERS = [
+  { id:1, username:'admin',    password:'admin123', name:'Admin',    role:'admin',    email:'admin@gestiopro.com',    phone:'+34 93 000 00 01', active:true },
+  { id:2, username:'empleado', password:'emp123',   name:'Empleado', role:'empleado', email:'empleado@gestiopro.com', phone:'+34 93 000 00 02', active:true },
+];
+
+// Servicios sin campo icono/emoji
+let SERVICES = [
+  { id:1, name:'Asesoramiento Fiscal',   desc:'Optimización fiscal y cumplimiento normativo para particulares y empresas.' },
+  { id:2, name:'Gestión Laboral',         desc:'Nóminas, contratos, altas y bajas en la Seguridad Social.' },
+  { id:3, name:'Contabilidad',            desc:'Contabilidad general, balances y cuentas de resultados.' },
+  { id:4, name:'Auditoría',               desc:'Revisión independiente de estados financieros y procesos internos.' },
+  { id:5, name:'Consultoría Empresarial', desc:'Estrategia, organización y mejora de procesos de negocio.' },
+  { id:6, name:'Asesoramiento Jurídico',  desc:'Apoyo legal en contratos mercantiles y disputas empresariales.' },
+];
+
+let EVENTS = [
+  { id:1, ownerId:1, assignedTo:1, date:dOff(0), time:'09:00', client:'Carlos Martínez',   service:'Asesoramiento Fiscal',   notes:'Revisión declaración anual' },
+  { id:2, ownerId:1, assignedTo:2, date:dOff(1), time:'11:00', client:'Laura Gómez',        service:'Gestión Laboral',         notes:'Alta nuevo trabajador'      },
+  { id:3, ownerId:1, assignedTo:1, date:dOff(2), time:'16:00', client:'Inversiones Sur SA', service:'Auditoría',               notes:'Primera reunión'            },
+  { id:4, ownerId:2, assignedTo:2, date:dOff(3), time:'10:30', client:'Ana Rodríguez',      service:'Contabilidad',            notes:'Cierre trimestral'          },
+];
+
+// Mensajes privados (clave: convKey)
+let CONVS = {};
+(function(){
+  function seed(a,b,msgs){
+    const key=[a,b].sort((x,y)=>x-y).join('-');
+    CONVS[key]=msgs;
+  }
+  seed(1,2,[
+    {mine:false, text:'Buenos días, ¿has podido revisar el informe de Carlos?', time:'09:15', read:true},
+    {mine:true,  text:'Sí, acabo de enviarlo por email al cliente.',            time:'09:22', read:true},
+    {mine:false, text:'Perfecto, lo reviso ahora mismo.',                       time:'10:24', read:false},
+  ]);
+})();
+
+// Chat General: mensajes compartidos por todos los usuarios
+// Formato: { id, userId, text, time, date }
+let GENERAL_CHAT = [
+  { id:1, userId:1, text:'Buenos días a todos. Recordad que hoy tenemos reunión de equipo a las 10h.', time:'08:45', date:dOff(0) },
+  { id:2, userId:2, text:'Anotado, gracias por el aviso!', time:'08:52', date:dOff(0) },
+];
+let nextGchatId = 100;
+
+// ══════════════════════════════════════════
+//  ESTADO DE LA APP
+// ══════════════════════════════════════════
+
+let nextEventId     = 100;
+let nextUserId      = 100;
+let nextServiceId   = 100;
+let currentUser     = null;
+let myCalMonth      = new Date();
+let globalCalMonth  = new Date();
+let activeConvId    = null;
+let editingEvId     = null;
+let editingUserId   = null;
+let editingSrvId    = null;
+let pendingIsGlobal = false;
+let currentDetailId = null;
+let gchatUnreadCount = 0;  // mensajes del chat general no leídos por el usuario actual
+
+// ══════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════
+
+function dOff(d){
+  const x = new Date();
+  x.setDate(x.getDate() + d);
+  return x.toISOString().split('T')[0];
+}
+function todayStr(){ return new Date().toISOString().split('T')[0]; }
+function fmtDate(s){ if(!s) return ''; const d = new Date(s+'T00:00:00'); return d.toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}); }
+function fmtDateShort(s){ if(!s) return ''; const d = new Date(s+'T00:00:00'); return d.toLocaleDateString('es-ES',{day:'numeric',month:'long'}); }
+function mthName(d){ const n = d.toLocaleDateString('es-ES',{month:'long',year:'numeric'}); return n.charAt(0).toUpperCase()+n.slice(1); }
+function initials(name){ return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function greet(){ const h = new Date().getHours(); return h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches'; }
+function nowTime(){ return new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); }
+function convKey(a,b){ return [a,b].sort((x,y)=>x-y).join('-'); }
+function convData(otherId){ const k = convKey(currentUser.id, otherId); if(!CONVS[k]) CONVS[k]=[]; return CONVS[k]; }
+function unreadOf(otherId){ return convData(otherId).filter(m=>!m.mine&&!m.read).length; }
+function totalUnread(){ return USERS.filter(u=>u.id!==currentUser.id).reduce((s,u)=>s+unreadOf(u.id),0); }
+function safeHtml(str){ return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function updateBadge(){
+  const n = totalUnread();
+  const b = document.getElementById('msg-badge');
+  if(b){ b.textContent=n; b.style.display=n>0?'':'none'; }
+  const g = document.getElementById('gchat-badge');
+  if(g){ g.textContent=gchatUnreadCount; g.style.display=gchatUnreadCount>0?'':'none'; }
+}
+
+// ══════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════
+
+function doLogin(){
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value;
+  const found = USERS.find(x=>x.username===u && x.password===p && x.active);
+  if(!found){ document.getElementById('login-error').style.display='block'; return; }
+  document.getElementById('login-error').style.display='none';
+  currentUser = found;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  initApp();
+}
+
+function doLogout(){
+  currentUser = null;
+  activeConvId = null;
+  editingEvId = null;
+  gchatUnreadCount = 0;
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pass').value='';
+}
+
+document.getElementById('login-pass').addEventListener('keydown', e=>{
+  if(e.key==='Enter') doLogin();
+});
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+
+function initApp(){
+  const isAdmin = currentUser.role==='admin';
+  document.getElementById('sidebar-avatar').textContent = initials(currentUser.name);
+  document.getElementById('sidebar-name').textContent = currentUser.name;
+  document.getElementById('sidebar-role').textContent = isAdmin?'Administrador':'Empleado';
+  document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=isAdmin?'':'none');
+  // Calcular no leídos del chat general: mensajes de otros usuarios desde última visita (todos por defecto)
+  gchatUnreadCount = GENERAL_CHAT.filter(m=>m.userId!==currentUser.id).length;
+  // Poner a 0 si ya es la primera visita — mostramos notificación solo de mensajes nuevos en sesión
+  gchatUnreadCount = 0;
+  updateBadge();
+  showSection('dashboard');
+}
+
+// ══════════════════════════════════════════
+//  NAVEGACIÓN
+// ══════════════════════════════════════════
+
+const SEC_TITLES = {
+  'dashboard'       : 'Dashboard',
+  'my-calendar'     : 'Mi Calendario',
+  'global-calendar' : 'Calendario Global',
+  'users'           : 'Gestión de Usuarios',
+  'services'        : 'Servicios',
+  'general-chat'    : 'Chat General',
+  'messages'        : 'Mensajería',
+};
+
+function showSection(name){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const el = document.getElementById('section-'+name);
+  if(el) el.classList.add('active');
+  const ni = document.querySelector('.nav-item[data-sec="'+name+'"]');
+  if(ni) ni.classList.add('active');
+  document.getElementById('topbar-title').textContent = SEC_TITLES[name]||name;
+  if(name==='dashboard')       renderDashboard();
+  if(name==='my-calendar')     renderCalendar('my');
+  if(name==='global-calendar') renderCalendar('global');
+  if(name==='users')           renderUsers();
+  if(name==='services')        renderServices();
+  if(name==='general-chat')    openGeneralChat();
+  if(name==='messages')        renderMessages();
+}
+
+// ══════════════════════════════════════════
+//  DASHBOARD
+// ══════════════════════════════════════════
+
+function renderDashboard(){
+  const isAdmin = currentUser.role==='admin';
+  const today   = todayStr();
+  const myEvs   = EVENTS.filter(e=>isAdmin||e.assignedTo===currentUser.id);
+  const todayEvs = myEvs.filter(e=>e.date===today);
+
+  const stats = isAdmin ? [
+    {label:'Citas hoy',   value:todayEvs.length,                 sub:'Total del día',  cls:''},
+    {label:'Citas total', value:EVENTS.length,                   sub:'Programadas',    cls:'green'},
+    {label:'Empleados',   value:USERS.filter(u=>u.active).length,sub:'Activos',        cls:'amber'},
+    {label:'Servicios',   value:SERVICES.length,                  sub:'Disponibles',   cls:''},
+  ] : [
+    {label:'Citas hoy',   value:todayEvs.length,                                                sub:'Tus citas de hoy', cls:''},
+    {label:'Citas mes',   value:myEvs.filter(e=>e.date.startsWith(today.slice(0,7))).length,   sub:'Este mes',         cls:'green'},
+    {label:'Total citas', value:myEvs.length,                                                    sub:'Programadas',      cls:'amber'},
+    {label:'Clientes',    value:[...new Set(myEvs.map(e=>e.client))].length,                    sub:'Únicos',           cls:''},
+  ];
+
+  document.getElementById('stats-grid').innerHTML = stats.map(s=>`
+    <div class="stat-card ${s.cls}">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value">${s.value}</div>
+      <div class="stat-sub">${s.sub}</div>
+    </div>`).join('');
+
+  document.getElementById('dash-greeting').textContent = greet()+', '+currentUser.name+'!';
+  document.getElementById('dash-sub').textContent      = 'Resumen de actividad · '+fmtDate(today);
+
+  const upcoming  = myEvs.filter(e=>e.date>=today).sort((a,b)=>a.date===b.date?a.time.localeCompare(b.time):a.date.localeCompare(b.date)).slice(0,6);
+  const dotCls    = ['','amber','red'];
+  document.getElementById('upcoming-events').innerHTML = upcoming.length
+    ? upcoming.map((ev,i)=>{
+        const emp = USERS.find(u=>u.id===ev.assignedTo);
+        return `<div class="task-item">
+          <div class="t-dot ${dotCls[i%3]}"></div>
+          <div style="flex:1">
+            <div class="t-title">${safeHtml(ev.client)}</div>
+            <div class="t-meta">${fmtDate(ev.date)} &middot; ${ev.time} &middot; ${safeHtml(ev.service)}${isAdmin&&emp?' &middot; <strong>'+safeHtml(emp.name)+'</strong>':''}</div>
+          </div>
+          <span class="tag tag-gray" style="white-space:nowrap">${ev.time}</span>
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">Sin citas pendientes.</div>';
+
+  document.getElementById('recent-activity').innerHTML = `
+    <div class="task-item"><div class="t-dot"></div><div><div class="t-title">Sesión iniciada</div><div class="t-meta">Hace unos momentos</div></div></div>
+    <div class="task-item"><div class="t-dot amber"></div><div><div class="t-title">Chat General disponible</div><div class="t-meta">${GENERAL_CHAT.length} mensajes en el canal</div></div></div>
+    <div class="task-item"><div class="t-dot red"></div><div><div class="t-title">${EVENTS.length} citas en el sistema</div><div class="t-meta">Actualizado ahora</div></div></div>`;
+}
+
+// ══════════════════════════════════════════
+//  CALENDARIO
+// ══════════════════════════════════════════
+
+function changeMonth(dir,which){
+  if(which==='my'){
+    myCalMonth.setMonth(myCalMonth.getMonth()+dir);
+    renderCalendar('my');
+  } else {
+    globalCalMonth.setMonth(globalCalMonth.getMonth()+dir);
+    renderCalendar('global');
+  }
+}
+
+function renderCalendar(which){
+  const isMy    = which==='my';
+  const date    = isMy?myCalMonth:globalCalMonth;
+  const isAdmin = currentUser.role==='admin';
+
+  document.getElementById(isMy?'my-cal-title':'global-cal-title').textContent = mthName(date);
+
+  const year = date.getFullYear(), month = date.getMonth();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  let dow = new Date(year, month, 1).getDay();
+  dow = dow===0 ? 6 : dow-1;
+
+  const monthStr = `${year}-${String(month+1).padStart(2,'0')}`;
+  let evs = EVENTS.filter(e=>e.date.startsWith(monthStr));
+  if(isMy && !isAdmin) evs = evs.filter(e=>e.assignedTo===currentUser.id);
+
+  const today  = todayStr();
+  const colors = ['','amber','red'];
+  let html = '';
+  for(let i=0;i<dow;i++) html += '<div class="cal-cell empty"></div>';
+  for(let day=1;day<=daysInMonth;day++){
+    const ds     = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const isToday = ds===today;
+    const dayEvs  = evs.filter(e=>e.date===ds);
+    const evHTML  = dayEvs.slice(0,3).map((ev,i)=>`<div class="cell-event ${colors[i%3]}" onclick="showEventDetail(${ev.id},event)">${ev.time} ${safeHtml(ev.client)}</div>`).join('');
+    html += `<div class="cal-cell${isToday?' today':''}" onclick="calCellClick('${ds}',event,'${which}')">
+      <div class="cell-num">${day}</div>${evHTML}
+      ${dayEvs.length>3?`<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length-3} más</div>`:''}
+    </div>`;
+  }
+  document.getElementById(isMy?'my-cal-cells':'global-cal-cells').innerHTML = html;
+  renderApptList(which, evs.filter(e=>e.date.startsWith(monthStr)));
+}
+
+function renderApptList(which, evs){
+  const listId  = which==='my'?'my-appt-list':'global-appt-list';
+  const el      = document.getElementById(listId);
+  if(!el) return;
+  const isAdmin = currentUser.role==='admin';
+  const sorted  = evs.slice().sort((a,b)=>a.date===b.date?a.time.localeCompare(b.time):a.date.localeCompare(b.date));
+  if(!sorted.length){
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hay citas este mes</div>';
+    return;
+  }
+  el.innerHTML = sorted.map(ev=>{
+    const emp     = USERS.find(u=>u.id===ev.assignedTo);
+    const canEdit = isAdmin || ev.assignedTo===currentUser.id || ev.ownerId===currentUser.id;
+    return `<div class="appt-item">
+      <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
+      <div class="appt-info">
+        <div class="appt-client">${safeHtml(ev.client)}</div>
+        <div class="appt-meta">${safeHtml(ev.service)}${emp&&isAdmin?' &middot; <strong>'+safeHtml(emp.name)+'</strong>':''}</div>
+      </div>
+      <div class="action-btns">
+        ${canEdit?`
+          <button class="btn-icon" title="Editar" onclick="editEventFromList(${ev.id},event)">Editar</button>
+          <button class="btn-icon red" title="Eliminar" onclick="deleteEventFromList(${ev.id},event)">Eliminar</button>
+        `:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function calCellClick(ds,e,which){
+  if(e.target.classList.contains('cell-event')) return;
+  openEventModal(which==='global', ds);
+}
+
+function showEventDetail(evId,e){
+  if(e) e.stopPropagation();
+  const ev = EVENTS.find(x=>x.id===evId);
+  if(!ev) return;
+  currentDetailId = evId;
+  const emp     = USERS.find(u=>u.id===ev.assignedTo);
+  const isAdmin = currentUser.role==='admin';
+  const canEdit = isAdmin || ev.ownerId===currentUser.id || ev.assignedTo===currentUser.id;
+  document.getElementById('detail-title').textContent = ev.client;
+  document.getElementById('detail-body').innerHTML = `<div style="display:grid;gap:14px">
+    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Fecha y hora</span><br>${fmtDate(ev.date)} a las ${ev.time}</div>
+    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Servicio</span><br>${safeHtml(ev.service)}</div>
+    ${emp?`<div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Empleado asignado</span><br>${safeHtml(emp.name)}</div>`:''}
+    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Notas</span><br>${safeHtml(ev.notes)||'—'}</div>
+  </div>`;
+  document.getElementById('det-del-btn').style.display = canEdit?'':'none';
+  document.getElementById('det-edit-btn').style.display = canEdit?'':'none';
+  openModal('detail-modal');
+}
+
+function deleteCurrentEvent(){
+  if(currentDetailId===null) return;
+  EVENTS = EVENTS.filter(e=>e.id!==currentDetailId);
+  currentDetailId = null;
+  closeModal('detail-modal');
+  refreshCals();
+  renderDashboard();
+}
+
+function editCurrentEvent(){
+  const ev = EVENTS.find(x=>x.id===currentDetailId);
+  if(!ev) return;
+  closeModal('detail-modal');
+  openEditEvent(ev);
+}
+
+function editEventFromList(evId,e){ if(e) e.stopPropagation(); const ev=EVENTS.find(x=>x.id===evId); if(ev) openEditEvent(ev); }
+function deleteEventFromList(evId,e){ if(e) e.stopPropagation(); if(!confirm('¿Eliminar esta cita?')) return; EVENTS=EVENTS.filter(x=>x.id!==evId); refreshCals(); renderDashboard(); }
+
+// ══════════════════════════════════════════
+//  MODAL EVENTO
+// ══════════════════════════════════════════
+
+function fillServiceSelect(){
+  const sel = document.getElementById('ev-service');
+  sel.innerHTML = SERVICES.map(s=>`<option value="${safeHtml(s.name)}">${safeHtml(s.name)}</option>`).join('');
+}
+
+function fillEmployeeSelect(selectedId){
+  const grp     = document.getElementById('ev-employee-group');
+  const isAdmin = currentUser.role==='admin';
+  grp.style.display = isAdmin ? '' : 'none';
+  if(isAdmin){
+    document.getElementById('ev-employee').innerHTML = USERS.filter(u=>u.active)
+      .map(u=>`<option value="${u.id}"${u.id===selectedId?' selected':''}>${safeHtml(u.name)} (${u.role})</option>`).join('');
+  }
+}
+
+function openEventModal(isGlobal, dateStr){
+  editingEvId = null;
+  pendingIsGlobal = isGlobal;
+  document.getElementById('event-modal-title').textContent = isGlobal?'Agendar cita (Global)':'Nueva cita';
+  document.getElementById('event-modal-sub').textContent   = isGlobal?'Asigna una cita a un empleado':'Añade una nueva cita a tu calendario';
+  document.getElementById('ev-save-btn').textContent = 'Guardar cita';
+  document.getElementById('ev-date').value  = dateStr||todayStr();
+  document.getElementById('ev-time').value  = '09:00';
+  document.getElementById('ev-client').value = '';
+  document.getElementById('ev-notes').value  = '';
+  document.getElementById('ev-err').style.display = 'none';
+  fillServiceSelect();
+  fillEmployeeSelect(currentUser.id);
+  openModal('event-modal');
+}
+
+function openEditEvent(ev){
+  editingEvId     = ev.id;
+  pendingIsGlobal = currentUser.role==='admin';
+  document.getElementById('event-modal-title').textContent = 'Editar cita';
+  document.getElementById('event-modal-sub').textContent   = 'Modifica los datos de la cita';
+  document.getElementById('ev-save-btn').textContent = 'Guardar cambios';
+  document.getElementById('ev-date').value   = ev.date;
+  document.getElementById('ev-time').value   = ev.time;
+  document.getElementById('ev-client').value = ev.client;
+  document.getElementById('ev-notes').value  = ev.notes||'';
+  document.getElementById('ev-err').style.display = 'none';
+  fillServiceSelect();
+  document.getElementById('ev-service').value = ev.service;
+  fillEmployeeSelect(ev.assignedTo);
+  openModal('event-modal');
+}
+
+function saveEvent(){
+  const date   = document.getElementById('ev-date').value;
+  const time   = document.getElementById('ev-time').value;
+  const client = document.getElementById('ev-client').value.trim();
+  if(!date||!time||!client){ document.getElementById('ev-err').style.display=''; return; }
+  document.getElementById('ev-err').style.display = 'none';
+  const isAdmin    = currentUser.role==='admin';
+  const assignedTo = isAdmin ? parseInt(document.getElementById('ev-employee').value) : currentUser.id;
+  const service    = document.getElementById('ev-service').value;
+  const notes      = document.getElementById('ev-notes').value;
+  if(editingEvId!==null){
+    const ev = EVENTS.find(e=>e.id===editingEvId);
+    if(ev){ ev.date=date; ev.time=time; ev.client=client; ev.service=service; ev.notes=notes; if(isAdmin) ev.assignedTo=assignedTo; }
+  } else {
+    EVENTS.push({id:nextEventId++, ownerId:currentUser.id, assignedTo, date, time, client, service, notes});
+  }
+  closeModal('event-modal');
+  refreshCals();
+  renderDashboard();
+}
+
+function refreshCals(){
+  if(document.getElementById('section-my-calendar').classList.contains('active')) renderCalendar('my');
+  if(document.getElementById('section-global-calendar').classList.contains('active')) renderCalendar('global');
+}
+
+// ══════════════════════════════════════════
+//  USUARIOS
+// ══════════════════════════════════════════
+
+function renderUsers(){
+  document.getElementById('user-count').textContent = USERS.filter(u=>u.active).length+' usuarios activos';
+  document.getElementById('users-table-body').innerHTML = USERS.map(u=>`
+    <tr>
+      <td><div class="user-cell"><div class="mini-avatar">${initials(u.name)}</div><div><div style="font-weight:500">${safeHtml(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">@${safeHtml(u.username)}</div></div></div></td>
+      <td><span class="tag ${u.role==='admin'?'tag-blue':'tag-green'}">${u.role==='admin'?'Admin':'Empleado'}</span></td>
+      <td style="color:var(--text-muted)">${safeHtml(u.email||'—')}</td>
+      <td style="color:var(--text-muted)">${safeHtml(u.phone||'—')}</td>
+      <td><span class="tag ${u.active?'tag-green':'tag-gray'}">${u.active?'Activo':'Inactivo'}</span></td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-icon" title="Editar" onclick="editUser(${u.id})">Editar</button>
+          <button class="btn-icon red" title="${u.active?'Desactivar':'Activar'}" onclick="toggleUser(${u.id})">${u.active?'Desactivar':'Activar'}</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function openUserModal(){
+  editingUserId = null;
+  document.getElementById('user-modal-title').textContent = 'Nuevo usuario';
+  document.getElementById('nu-save-btn').textContent      = 'Crear usuario';
+  ['nu-name','nu-user','nu-pass','nu-email','nu-phone'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('nu-role').selectedIndex = 0;
+  document.getElementById('nu-err').style.display  = 'none';
+  openModal('user-modal');
+}
+
+function editUser(id){
+  const u = USERS.find(x=>x.id===id);
+  if(!u) return;
+  editingUserId = id;
+  document.getElementById('user-modal-title').textContent = 'Editar usuario';
+  document.getElementById('nu-save-btn').textContent      = 'Guardar cambios';
+  document.getElementById('nu-name').value  = u.name;
+  document.getElementById('nu-user').value  = u.username;
+  document.getElementById('nu-pass').value  = '';
+  document.getElementById('nu-email').value = u.email||'';
+  document.getElementById('nu-phone').value = u.phone||'';
+  document.getElementById('nu-role').value  = u.role;
+  document.getElementById('nu-err').style.display = 'none';
+  openModal('user-modal');
+}
+
+function saveUser(){
+  const name   = document.getElementById('nu-name').value.trim();
+  const uname  = document.getElementById('nu-user').value.trim();
+  const pass   = document.getElementById('nu-pass').value;
+  const email  = document.getElementById('nu-email').value.trim();
+  const phone  = document.getElementById('nu-phone').value.trim();
+  const role   = document.getElementById('nu-role').value;
+  const errEl  = document.getElementById('nu-err');
+
+  if(!name||!uname){ errEl.textContent='Nombre y usuario son obligatorios.'; errEl.style.display=''; return; }
+  if(editingUserId===null&&!pass){ errEl.textContent='La contraseña es obligatoria.'; errEl.style.display=''; return; }
+  const dupUser = USERS.find(u=>u.username===uname && u.id!==editingUserId);
+  if(dupUser){ errEl.textContent='El nombre de usuario ya existe.'; errEl.style.display=''; return; }
+  errEl.style.display = 'none';
+
+  if(editingUserId!==null){
+    const u = USERS.find(x=>x.id===editingUserId);
+    if(u){ u.name=name; u.username=uname; u.email=email; u.phone=phone; u.role=role; if(pass) u.password=pass; }
+  } else {
+    USERS.push({id:nextUserId++, username:uname, password:pass, name, role, email, phone, active:true});
+  }
+  closeModal('user-modal');
+  renderUsers();
+  buildMsgList();
+  // Actualizar label del chat general si está abierto
+  updateGchatHeader();
+}
+
+function toggleUser(id){
+  if(id===currentUser.id){ alert('No puedes desactivar tu propio usuario.'); return; }
+  const u = USERS.find(x=>x.id===id);
+  if(u) u.active = !u.active;
+  renderUsers();
+}
+
+// ══════════════════════════════════════════
+//  SERVICIOS (sin emojis, diseño limpio)
+// ══════════════════════════════════════════
+
+function renderServices(){
+  const isAdmin = currentUser.role==='admin';
+  if(!SERVICES.length){
+    document.getElementById('services-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No hay servicios registrados.</div>';
+    return;
+  }
+  document.getElementById('services-list').innerHTML = SERVICES.map((s,idx)=>`
+    <div class="srv-item">
+      <div class="srv-num">${String(idx+1).padStart(2,'0')}</div>
+      <div class="srv-info">
+        <div class="srv-name">${safeHtml(s.name)}</div>
+        <div class="srv-desc">${safeHtml(s.desc||'')}</div>
+      </div>
+      ${isAdmin?`
+        <div class="action-btns">
+          <button class="btn-icon" title="Editar" onclick="editService(${s.id})">Editar</button>
+          <button class="btn-icon red" title="Eliminar" onclick="deleteService(${s.id})">Eliminar</button>
+        </div>`:''}
+    </div>`).join('');
+}
+
+function openServiceModal(){
+  editingSrvId = null;
+  document.getElementById('srv-modal-title').textContent = 'Nuevo servicio';
+  document.getElementById('srv-save-btn').textContent    = 'Guardar';
+  document.getElementById('srv-name').value = '';
+  document.getElementById('srv-desc').value = '';
+  document.getElementById('srv-err').style.display = 'none';
+  openModal('service-modal');
+}
+
+function editService(id){
+  const s = SERVICES.find(x=>x.id===id);
+  if(!s) return;
+  editingSrvId = id;
+  document.getElementById('srv-modal-title').textContent = 'Editar servicio';
+  document.getElementById('srv-save-btn').textContent    = 'Guardar cambios';
+  document.getElementById('srv-name').value = s.name;
+  document.getElementById('srv-desc').value = s.desc||'';
+  document.getElementById('srv-err').style.display = 'none';
+  openModal('service-modal');
+}
+
+function saveService(){
+  const name = document.getElementById('srv-name').value.trim();
+  const desc = document.getElementById('srv-desc').value.trim();
+  const errEl = document.getElementById('srv-err');
+  if(!name){ errEl.style.display=''; return; }
+  errEl.style.display = 'none';
+  if(editingSrvId!==null){
+    const s = SERVICES.find(x=>x.id===editingSrvId);
+    if(s){ s.name=name; s.desc=desc; }
+  } else {
+    SERVICES.push({id:nextServiceId++, name, desc});
+  }
+  closeModal('service-modal');
+  renderServices();
+}
+
+function deleteService(id){
+  if(!confirm('¿Eliminar este servicio?')) return;
+  SERVICES = SERVICES.filter(s=>s.id!==id);
+  renderServices();
+}
+
+// ══════════════════════════════════════════
+//  CHAT GENERAL
+// ══════════════════════════════════════════
+
+function updateGchatHeader(){
+  const activeCount = USERS.filter(u=>u.active).length;
+  const el = document.getElementById('gchat-online-count');
+  if(el) el.textContent = activeCount + ' miembro' + (activeCount!==1?'s':'') + ' en el equipo';
+  const lbl = document.getElementById('gchat-members-label');
+  if(lbl) lbl.textContent = 'Canal compartido · ' + activeCount + ' participantes';
+}
+
+function openGeneralChat(){
+  // Marcar no leídos a cero al abrir
+  gchatUnreadCount = 0;
+  updateBadge();
+  updateGchatHeader();
+  renderGeneralChat();
+  setTimeout(()=>{ document.getElementById('gchat-input').focus(); }, 50);
+}
+
+function renderGeneralChat(){
+  const el = document.getElementById('gchat-messages');
+  if(!el) return;
+  if(!GENERAL_CHAT.length){
+    el.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:40px 0">No hay mensajes aún. ¡Sé el primero en escribir!</div>';
+    return;
+  }
+
+  let html = '';
+  let lastDate = null;
+  let lastUserId = null;
+
+  GENERAL_CHAT.forEach(msg=>{
+    const sender   = USERS.find(u=>u.id===msg.userId);
+    const senderName = sender ? sender.name : 'Usuario';
+    const isMe     = msg.userId === currentUser.id;
+    const msgDate  = msg.date;
+
+    // Separador de fecha
+    if(msgDate !== lastDate){
+      const today = todayStr();
+      let label;
+      if(msgDate === today) label = 'Hoy';
+      else if(msgDate === dOff(-1)) label = 'Ayer';
+      else label = fmtDateShort(msgDate);
+      html += `<div class="gchat-day-sep"><span>${label}</span></div>`;
+      lastDate   = msgDate;
+      lastUserId = null; // Forzar cabecera de autor tras separador
+    }
+
+    const showMeta = lastUserId !== msg.userId;
+    lastUserId = msg.userId;
+
+    html += `<div class="gchat-msg-group ${isMe?'me':''}">`;
+    if(showMeta){
+      html += `<div class="gchat-msg-meta ${isMe?'me':''}">
+        <div class="gchat-uavatar ${isMe?'me':''}">${initials(senderName)}</div>
+        <span class="gchat-sender">${isMe?'Tú':safeHtml(senderName)}</span>
+      </div>`;
+    }
+    html += `<div class="gchat-bubble">${safeHtml(msg.text)}</div>
+    <div class="gchat-time">${msg.time}</div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+  el.scrollTop = el.scrollHeight;
+}
+
+function gchatKeydown(e){
+  if(e.key==='Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendGchatMsg();
+  }
+}
+
+function sendGchatMsg(){
+  const inp  = document.getElementById('gchat-input');
+  const text = inp.value.trim();
+  if(!text || !currentUser) return;
+  GENERAL_CHAT.push({
+    id: nextGchatId++,
+    userId: currentUser.id,
+    text,
+    time: nowTime(),
+    date: todayStr()
+  });
+  inp.value = '';
+  renderGeneralChat();
+}
+
+// ══════════════════════════════════════════
+//  MENSAJERÍA PRIVADA
+// ══════════════════════════════════════════
+
+function renderMessages(){
+  buildMsgList();
+  if(activeConvId !== null) openConv(activeConvId);
+}
+
+function buildMsgList(filter){
+  const others   = USERS.filter(u=>u.id!==currentUser.id && u.active);
+  const filtered = filter
+    ? others.filter(u=>u.name.toLowerCase().includes(filter.toLowerCase())||u.username.toLowerCase().includes(filter.toLowerCase()))
+    : others;
+
+  document.getElementById('msg-list').innerHTML = filtered.map(u=>{
+    const msgs   = convData(u.id);
+    const last   = msgs.length ? msgs[msgs.length-1] : null;
+    const unread = unreadOf(u.id);
+    return `<div class="msg-conv ${activeConvId===u.id?'active':''}" onclick="openConv(${u.id})">
+      <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:12px;flex-shrink:0">${initials(u.name)}</div>
+      <div class="msg-conv-info">
+        <div class="msg-conv-name">${safeHtml(u.name)}</div>
+        <div class="msg-conv-preview">${last?(last.mine?'Tú: ':'')+safeHtml(last.text):'Inicia una conversación'}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        ${last?`<div class="msg-conv-time">${last.time}</div>`:''}
+        ${unread>0?`<div class="nav-badge">${unread}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterConvs(){ buildMsgList(document.getElementById('msg-search-inp').value); }
+
+function openConv(otherId){
+  activeConvId = otherId;
+  const other  = USERS.find(u=>u.id===otherId);
+  if(!other) return;
+  convData(otherId).forEach(m=>{ if(!m.mine) m.read=true; });
+  updateBadge();
+  buildMsgList(document.getElementById('msg-search-inp').value);
+  document.getElementById('msg-empty-state').style.display = 'none';
+  const chat = document.getElementById('msg-active-chat');
+  chat.style.display = 'flex';
+  document.getElementById('chat-avatar').textContent = initials(other.name);
+  document.getElementById('chat-name').textContent   = other.name;
+  renderMsgs(otherId);
+  document.getElementById('msg-input').focus();
+}
+
+function renderMsgs(otherId){
+  const msgs = convData(otherId);
+  const el   = document.getElementById('msg-messages');
+  el.innerHTML = msgs.length
+    ? msgs.map(m=>`<div class="msg-bubble-wrap ${m.mine?'me':''}">
+        <div class="msg-bubble">${safeHtml(m.text)}</div>
+        <div class="msg-time-label">${m.time}</div>
+      </div>`).join('')
+    : '<div style="text-align:center;color:var(--text-muted);font-size:13px;margin:auto">Inicia la conversación</div>';
+  el.scrollTop = el.scrollHeight;
+}
+
+function msgKeydown(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMsg(); } }
+
+function sendMsg(){
+  if(activeConvId===null) return;
+  const inp  = document.getElementById('msg-input');
+  const text = inp.value.trim();
+  if(!text) return;
+  const time = nowTime();
+  convData(activeConvId).push({mine:true, text, time, read:true});
+  inp.value = '';
+  renderMsgs(activeConvId);
+  buildMsgList(document.getElementById('msg-search-inp').value);
+}
+
+// ══════════════════════════════════════════
+//  MODAL UTILS
+// ══════════════════════════════════════════
+
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click', e=>{ if(e.target===o) o.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
