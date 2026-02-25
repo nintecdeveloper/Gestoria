@@ -16,22 +16,34 @@ app.config['DEBUG'] = False if app.config['ENV'] == 'production' else True
 @app.route('/')
 def home():
     """Ruta principal - Servir GestióPro"""
-    return render_template('index3.html')
+    try:
+        return render_template('index3.html')
+    except Exception as e:
+        return f"Error cargando template: {str(e)}", 500
 
 @app.route('/app')
 def dashboard():
     """Ruta alternativa del dashboard"""
-    return render_template('index3.html')
+    try:
+        return render_template('index3.html')
+    except Exception as e:
+        return f"Error cargando template: {str(e)}", 500
 
 @app.route('/index')
 def index_alt():
     """Ruta alternativa - index"""
-    return render_template('index3.html')
+    try:
+        return render_template('index3.html')
+    except Exception as e:
+        return f"Error cargando template: {str(e)}", 500
 
 @app.route('/gestionpro')
 def gestionpro():
     """Ruta de la aplicación GestióPro"""
-    return render_template('index3.html')
+    try:
+        return render_template('index3.html')
+    except Exception as e:
+        return f"Error cargando template: {str(e)}", 500
 
 # ═══════════════════════════════════════════════════════════════
 # RUTAS API (para futuras integraciones)
@@ -59,8 +71,8 @@ def api_health():
 
 @app.errorhandler(404)
 def not_found(error):
-    """Manejar errores 404 - Servir la app en lugar de error"""
-    return render_template('index3.html'), 200
+    """Manejar errores 404"""
+    return jsonify({'error': 'Not found', 'message': str(error)}), 404
 
 @app.errorhandler(500)
 def server_error(error):
