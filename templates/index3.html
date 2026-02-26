@@ -604,10 +604,10 @@
       .cal-cells {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
+        grid-template-rows: repeat(6, 88px);
         gap: 3px;
       }
       .cal-cell {
-        height: 88px;
         padding: 7px;
         border-radius: 6px;
         border: 1px solid transparent;
@@ -2394,10 +2394,9 @@
     </div>`;
         }
 
-        // ✅ ARREGLO: Siempre completar hasta 35 o 42 celdas (5 o 6 filas × 7 cols) para altura uniforme
+        // ✅ DEFINITIVO: Siempre exactamente 42 celdas (6 filas × 7 cols). Nunca cambia de tamaño.
         const totalCells = dow + daysInMonth;
-        const needed = totalCells <= 35 ? 35 : 42;
-        for (let i = totalCells; i < needed; i++)
+        for (let i = totalCells; i < 42; i++)
           html += '<div class="cal-cell empty"></div>';
 
         // ✅ ARREGLO: Asignar HTML de forma segura
