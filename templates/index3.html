@@ -605,15 +605,20 @@
         display: grid;
         grid-template-columns: repeat(7, 1fr);
         grid-template-rows: repeat(6, 88px);
+        align-content: start;
         gap: 3px;
       }
       .cal-cell {
+        height: 88px;
+        min-height: 88px;
+        max-height: 88px;
         padding: 7px;
         border-radius: 6px;
         border: 1px solid transparent;
         cursor: pointer;
         transition: all 0.15s;
         overflow: hidden;
+        box-sizing: border-box;
       }
       .cal-cell:hover:not(.empty) {
         background: var(--bg2);
