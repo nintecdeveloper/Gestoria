@@ -557,6 +557,9 @@
         border: 1px solid var(--border);
         box-shadow: var(--shadow);
         overflow: hidden;
+        /* evita que flex/grid externos lo estiren o encojan */
+        flex-shrink: 0;
+        align-self: flex-start;
       }
       .cal-header {
         padding: 18px 22px;
@@ -585,6 +588,7 @@
       }
       .cal-grid {
         padding: 18px 22px;
+        box-sizing: border-box;
       }
       .cal-days-header {
         display: grid;
@@ -604,9 +608,17 @@
       .cal-cells {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
+        /* 6 filas fijas × 88px + 5 gaps × 3px = 543px — nunca cambia */
         grid-template-rows: repeat(6, 88px);
-        align-content: start;
+        grid-auto-rows: 88px; /* filas implícitas también a 88px */
+        align-content: start; /* sin stretch: espacio sobrante va al fondo */
         gap: 3px;
+        /* altura explícita calculada: 6×88 + 5×3 = 543px */
+        height: 543px;
+        min-height: 543px;
+        max-height: 543px;
+        overflow: hidden; /* ningún hijo puede expandir el contenedor */
+        box-sizing: border-box;
       }
       .cal-cell {
         height: 88px;
@@ -616,7 +628,10 @@
         border-radius: 6px;
         border: 1px solid transparent;
         cursor: pointer;
-        transition: all 0.15s;
+        /* NO usar "transition: all" — evita animar altura/tamaño al cambiar mes */
+        transition:
+          background 0.15s,
+          border-color 0.15s;
         overflow: hidden;
         box-sizing: border-box;
       }
