@@ -525,7 +525,7 @@ tr:hover td{background:var(--bg)}
 // ══════════════════════════════════════════
 
 let USERS = [
-  { id:1, username:'admin',    password:'admin123', name:'Admin',    role:'admin',    email:'admin@gestiopro.com',    phone:'+34 93 000 00 01', active:true },
+  { id:1, username:'antonio', password:'admin123', name:'Antonio', role:'admin',    email:'antonio@gestiopro.com', phone:'+34 93 000 00 01', active:true },
   { id:2, username:'empleado', password:'emp123',   name:'Empleado', role:'empleado', email:'empleado@gestiopro.com', phone:'+34 93 000 00 02', active:true },
 ];
 
@@ -757,10 +757,12 @@ function renderDashboard(){
 
 function changeMonth(dir,which){
   if(which==='my'){
-    myCalMonth.setMonth(myCalMonth.getMonth()+dir);
+    // ✅ ARREGLO: Crear una copia de la fecha para evitar mutaciones inesperadas
+    myCalMonth = new Date(myCalMonth.getFullYear(), myCalMonth.getMonth()+dir, 1);
     renderCalendar('my');
   } else {
-    globalCalMonth.setMonth(globalCalMonth.getMonth()+dir);
+    // ✅ ARREGLO: Crear una copia de la fecha para evitar mutaciones inesperadas
+    globalCalMonth = new Date(globalCalMonth.getFullYear(), globalCalMonth.getMonth()+dir, 1);
     renderCalendar('global');
   }
 }
@@ -769,6 +771,12 @@ function renderCalendar(which){
   const isMy    = which==='my';
   const date    = isMy?myCalMonth:globalCalMonth;
   const isAdmin = currentUser.role==='admin';
+
+  // ✅ ARREGLO: Validar que date es un objeto Date válido
+  if(!(date instanceof Date) || isNaN(date.getTime())){
+    console.error('Invalid calendar date:', date);
+    return;
+  }
 
   document.getElementById(isMy?'my-cal-title':'global-cal-title').textContent = mthName(date);
 
@@ -784,7 +792,15 @@ function renderCalendar(which){
   const today  = todayStr();
   const colors = ['','amber','red'];
   let html = '';
+  
+  // ✅ ARREGLO: Limpiar completamente antes de renderizar
+  const calCellsEl = document.getElementById(isMy?'my-cal-cells':'global-cal-cells');
+  if(!calCellsEl) return; // Validar que existe el elemento
+  
+  // Agregar celdas vacías al inicio (para alineación con el día de la semana)
   for(let i=0;i<dow;i++) html += '<div class="cal-cell empty"></div>';
+  
+  // Agregar celdas para cada día del mes
   for(let day=1;day<=daysInMonth;day++){
     const ds     = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const isToday = ds===today;
@@ -795,7 +811,11 @@ function renderCalendar(which){
       ${dayEvs.length>3?`<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length-3} más</div>`:''}
     </div>`;
   }
-  document.getElementById(isMy?'my-cal-cells':'global-cal-cells').innerHTML = html;
+  
+  // ✅ ARREGLO: Asignar HTML de forma segura
+  calCellsEl.innerHTML = html;
+  
+  // Renderizar lista de citas del mes
   renderApptList(which, evs.filter(e=>e.date.startsWith(monthStr)));
 }
 
@@ -946,8 +966,20 @@ function saveEvent(){
 }
 
 function refreshCals(){
-  if(document.getElementById('section-my-calendar').classList.contains('active')) renderCalendar('my');
-  if(document.getElementById('section-global-calendar').classList.contains('active')) renderCalendar('global');
+  // ✅ ARREGLO: Usar IDs correctos de secciones y manejar errores
+  try {
+    const myCalSection = document.getElementById('section-my-calendar');
+    const globalCalSection = document.getElementById('section-global-calendar');
+    
+    if(myCalSection && myCalSection.classList.contains('active')) {
+      renderCalendar('my');
+    }
+    if(globalCalSection && globalCalSection.classList.contains('active')) {
+      renderCalendar('global');
+    }
+  } catch(e) {
+    console.error('Error refreshing calendars:', e);
+  }
 }
 
 // ══════════════════════════════════════════
