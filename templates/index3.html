@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GestióPro · Gestió de Tasques i Empleats</title>
+    <title>Rodonvergés Associats · Gestió Interna</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:wght@300;400;500&display=swap"
       rel="stylesheet"
@@ -90,6 +90,15 @@
         font-weight: 600;
         color: var(--accent);
         margin-bottom: 6px;
+        letter-spacing: 0.5px;
+      }
+      .login-logo .rodon {
+        color: #9aaa9f;
+        font-weight: 400;
+      }
+      .login-logo .verges {
+        color: var(--accent);
+        font-weight: 600;
       }
       .login-sub {
         color: var(--text-muted);
@@ -257,10 +266,19 @@
       .sidebar-logo {
         padding: 20px 24px;
         font-family: "Cormorant Garamond", serif;
-        font-size: 22px;
+        font-size: 17px;
         font-weight: 600;
         color: #fff;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        line-height: 1.25;
+      }
+      .sidebar-logo .rodon-light {
+        color: rgba(255,255,255,0.45);
+        font-weight: 400;
+      }
+      .sidebar-logo .verges-dark {
+        color: #fff;
+        font-weight: 600;
       }
       .sidebar-logo span {
         color: rgba(255, 255, 255, 0.4);
@@ -1268,8 +1286,21 @@
         padding: 3px 4px 0;
       }
 
-      ::-webkit-scrollbar {
-        width: 4px;
+      .cell-event.private-event {
+        opacity: 0.55;
+        border-left: 3px solid #888;
+      }
+      .private-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #e8e6e0;
+        color: #666;
+        font-size: 10px;
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-weight: 500;
+        border: 1px solid #d0cec9;
       }
       ::-webkit-scrollbar-track {
         background: transparent;
@@ -1284,11 +1315,11 @@
     <!-- LOGIN -->
     <div id="login-screen">
       <div class="login-card">
-        <div class="login-logo">GestióPro</div>
-        <div class="login-sub">Gestió de Tasques i Empleats</div>
+        <div class="login-logo"><span class="rodon">RODON</span><span class="verges">VERGÉS ASSOCIATS</span></div>
+        <div class="login-sub">Gestió Interna · Panel d'Empleats</div>
         <div class="form-group">
           <label>Nom d'usuari</label>
-          <input type="text" id="login-user" placeholder="antonio / empleado" />
+          <input type="text" id="login-user" placeholder="antonio / myriam / sara" />
         </div>
         <div class="form-group">
           <label>Contrasenya</label>
@@ -1305,10 +1336,10 @@
           Iniciar sessió &rarr;
         </button>
         <div class="login-hint">
-          <strong>Credencials de prova:</strong><br />
-          Admin &rarr; <strong>antonio</strong> / <strong>admin123</strong
-          ><br />
-          Empleado &rarr; <strong>empleado</strong> / <strong>emp123</strong>
+          <strong>Credencials:</strong><br />
+          Admin &rarr; <strong>antonio</strong> / <strong>admin123</strong><br />
+          Myriam &rarr; <strong>myriam</strong> / <strong>myriam123</strong><br />
+          Sara &rarr; <strong>sara</strong> / <strong>sara123</strong>
         </div>
       </div>
     </div>
@@ -1316,7 +1347,7 @@
     <!-- APP -->
     <div id="app">
       <nav class="sidebar">
-        <div class="sidebar-logo">GestióPro <span>Panel de Gestió</span></div>
+        <div class="sidebar-logo"><span class="rodon-light">RODON</span><span class="verges-dark">VERGÉS</span><br><span class="verges-dark">ASSOCIATS</span> <span style="color: rgba(255,255,255,0.3);font-size: 10px;display:block;font-family:'DM Sans',sans-serif;font-weight:300;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px">Panel de Gestió</span></div>
         <div class="sidebar-nav">
           <div class="nav-section-title">Principal</div>
           <div
@@ -1334,11 +1365,11 @@
             <span class="icon">&#9638;</span> Mi Calendario
           </div>
           <div
-            class="nav-item admin-only"
+            class="nav-item"
             data-sec="global-calendar"
             onclick="showSection('global-calendar')"
           >
-            <span class="icon">&#10012;</span> Calendario Global
+            <span class="icon">&#10012;</span> Calendari Global
           </div>
           <div class="nav-section-title">Empresa</div>
           <div
@@ -1473,15 +1504,23 @@
           <div class="section" id="section-global-calendar">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendario Global</h2>
-                <p>Todas las citas del equipo</p>
+                <h2>Calendari Global</h2>
+                <p>Totes les cites de l'equip</p>
               </div>
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="openEventModal(true, null)"
-              >
-                + Agendar cita
-              </button>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar per:</label>
+                  <select id="global-filter-person" onchange="renderCalendar('global')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Tothom</option>
+                  </select>
+                </div>
+                <button
+                  class="btn btn-primary btn-sm"
+                  onclick="openEventModal(true, null)"
+                >
+                  + Agendar cita
+                </button>
+              </div>
             </div>
             <div class="calendar-wrapper">
               <div class="cal-header">
@@ -1719,6 +1758,13 @@
             placeholder="Información adicional..."
           ></textarea>
         </div>
+        <div class="form-group admin-only" id="ev-private-group" style="display:flex;align-items:center;gap:10px;background:var(--bg2);padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border)">
+          <input type="checkbox" id="ev-private" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" />
+          <div>
+            <label for="ev-private" style="font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0">🔒 Cita privada</label>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Només visible per l'admin i l'empleat assignat</div>
+          </div>
+        </div>
         <div class="form-err" id="ev-err">
           Rellena los campos obligatorios (*).
         </div>
@@ -1880,18 +1926,28 @@
           password: "admin123",
           name: "Antonio",
           role: "admin",
-          email: "antonio@gestiopro.com",
+          email: "antonio@rodonverges.com",
           phone: "+34 93 000 00 01",
           active: true,
         },
         {
           id: 2,
-          username: "empleado",
-          password: "emp123",
-          name: "Empleado",
+          username: "myriam",
+          password: "myriam123",
+          name: "Myriam",
           role: "empleado",
-          email: "empleado@gestiopro.com",
+          email: "myriam@rodonverges.com",
           phone: "+34 93 000 00 02",
+          active: true,
+        },
+        {
+          id: 3,
+          username: "sara",
+          password: "sara123",
+          name: "Sara",
+          role: "empleado",
+          email: "sara@rodonverges.com",
+          phone: "+34 93 000 00 03",
           active: true,
         },
       ];
@@ -1939,7 +1995,8 @@
           time: "09:00",
           client: "Carlos Martínez",
           service: "Asesoramiento Fiscal",
-          notes: "Revisión declaración anual",
+          notes: "Revisió declaració anual",
+          private: false,
         },
         {
           id: 2,
@@ -1948,18 +2005,20 @@
           date: dOff(1),
           time: "11:00",
           client: "Laura Gómez",
-          service: "Gestión Laboral",
-          notes: "Alta nuevo trabajador",
+          service: "Gestió Laboral",
+          notes: "Alta nou treballador",
+          private: false,
         },
         {
           id: 3,
           ownerId: 1,
-          assignedTo: 1,
+          assignedTo: 3,
           date: dOff(2),
           time: "16:00",
-          client: "Inversiones Sur SA",
+          client: "Inversions Sud SA",
           service: "Auditoría",
-          notes: "Primera reunión",
+          notes: "Primera reunió",
+          private: false,
         },
         {
           id: 4,
@@ -1968,8 +2027,20 @@
           date: dOff(3),
           time: "10:30",
           client: "Ana Rodríguez",
-          service: "Contabilidad",
-          notes: "Cierre trimestral",
+          service: "Contabilitat",
+          notes: "Tancament trimestral",
+          private: false,
+        },
+        {
+          id: 5,
+          ownerId: 1,
+          assignedTo: 1,
+          date: dOff(1),
+          time: "15:00",
+          client: "Consultes Privades SL",
+          service: "Assessorament Jurídic",
+          notes: "Reunió confidencial de direcció",
+          private: true,
         },
       ];
 
@@ -1983,19 +2054,19 @@
         seed(1, 2, [
           {
             mine: false,
-            text: "Buenos días, ¿has podido revisar el informe de Carlos?",
+            text: "Bon dia, has pogut revisar l'informe de Carlos?",
             time: "09:15",
             read: true,
           },
           {
             mine: true,
-            text: "Sí, acabo de enviarlo por email al cliente.",
+            text: "Sí, acabo d'enviar-lo per email al client.",
             time: "09:22",
             read: true,
           },
           {
             mine: false,
-            text: "Perfecto, lo reviso ahora mismo.",
+            text: "Perfecte, ho reviso ara mateix.",
             time: "10:24",
             read: false,
           },
@@ -2209,7 +2280,7 @@
       const SEC_TITLES = {
         dashboard: "Dashboard",
         "my-calendar": "Mi Calendario",
-        "global-calendar": "Calendario Global",
+        "global-calendar": "Calendari Global",
         users: "Gestión de Usuarios",
         services: "Servicios",
         "general-chat": "Chat General",
@@ -2231,7 +2302,7 @@
           SEC_TITLES[name] || name;
         if (name === "dashboard") renderDashboard();
         if (name === "my-calendar") renderCalendar("my");
-        if (name === "global-calendar") renderCalendar("global");
+        if (name === "global-calendar") { populateGlobalFilter(); renderCalendar("global"); }
         if (name === "users") renderUsers();
         if (name === "services") renderServices();
         if (name === "general-chat") openGeneralChat();
@@ -2246,7 +2317,11 @@
         const isAdmin = currentUser.role === "admin";
         const today = todayStr();
         const myEvs = EVENTS.filter(
-          (e) => isAdmin || e.assignedTo === currentUser.id,
+          (e) => {
+            // Filter private events
+            if (e.private && !isAdmin && e.assignedTo !== currentUser.id) return false;
+            return isAdmin || e.assignedTo === currentUser.id;
+          }
         );
         const todayEvs = myEvs.filter((e) => e.date === today);
 
@@ -2399,8 +2474,22 @@
 
         const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
         let evs = EVENTS.filter((e) => e.date.startsWith(monthStr));
+        // Privacy filter: hide private events from users who are not admin or not the assigned person
+        evs = evs.filter((e) => {
+          if (!e.private) return true;
+          if (currentUser.role === "admin") return true;
+          return e.assignedTo === currentUser.id;
+        });
         if (isMy && !isAdmin)
           evs = evs.filter((e) => e.assignedTo === currentUser.id);
+        // Global calendar person filter
+        if (!isMy) {
+          const filterSel = document.getElementById("global-filter-person");
+          if (filterSel && filterSel.value && filterSel.value !== "all") {
+            const filterId = parseInt(filterSel.value);
+            evs = evs.filter((e) => e.assignedTo === filterId);
+          }
+        }
 
         const today = todayStr();
         const colors = ["", "amber", "red"];
@@ -2425,7 +2514,7 @@
             .slice(0, 3)
             .map(
               (ev, i) =>
-                `<div class="cell-event ${colors[i % 3]}" onclick="showEventDetail(${ev.id},event)">${ev.time} ${safeHtml(ev.client)}</div>`,
+                `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${ev.time} ${safeHtml(ev.client)}</div>`,
             )
             .join("");
           html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'${which}')">
@@ -2454,7 +2543,13 @@
         const el = document.getElementById(listId);
         if (!el) return;
         const isAdmin = currentUser.role === "admin";
-        const sorted = evs
+        // Filter private events
+        const visibleEvs = evs.filter((e) => {
+          if (!e.private) return true;
+          if (isAdmin) return true;
+          return e.assignedTo === currentUser.id;
+        });
+        const sorted = visibleEvs
           .slice()
           .sort((a, b) =>
             a.date === b.date
@@ -2476,8 +2571,8 @@
             return `<div class="appt-item">
       <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
       <div class="appt-info">
-        <div class="appt-client">${safeHtml(ev.client)}</div>
-        <div class="appt-meta">${safeHtml(ev.service)}${emp && isAdmin ? " &middot; <strong>" + safeHtml(emp.name) + "</strong>" : ""}</div>
+        <div class="appt-client">${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privat</span>' : ''}</div>
+        <div class="appt-meta">${safeHtml(ev.service)}${emp && (isAdmin || which === 'global') ? " &middot; <strong>" + safeHtml(emp.name) + "</strong>" : ""}</div>
       </div>
       <div class="action-btns">
         ${
@@ -2511,8 +2606,10 @@
           ev.ownerId === currentUser.id ||
           ev.assignedTo === currentUser.id;
         document.getElementById("detail-title").textContent = ev.client;
+        const isPrivate = ev.private;
         document.getElementById("detail-body").innerHTML =
           `<div style="display:grid;gap:14px">
+    ${isPrivate ? `<div><span class="private-badge">🔒 Cita privada</span></div>` : ""}
     <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Fecha y hora</span><br>${fmtDate(ev.date)} a las ${ev.time}</div>
     <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Servicio</span><br>${safeHtml(ev.service)}</div>
     ${emp ? `<div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Empleado asignado</span><br>${safeHtml(emp.name)}</div>` : ""}
@@ -2599,6 +2696,10 @@
         document.getElementById("ev-client").value = "";
         document.getElementById("ev-notes").value = "";
         document.getElementById("ev-err").style.display = "none";
+        const pvGroup = document.getElementById("ev-private-group");
+        if (pvGroup) pvGroup.style.display = currentUser.role === "admin" ? "flex" : "none";
+        const pvChk = document.getElementById("ev-private");
+        if (pvChk) pvChk.checked = false;
         fillServiceSelect();
         fillEmployeeSelect(currentUser.id);
         openModal("event-modal");
@@ -2617,6 +2718,10 @@
         document.getElementById("ev-client").value = ev.client;
         document.getElementById("ev-notes").value = ev.notes || "";
         document.getElementById("ev-err").style.display = "none";
+        const pvGroup = document.getElementById("ev-private-group");
+        if (pvGroup) pvGroup.style.display = currentUser.role === "admin" ? "flex" : "none";
+        const pvChk = document.getElementById("ev-private");
+        if (pvChk) pvChk.checked = !!ev.private;
         fillServiceSelect();
         document.getElementById("ev-service").value = ev.service;
         fillEmployeeSelect(ev.assignedTo);
@@ -2638,6 +2743,7 @@
           : currentUser.id;
         const service = document.getElementById("ev-service").value;
         const notes = document.getElementById("ev-notes").value;
+        const isPrivate = isAdmin ? (document.getElementById("ev-private")?.checked || false) : false;
         if (editingEvId !== null) {
           const ev = EVENTS.find((e) => e.id === editingEvId);
           if (ev) {
@@ -2646,7 +2752,7 @@
             ev.client = client;
             ev.service = service;
             ev.notes = notes;
-            if (isAdmin) ev.assignedTo = assignedTo;
+            if (isAdmin) { ev.assignedTo = assignedTo; ev.private = isPrivate; }
           }
         } else {
           EVENTS.push({
@@ -2658,11 +2764,22 @@
             client,
             service,
             notes,
+            private: isPrivate,
           });
         }
         closeModal("event-modal");
         refreshCals();
         renderDashboard();
+      }
+
+      function populateGlobalFilter() {
+        const sel = document.getElementById("global-filter-person");
+        if (!sel) return;
+        const current = sel.value;
+        sel.innerHTML = '<option value="all">Tothom</option>' +
+          USERS.filter(u => u.active).map(u =>
+            `<option value="${u.id}"${String(u.id) === current ? ' selected' : ''}>${safeHtml(u.name)}</option>`
+          ).join('');
       }
 
       function refreshCals() {
