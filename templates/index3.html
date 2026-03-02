@@ -1285,6 +1285,72 @@
         padding: 3px 4px 0;
       }
 
+      /* DEPARTMENT TAGS */
+      .tag-dept-laboral   { background: #e0f0ff; color: #1a5fa8; }
+      .tag-dept-fiscal    { background: #fff3e0; color: #a05a00; }
+      .tag-dept-mercantil { background: #f3e8ff; color: #6b21a8; }
+      .tag-dept-none      { background: var(--bg2); color: var(--text-muted); }
+
+      /* DEPT CALENDAR NAV ITEMS (sub-level) */
+      .nav-item.nav-sub {
+        padding-left: 38px;
+        font-size: 12.5px;
+      }
+
+      /* PERMISSIONS PANEL */
+      .perm-dept-block {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        margin-bottom: 14px;
+      }
+      .perm-dept-title {
+        font-weight: 600;
+        font-size: 14px;
+        text-transform: capitalize;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .perm-radio-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .perm-radio-label {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        cursor: pointer;
+        font-size: 13px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        transition: background 0.15s;
+      }
+      .perm-radio-label:hover { background: var(--bg2); }
+      .perm-radio-label input { margin-top: 2px; accent-color: var(--accent); flex-shrink:0; }
+      .perm-radio-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+      .perm-dept-access {
+        margin-top: 10px;
+        padding: 12px 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+      }
+      .perm-dept-access label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        text-transform: capitalize;
+      }
+      .perm-dept-access label:last-child { margin-bottom: 0; }
+      .perm-dept-access input[type=checkbox] { accent-color: var(--accent); }
+
       .cell-event.private-event {
         opacity: 0.55;
         border-left: 3px solid #888;
@@ -1476,6 +1542,16 @@
           >
             <span class="icon">&#10012;</span> Calendario Global
           </div>
+          <!-- Calendarios de departamento - visibilidad controlada por permisos -->
+          <div class="nav-item nav-sub dept-cal-nav" data-dept="laboral" data-sec="cal-laboral" onclick="showSection('cal-laboral')" style="display:none">
+            <span class="icon">📋</span> Cal. Laboral
+          </div>
+          <div class="nav-item nav-sub dept-cal-nav" data-dept="fiscal" data-sec="cal-fiscal" onclick="showSection('cal-fiscal')" style="display:none">
+            <span class="icon">📋</span> Cal. Fiscal
+          </div>
+          <div class="nav-item nav-sub dept-cal-nav" data-dept="mercantil" data-sec="cal-mercantil" onclick="showSection('cal-mercantil')" style="display:none">
+            <span class="icon">📋</span> Cal. Mercantil
+          </div>
           <div class="nav-section-title">Empresa</div>
           <div
             class="nav-item admin-only"
@@ -1483,6 +1559,13 @@
             onclick="showSection('users')"
           >
             <span class="icon">&#8857;</span> Usuarios
+          </div>
+          <div
+            class="nav-item admin-only"
+            data-sec="admin-calendars"
+            onclick="showSection('admin-calendars')"
+          >
+            <span class="icon">&#9632;</span> Calendarios
           </div>
           <div
             class="nav-item"
@@ -1655,7 +1738,135 @@
             <div class="appt-list" id="global-appt-list"></div>
           </div>
 
-          <!-- USUARIOS -->
+          <!-- CALENDARIO LABORAL -->
+          <div class="section" id="section-cal-laboral">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Calendario Laboral</h2>
+                <p>Citas del departamento laboral</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Nueva cita</button>
+            </div>
+            <div class="calendar-wrapper">
+              <div class="cal-header">
+                <button class="cal-nav" onclick="changeDeptMonth(-1,'laboral')">&lsaquo;</button>
+                <div class="cal-title" id="dept-laboral-cal-title"></div>
+                <button class="cal-nav" onclick="changeDeptMonth(1,'laboral')">&rsaquo;</button>
+              </div>
+              <div class="cal-grid">
+                <div class="cal-days-header">
+                  <div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mié</div>
+                  <div class="cal-day-name">Jue</div><div class="cal-day-name">Vie</div><div class="cal-day-name">Sáb</div><div class="cal-day-name">Dom</div>
+                </div>
+                <div class="cal-cells" id="dept-laboral-cal-cells"></div>
+              </div>
+            </div>
+            <div class="appt-list" id="dept-laboral-appt-list"></div>
+          </div>
+
+          <!-- CALENDARIO FISCAL -->
+          <div class="section" id="section-cal-fiscal">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Calendario Fiscal</h2>
+                <p>Citas del departamento fiscal</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Nueva cita</button>
+            </div>
+            <div class="calendar-wrapper">
+              <div class="cal-header">
+                <button class="cal-nav" onclick="changeDeptMonth(-1,'fiscal')">&lsaquo;</button>
+                <div class="cal-title" id="dept-fiscal-cal-title"></div>
+                <button class="cal-nav" onclick="changeDeptMonth(1,'fiscal')">&rsaquo;</button>
+              </div>
+              <div class="cal-grid">
+                <div class="cal-days-header">
+                  <div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mié</div>
+                  <div class="cal-day-name">Jue</div><div class="cal-day-name">Vie</div><div class="cal-day-name">Sáb</div><div class="cal-day-name">Dom</div>
+                </div>
+                <div class="cal-cells" id="dept-fiscal-cal-cells"></div>
+              </div>
+            </div>
+            <div class="appt-list" id="dept-fiscal-appt-list"></div>
+          </div>
+
+          <!-- CALENDARIO MERCANTIL -->
+          <div class="section" id="section-cal-mercantil">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Calendario Mercantil</h2>
+                <p>Citas del departamento mercantil</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Nueva cita</button>
+            </div>
+            <div class="calendar-wrapper">
+              <div class="cal-header">
+                <button class="cal-nav" onclick="changeDeptMonth(-1,'mercantil')">&lsaquo;</button>
+                <div class="cal-title" id="dept-mercantil-cal-title"></div>
+                <button class="cal-nav" onclick="changeDeptMonth(1,'mercantil')">&rsaquo;</button>
+              </div>
+              <div class="cal-grid">
+                <div class="cal-days-header">
+                  <div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mié</div>
+                  <div class="cal-day-name">Jue</div><div class="cal-day-name">Vie</div><div class="cal-day-name">Sáb</div><div class="cal-day-name">Dom</div>
+                </div>
+                <div class="cal-cells" id="dept-mercantil-cal-cells"></div>
+              </div>
+            </div>
+            <div class="appt-list" id="dept-mercantil-appt-list"></div>
+          </div>
+
+          <!-- ADMIN: CALENDARIOS Y PERMISOS -->
+          <div class="section" id="section-admin-calendars">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Calendarios</h2>
+                <p>Acceso a todos los calendarios y configuración de permisos</p>
+              </div>
+            </div>
+
+            <!-- Accesos rápidos a calendarios -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:28px">
+              <div class="card" style="cursor:pointer" onclick="showSection('my-calendar')">
+                <div class="card-body" style="display:flex;align-items:center;gap:12px">
+                  <div style="width:38px;height:38px;border-radius:8px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📅</div>
+                  <div><div style="font-weight:600;font-size:14px">Mi Calendario</div><div style="font-size:12px;color:var(--text-muted)">Personal</div></div>
+                </div>
+              </div>
+              <div class="card" style="cursor:pointer" onclick="showSection('global-calendar')">
+                <div class="card-body" style="display:flex;align-items:center;gap:12px">
+                  <div style="width:38px;height:38px;border-radius:8px;background:#e8f4e8;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🌐</div>
+                  <div><div style="font-weight:600;font-size:14px">Calendario Global</div><div style="font-size:12px;color:var(--text-muted)">Todo el equipo</div></div>
+                </div>
+              </div>
+              <div class="card" style="cursor:pointer" onclick="showSection('cal-laboral')">
+                <div class="card-body" style="display:flex;align-items:center;gap:12px">
+                  <div style="width:38px;height:38px;border-radius:8px;background:#e0f0ff;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📋</div>
+                  <div><div style="font-weight:600;font-size:14px">Dept. Laboral</div><div style="font-size:12px;color:var(--text-muted)">Todos los miembros</div></div>
+                </div>
+              </div>
+              <div class="card" style="cursor:pointer" onclick="showSection('cal-fiscal')">
+                <div class="card-body" style="display:flex;align-items:center;gap:12px">
+                  <div style="width:38px;height:38px;border-radius:8px;background:#fff3e0;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📋</div>
+                  <div><div style="font-weight:600;font-size:14px">Dept. Fiscal</div><div style="font-size:12px;color:var(--text-muted)">Todos los miembros</div></div>
+                </div>
+              </div>
+              <div class="card" style="cursor:pointer" onclick="showSection('cal-mercantil')">
+                <div class="card-body" style="display:flex;align-items:center;gap:12px">
+                  <div style="width:38px;height:38px;border-radius:8px;background:#f3e8ff;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📋</div>
+                  <div><div style="font-weight:600;font-size:14px">Dept. Mercantil</div><div style="font-size:12px;color:var(--text-muted)">Todos los miembros</div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Configuración de permisos -->
+            <div class="card">
+              <div class="card-hdr">
+                <div class="card-title">Configuración de Permisos por Departamento</div>
+              </div>
+              <div class="card-body" id="permissions-panel"></div>
+            </div>
+          </div>
           <div class="section" id="section-users">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
@@ -1679,6 +1890,7 @@
                   <tr>
                     <th>Usuario</th>
                     <th>Rol</th>
+                    <th>Departamento</th>
                     <th>Email</th>
                     <th>Teléfono</th>
                     <th>Estado</th>
@@ -1973,6 +2185,15 @@
           <label>Teléfono</label
           ><input type="tel" id="nu-phone" placeholder="+34 600 000 000" />
         </div>
+        <!-- Departamento: solo visible para empleados, no para admin -->
+        <div class="form-group" id="nu-dept-group">
+          <label>Departamento *</label>
+          <select id="nu-dept">
+            <option value="laboral">Laboral</option>
+            <option value="fiscal">Fiscal</option>
+            <option value="mercantil">Mercantil</option>
+          </select>
+        </div>
         <div class="form-err" id="nu-err"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal('user-modal')">
@@ -2054,6 +2275,7 @@
           email: "myriam@rodonverges.com",
           phone: "+34 93 000 00 02",
           active: true,
+          departamento: "laboral",
         },
         {
           id: 3,
@@ -2064,6 +2286,7 @@
           email: "sara@rodonverges.com",
           phone: "+34 93 000 00 03",
           active: true,
+          departamento: "fiscal",
         },
       ];
 
@@ -2161,6 +2384,28 @@
 
       // Mensajes privados (clave: convKey)
       let CONVS = {};
+
+      // ══════════════════════════════════════════
+      //  DEPARTAMENTOS Y PERMISOS
+      // ══════════════════════════════════════════
+
+      const DEPARTAMENTOS = ['laboral', 'fiscal', 'mercantil'];
+
+      // level: 1 = solo calendario personal
+      //        2 = ver calendario de departamento
+      //        3 = acceso a otros departamentos (ver accessToDepts)
+      let DEPT_PERMISSIONS = {
+        laboral:   { level: 2, accessToDepts: [] },
+        fiscal:    { level: 2, accessToDepts: [] },
+        mercantil: { level: 2, accessToDepts: [] },
+      };
+
+      // Meses activos para calendarios de departamento
+      let deptCalMonth = {
+        laboral:   new Date(),
+        fiscal:    new Date(),
+        mercantil: new Date(),
+      };
       (function () {
         function seed(a, b, msgs) {
           const key = [a, b].sort((x, y) => x - y).join("-");
@@ -2398,6 +2643,8 @@
         // Poner a 0 si ya es la primera visita — mostramos notificación solo de mensajes nuevos en sesión
         gchatUnreadCount = 0;
         updateBadge();
+        // Mostrar/ocultar calendarios de departamento según permisos del usuario actual
+        updateDeptCalNav();
         showSection("dashboard");
       }
 
@@ -2409,6 +2656,10 @@
         dashboard: "Inicio",
         "my-calendar": "Mi Calendario",
         "global-calendar": "Calendario Global",
+        "cal-laboral": "Calendario Laboral",
+        "cal-fiscal": "Calendario Fiscal",
+        "cal-mercantil": "Calendario Mercantil",
+        "admin-calendars": "Calendarios",
         users: "Gestión de Usuarios",
         services: "Servicios",
         "general-chat": "Chat General",
@@ -2436,6 +2687,10 @@
         if (name === "dashboard") renderDashboard();
         if (name === "my-calendar") renderCalendar("my");
         if (name === "global-calendar") { populateGlobalFilter(); renderCalendar("global"); }
+        if (name === "cal-laboral") renderDeptCalendar("laboral");
+        if (name === "cal-fiscal") renderDeptCalendar("fiscal");
+        if (name === "cal-mercantil") renderDeptCalendar("mercantil");
+        if (name === "admin-calendars") renderPermissionsPanel();
         if (name === "users") renderUsers();
         if (name === "services") renderServices();
         if (name === "general-chat") openGeneralChat();
@@ -2561,22 +2816,17 @@
 
       function changeMonth(dir, which) {
         if (which === "my") {
-          // ✅ ARREGLO: Crear una copia de la fecha para evitar mutaciones inesperadas
-          myCalMonth = new Date(
-            myCalMonth.getFullYear(),
-            myCalMonth.getMonth() + dir,
-            1,
-          );
+          myCalMonth = new Date(myCalMonth.getFullYear(), myCalMonth.getMonth() + dir, 1);
           renderCalendar("my");
         } else {
-          // ✅ ARREGLO: Crear una copia de la fecha para evitar mutaciones inesperadas
-          globalCalMonth = new Date(
-            globalCalMonth.getFullYear(),
-            globalCalMonth.getMonth() + dir,
-            1,
-          );
+          globalCalMonth = new Date(globalCalMonth.getFullYear(), globalCalMonth.getMonth() + dir, 1);
           renderCalendar("global");
         }
+      }
+
+      function changeDeptMonth(dir, dept) {
+        deptCalMonth[dept] = new Date(deptCalMonth[dept].getFullYear(), deptCalMonth[dept].getMonth() + dir, 1);
+        renderDeptCalendar(dept);
       }
 
       function renderCalendar(which) {
@@ -2949,25 +3199,187 @@
       }
 
       function refreshCals() {
-        // ✅ ARREGLO: Usar IDs correctos de secciones y manejar errores
         try {
           const myCalSection = document.getElementById("section-my-calendar");
-          const globalCalSection = document.getElementById(
-            "section-global-calendar",
-          );
-
-          if (myCalSection && myCalSection.classList.contains("active")) {
-            renderCalendar("my");
-          }
-          if (
-            globalCalSection &&
-            globalCalSection.classList.contains("active")
-          ) {
-            renderCalendar("global");
-          }
+          const globalCalSection = document.getElementById("section-global-calendar");
+          if (myCalSection && myCalSection.classList.contains("active")) renderCalendar("my");
+          if (globalCalSection && globalCalSection.classList.contains("active")) renderCalendar("global");
+          DEPARTAMENTOS.forEach(dept => {
+            const sec = document.getElementById("section-cal-" + dept);
+            if (sec && sec.classList.contains("active")) renderDeptCalendar(dept);
+          });
         } catch (e) {
           console.error("Error refreshing calendars:", e);
         }
+      }
+
+      // ══════════════════════════════════════════
+      //  CALENDARIOS DE DEPARTAMENTO
+      // ══════════════════════════════════════════
+
+      // Determina si el usuario actual tiene acceso a un calendario de departamento
+      function canAccessDeptCalendar(dept) {
+        const isAdmin = currentUser.role === "admin";
+        if (isAdmin) return true;
+        const userDept = currentUser.departamento;
+        if (!userDept) return false;
+        const perm = DEPT_PERMISSIONS[userDept];
+        if (!perm) return false;
+        if (perm.level === 1) return false; // solo personal
+        if (perm.level === 2) return dept === userDept;
+        if (perm.level === 3) return dept === userDept || perm.accessToDepts.includes(dept);
+        return false;
+      }
+
+      function renderDeptCalendar(dept) {
+        if (!canAccessDeptCalendar(dept)) {
+          // No debería llegar aquí, pero como seguridad redirigimos
+          showSection('my-calendar');
+          return;
+        }
+        const date = deptCalMonth[dept];
+        const titleEl = document.getElementById("dept-" + dept + "-cal-title");
+        const cellsEl = document.getElementById("dept-" + dept + "-cal-cells");
+        if (!titleEl || !cellsEl) return;
+
+        titleEl.textContent = mthName(date);
+        const year = date.getFullYear(), month = date.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        let dow = new Date(year, month, 1).getDay();
+        dow = dow === 0 ? 6 : dow - 1;
+        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+
+        // Obtener usuarios del departamento
+        const deptUsers = USERS.filter(u => u.departamento === dept && u.active);
+        const deptUserIds = deptUsers.map(u => u.id);
+
+        // Admin también puede ver desde aquí
+        let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && deptUserIds.includes(e.assignedTo));
+        // Filtrar privadas: empleados no ven privadas de otros
+        if (currentUser.role !== "admin") {
+          evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
+        }
+
+        const today = todayStr();
+        const colors = ["", "amber", "red"];
+        let html = "";
+        for (let i = 0; i < dow; i++) html += '<div class="cal-cell empty"></div>';
+        for (let day = 1; day <= daysInMonth; day++) {
+          const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const isToday = ds === today;
+          const dayEvs = evs.filter(e => e.date === ds);
+          const evHTML = dayEvs.slice(0, 3).map((ev, i) => {
+            const emp = USERS.find(u => u.id === ev.assignedTo);
+            return `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${ev.time} ${safeHtml(ev.client)}</div>`;
+          }).join("");
+          html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'dept-${dept}')">
+            <div class="cell-num">${day}</div>${evHTML}
+            ${dayEvs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length - 3} más</div>` : ""}
+          </div>`;
+        }
+        const totalCells = dow + daysInMonth;
+        for (let i = totalCells; i < 42; i++) html += '<div class="cal-cell empty"></div>';
+        cellsEl.innerHTML = html;
+
+        // Render list
+        const listEl = document.getElementById("dept-" + dept + "-appt-list");
+        if (!listEl) return;
+        const sorted = evs.slice().sort((a, b) => a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date));
+        if (!sorted.length) {
+          listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hay citas este mes en el departamento</div>';
+          return;
+        }
+        const isAdmin = currentUser.role === "admin";
+        listEl.innerHTML = sorted.map(ev => {
+          const emp = USERS.find(u => u.id === ev.assignedTo);
+          const canEdit = isAdmin || ev.assignedTo === currentUser.id || ev.ownerId === currentUser.id;
+          const privBtn = isAdmin ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>` : '';
+          return `<div class="appt-item">
+            <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
+            <div class="appt-info">
+              <div class="appt-client">${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privado</span>' : ''}</div>
+              <div class="appt-meta">${safeHtml(ev.service)}${emp ? ' &middot; <strong>' + safeHtml(emp.name) + '</strong>' : ''}</div>
+            </div>
+            <div class="action-btns">
+              ${canEdit ? `${privBtn}<button class="btn-icon" onclick="editEventFromList(${ev.id},event)">Editar</button><button class="btn-icon red" onclick="deleteEventFromList(${ev.id},event)">Eliminar</button>` : ''}
+            </div>
+          </div>`;
+        }).join("");
+      }
+
+      // ══════════════════════════════════════════
+      //  PANEL DE PERMISOS (solo admin)
+      // ══════════════════════════════════════════
+
+      function renderPermissionsPanel() {
+        const el = document.getElementById("permissions-panel");
+        if (!el || currentUser.role !== "admin") return;
+        el.innerHTML = DEPARTAMENTOS.map(dept => {
+          const perm = DEPT_PERMISSIONS[dept];
+          const deptLabel = dept.charAt(0).toUpperCase() + dept.slice(1);
+          // Checkboxes para acceso a otros departamentos (solo si level=3)
+          const otherDepts = DEPARTAMENTOS.filter(d => d !== dept);
+          const deptChecks = otherDepts.map(d => {
+            const checked = perm.accessToDepts.includes(d) ? "checked" : "";
+            return `<label><input type="checkbox" ${checked} onchange="updateDeptAccess('${dept}','${d}',this.checked)" />${d.charAt(0).toUpperCase() + d.slice(1)}</label>`;
+          }).join("");
+          return `<div class="perm-dept-block">
+            <div class="perm-dept-title">
+              <span class="tag tag-dept-${dept}">${deptLabel}</span>
+              Departamento ${deptLabel}
+            </div>
+            <div class="perm-radio-group">
+              <label class="perm-radio-label">
+                <input type="radio" name="perm-${dept}" value="1" ${perm.level === 1 ? 'checked' : ''} onchange="setDeptPermLevel('${dept}',1)" />
+                <div><div>Solo calendario personal</div><div class="perm-radio-desc">El empleado solo ve sus propias citas</div></div>
+              </label>
+              <label class="perm-radio-label">
+                <input type="radio" name="perm-${dept}" value="2" ${perm.level === 2 ? 'checked' : ''} onchange="setDeptPermLevel('${dept}',2)" />
+                <div><div>Ver calendario de departamento</div><div class="perm-radio-desc">Ve las citas de todos sus compañeros de departamento</div></div>
+              </label>
+              <label class="perm-radio-label">
+                <input type="radio" name="perm-${dept}" value="3" ${perm.level === 3 ? 'checked' : ''} onchange="setDeptPermLevel('${dept}',3)" />
+                <div><div>Acceso a otros calendarios</div><div class="perm-radio-desc">Además de su departamento, puede acceder a otros departamentos seleccionados</div></div>
+              </label>
+            </div>
+            <div class="perm-dept-access" id="perm-access-${dept}" style="${perm.level === 3 ? '' : 'display:none'}">
+              <div style="font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.8px">Departamentos accesibles:</div>
+              ${deptChecks}
+            </div>
+          </div>`;
+        }).join("");
+      }
+
+      function setDeptPermLevel(dept, level) {
+        if (currentUser.role !== "admin") return;
+        DEPT_PERMISSIONS[dept].level = parseInt(level);
+        // Si bajamos a nivel 1 o 2, limpiar accessToDepts
+        if (level < 3) DEPT_PERMISSIONS[dept].accessToDepts = [];
+        // Mostrar/ocultar bloque de acceso a otros depts
+        const accessEl = document.getElementById("perm-access-" + dept);
+        if (accessEl) accessEl.style.display = level == 3 ? "" : "none";
+        // Re-renderizar nav para que los cambios de permisos sean inmediatos
+        updateDeptCalNav();
+      }
+
+      function updateDeptAccess(dept, targetDept, checked) {
+        if (currentUser.role !== "admin") return;
+        if (checked) {
+          if (!DEPT_PERMISSIONS[dept].accessToDepts.includes(targetDept))
+            DEPT_PERMISSIONS[dept].accessToDepts.push(targetDept);
+        } else {
+          DEPT_PERMISSIONS[dept].accessToDepts = DEPT_PERMISSIONS[dept].accessToDepts.filter(d => d !== targetDept);
+        }
+        updateDeptCalNav();
+      }
+
+      // Actualiza la visibilidad de los nav items de calendarios de departamento
+      function updateDeptCalNav() {
+        const isAdmin = currentUser.role === "admin";
+        document.querySelectorAll(".dept-cal-nav").forEach(el => {
+          const dept = el.getAttribute("data-dept");
+          el.style.display = canAccessDeptCalendar(dept) ? "" : "none";
+        });
       }
 
       // ══════════════════════════════════════════
@@ -2978,10 +3390,15 @@
         document.getElementById("user-count").textContent =
           USERS.filter((u) => u.active).length + " usuarios activos";
         document.getElementById("users-table-body").innerHTML = USERS.map(
-          (u) => `
+          (u) => {
+            const deptTag = u.role !== "admin" && u.departamento
+              ? `<span class="tag tag-dept-${u.departamento}" style="text-transform:capitalize">${u.departamento}</span>`
+              : `<span class="tag tag-dept-none">—</span>`;
+            return `
     <tr>
       <td><div class="user-cell"><div class="mini-avatar">${initials(u.name)}</div><div><div style="font-weight:500">${safeHtml(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">@${safeHtml(u.username)}</div></div></div></td>
       <td><span class="tag ${u.role === "admin" ? "tag-blue" : "tag-green"}">${u.role === "admin" ? "Admin" : "Empleado"}</span></td>
+      <td>${deptTag}</td>
       <td style="color:var(--text-muted)">${safeHtml(u.email || "—")}</td>
       <td style="color:var(--text-muted)">${safeHtml(u.phone || "—")}</td>
       <td><span class="tag ${u.active ? "tag-green" : "tag-gray"}">${u.active ? "Activo" : "Inactivo"}</span></td>
@@ -2991,29 +3408,36 @@
           <button class="btn-icon red" title="${u.active ? "Desactivar" : "Activar"}" onclick="toggleUser(${u.id})">${u.active ? "Desactivar" : "Activar"}</button>
         </div>
       </td>
-    </tr>`,
+    </tr>`;
+          }
         ).join("");
       }
 
       function openUserModal() {
         editingUserId = null;
-        document.getElementById("user-modal-title").textContent =
-          "Nuevo usuario";
+        document.getElementById("user-modal-title").textContent = "Nuevo usuario";
         document.getElementById("nu-save-btn").textContent = "Crear usuario";
         ["nu-name", "nu-user", "nu-pass", "nu-email", "nu-phone"].forEach(
           (id) => (document.getElementById(id).value = ""),
         );
-        document.getElementById("nu-role").selectedIndex = 0;
+        document.getElementById("nu-role").selectedIndex = 0; // "empleado"
+        document.getElementById("nu-dept").selectedIndex = 0;
         document.getElementById("nu-err").style.display = "none";
+        // Mostrar departamento (rol por defecto = empleado)
+        document.getElementById("nu-dept-group").style.display = "";
         openModal("user-modal");
       }
+
+      // Mostrar/ocultar campo departamento según rol seleccionado
+      document.getElementById("nu-role").addEventListener("change", function() {
+        document.getElementById("nu-dept-group").style.display = this.value === "admin" ? "none" : "";
+      });
 
       function editUser(id) {
         const u = USERS.find((x) => x.id === id);
         if (!u) return;
         editingUserId = id;
-        document.getElementById("user-modal-title").textContent =
-          "Editar usuario";
+        document.getElementById("user-modal-title").textContent = "Editar usuario";
         document.getElementById("nu-save-btn").textContent = "Guardar cambios";
         document.getElementById("nu-name").value = u.name;
         document.getElementById("nu-user").value = u.username;
@@ -3021,6 +3445,14 @@
         document.getElementById("nu-email").value = u.email || "";
         document.getElementById("nu-phone").value = u.phone || "";
         document.getElementById("nu-role").value = u.role;
+        // Departamento: solo para empleados
+        const deptGroup = document.getElementById("nu-dept-group");
+        if (u.role === "admin") {
+          deptGroup.style.display = "none";
+        } else {
+          deptGroup.style.display = "";
+          document.getElementById("nu-dept").value = u.departamento || "laboral";
+        }
         document.getElementById("nu-err").style.display = "none";
         openModal("user-modal");
       }
@@ -3032,6 +3464,7 @@
         const email = document.getElementById("nu-email").value.trim();
         const phone = document.getElementById("nu-phone").value.trim();
         const role = document.getElementById("nu-role").value;
+        const dept = role !== "admin" ? document.getElementById("nu-dept").value : null;
         const errEl = document.getElementById("nu-err");
 
         if (!name || !uname) {
@@ -3041,6 +3474,11 @@
         }
         if (editingUserId === null && !pass) {
           errEl.textContent = "La contraseña es obligatoria.";
+          errEl.style.display = "";
+          return;
+        }
+        if (role !== "admin" && !dept) {
+          errEl.textContent = "El departamento es obligatorio para empleados.";
           errEl.style.display = "";
           return;
         }
@@ -3062,6 +3500,7 @@
             u.email = email;
             u.phone = phone;
             u.role = role;
+            u.departamento = role !== "admin" ? dept : null;
             if (pass) u.password = pass;
           }
         } else {
@@ -3071,6 +3510,7 @@
             password: pass,
             name,
             role,
+            departamento: role !== "admin" ? dept : null,
             email,
             phone,
             active: true,
@@ -3079,8 +3519,8 @@
         closeModal("user-modal");
         renderUsers();
         buildMsgList();
-        // Actualizar label del chat general si está abierto
         updateGchatHeader();
+        updateDeptCalNav(); // Actualizar nav si hay cambios de departamento
       }
 
       function toggleUser(id) {
@@ -3393,6 +3833,7 @@
           if (e.target === o) o.classList.remove("open");
         });
       });
+      
     </script>
   </body>
 </html>
