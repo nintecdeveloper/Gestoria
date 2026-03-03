@@ -635,21 +635,21 @@
       .cal-cells {
         display: grid;
         grid-template-columns: repeat(7, minmax(0, 1fr));
-        grid-template-rows: repeat(6, 104px);
-        grid-auto-rows: 104px;
+        grid-template-rows: repeat(6, 112px);
+        grid-auto-rows: 112px;
         gap: 3px;
-        height: 630px;
-        min-height: 630px;
-        max-height: 630px;
+        height: 672px;
+        min-height: 672px;
+        max-height: 672px;
         width: 100%;
         overflow: hidden;
         box-sizing: border-box;
       }
       .cal-cell {
         width: 100%;
-        height: 104px;
-        min-height: 104px;
-        max-height: 104px;
+        height: 112px;
+        min-height: 112px;
+        max-height: 112px;
         padding: 8px 7px 6px;
         border-radius: 6px;
         border: 1px solid transparent;
@@ -688,16 +688,19 @@
         padding: 3px 6px;
         border-radius: 4px;
         margin-bottom: 3px;
-        white-space: nowrap;
+        white-space: normal;
         overflow: hidden;
-        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
         background: var(--accent-light);
         color: var(--accent);
         font-weight: 600;
         cursor: pointer;
         border-left: 2.5px solid var(--accent);
-        line-height: 1.45;
+        line-height: 1.4;
         letter-spacing: 0.1px;
+        word-break: break-word;
       }
       .cell-event:hover {
         opacity: 0.82;
@@ -1525,6 +1528,15 @@
         font-size: 13px;
         color: var(--accent);
       }
+      /* NUEVO: leyenda de empleados en calendarios departamentales */
+      .dept-legend {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 16px;
+        margin-bottom: 14px;
+        box-shadow: var(--shadow);
+      }
       .admin-cal-banner strong {
         font-weight: 600;
       }
@@ -1955,7 +1967,7 @@
             id="nav-admin-view-calendar"
             onclick="showSection('admin-view-calendar')"
           >
-            <span class="icon">&#9673;</span> Cal. Antonio
+            <span class="icon">&#9673;</span> Cal. Administradores
           </div>
           <!-- Calendarios de departamento - visibilidad controlada por permisos -->
           <div class="nav-item nav-sub dept-cal-nav" data-dept="laboral" data-sec="cal-laboral" onclick="showSection('cal-laboral')" style="display:none">
@@ -2161,23 +2173,34 @@
           <div class="section" id="section-admin-view-calendar">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendario de Antonio</h2>
-                <p id="admin-view-cal-sub">Citas del administrador</p>
+                <h2>Calendario Administradores</h2>
+                <p id="admin-view-cal-sub">Citas de todos los administradores</p>
               </div>
-              <!-- Botón para crear cita en calendario del admin: visible para todos -->
-              <button
-                class="btn btn-primary btn-sm"
-                id="btn-add-admin-appt"
-                onclick="openAdminCalEventModal(null)"
-              >
-                + Solicitar cita
-              </button>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <!-- NUEVO: filtro por admin -->
+                <div style="display:flex;align-items:center;gap:7px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Ver:</label>
+                  <select id="admin-view-filter" onchange="renderAdminViewCalendar()"
+                    style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);outline:none">
+                    <option value="all">Todos los admins</option>
+                  </select>
+                </div>
+                <button
+                  class="btn btn-primary btn-sm"
+                  id="btn-add-admin-appt"
+                  onclick="openAdminCalEventModal(null)"
+                >
+                  + Solicitar cita
+                </button>
+              </div>
             </div>
+            <!-- Leyenda de administradores -->
+            <div id="admin-view-legend" class="dept-legend" style="display:none"></div>
             <!-- Banner informativo para empleados -->
             <div class="admin-cal-banner" id="admin-cal-info-banner" style="display:none">
               <span style="font-size:18px">📅</span>
               <div>
-                <strong>Calendario compartido</strong> — Puedes ver las citas de Antonio y solicitar una nueva.
+                <strong>Calendario de Administradores</strong> — Puedes ver las citas y solicitar una nueva.
                 Las citas marcadas como <em>🔒 Hora bloqueada</em> no están disponibles.
               </div>
             </div>
@@ -2213,6 +2236,8 @@
               </div>
               <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Nueva cita</button>
             </div>
+            <!-- NUEVO: leyenda de empleados del departamento -->
+            <div id="dept-laboral-legend" class="dept-legend" style="display:none"></div>
             <div class="calendar-wrapper">
               <div class="cal-header">
                 <button class="cal-nav" onclick="changeDeptMonth(-1,'laboral')">&lsaquo;</button>
@@ -2239,6 +2264,8 @@
               </div>
               <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Nueva cita</button>
             </div>
+            <!-- NUEVO: leyenda de empleados del departamento -->
+            <div id="dept-fiscal-legend" class="dept-legend" style="display:none"></div>
             <div class="calendar-wrapper">
               <div class="cal-header">
                 <button class="cal-nav" onclick="changeDeptMonth(-1,'fiscal')">&lsaquo;</button>
@@ -2265,6 +2292,8 @@
               </div>
               <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Nueva cita</button>
             </div>
+            <!-- NUEVO: leyenda de empleados del departamento -->
+            <div id="dept-mercantil-legend" class="dept-legend" style="display:none"></div>
             <div class="calendar-wrapper">
               <div class="cal-header">
                 <button class="cal-nav" onclick="changeDeptMonth(-1,'mercantil')">&lsaquo;</button>
@@ -2690,6 +2719,12 @@
             <option value="mercantil">Mercantil</option>
           </select>
         </div>
+        <!-- NUEVO: selector de color de usuario -->
+        <div class="form-group">
+          <label>Color en calendarios</label>
+          <div id="nu-color-picker" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"></div>
+          <input type="hidden" id="nu-color" value="teal" />
+        </div>
         <div class="form-err" id="nu-err"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal('user-modal')">
@@ -2756,6 +2791,11 @@
         <button class="modal-close" onclick="closeModal('admin-event-modal')">&times;</button>
         <div class="modal-title" id="admin-event-modal-title">Solicitar cita con Antonio</div>
         <div class="modal-sub" id="admin-event-modal-sub">Rellena los datos de la cita solicitada</div>
+        <!-- NUEVO: selección de admin si hay múltiples -->
+        <div class="form-group" id="aev-admin-group" style="display:none">
+          <label>Administrador *</label>
+          <select id="aev-admin-id"></select>
+        </div>
         <div class="form-row">
           <div class="form-group">
             <label>Fecha *</label>
@@ -2796,6 +2836,38 @@
       //  DATA
       // ══════════════════════════════════════════
 
+      // ══════════════════════════════════════════
+      //  PALETA DE COLORES PARA USUARIOS
+      // ══════════════════════════════════════════
+      const USER_COLOR_PALETTE = [
+        { id: "teal",   bg: "#d4e4df", border: "#2c4a3e", text: "#1a3028" },
+        { id: "amber",  bg: "#f5e9d9", border: "#8b6f47", text: "#5a3e1b" },
+        { id: "blue",   bg: "#d5e8f5", border: "#2563a8", text: "#1a3d6e" },
+        { id: "rose",   bg: "#fde0e0", border: "#b94a48", text: "#7a2020" },
+        { id: "violet", bg: "#ece4f5", border: "#6d3ab0", text: "#41236e" },
+        { id: "green",  bg: "#d6f0e0", border: "#2d7d4e", text: "#1a4a2e" },
+        { id: "orange", bg: "#fde8d4", border: "#c4621e", text: "#7a3a0a" },
+        { id: "slate",  bg: "#e2e6ea", border: "#4a5568", text: "#2d3748" },
+      ];
+
+      /** Devuelve el objeto de color de un usuario por su color ID */
+      function getUserColorObj(colorId) {
+        return USER_COLOR_PALETTE.find(c => c.id === colorId) || USER_COLOR_PALETTE[0];
+      }
+
+      /** Devuelve el color asignado a un usuario (fallback al primero de la paleta) */
+      function getUserColor(user) {
+        if (!user) return USER_COLOR_PALETTE[0];
+        return getUserColorObj(user.color || USER_COLOR_PALETTE[0].id);
+      }
+
+      /** Asigna automáticamente un color a nuevos usuarios sin color */
+      function autoAssignColor(userId) {
+        const usedColors = USERS.map(u => u.color).filter(Boolean);
+        const free = USER_COLOR_PALETTE.find(c => !usedColors.includes(c.id));
+        return free ? free.id : USER_COLOR_PALETTE[userId % USER_COLOR_PALETTE.length].id;
+      }
+
       let USERS = [
         {
           id: 1,
@@ -2806,6 +2878,7 @@
           email: "antonio@rodonverges.com",
           phone: "+34 93 000 00 01",
           active: true,
+          color: "teal",
         },
         {
           id: 2,
@@ -2817,6 +2890,7 @@
           phone: "+34 93 000 00 02",
           active: true,
           departamento: "laboral",
+          color: "blue",
         },
         {
           id: 3,
@@ -2828,6 +2902,7 @@
           phone: "+34 93 000 00 03",
           active: true,
           departamento: "fiscal",
+          color: "amber",
         },
       ];
 
@@ -3119,16 +3194,15 @@
       //  que no sea del propio usuario que intenta agendar.
       //  Esto aplica la regla: las citas privadas bloquean el horario para otros.
       // ══════════════════════════════════════════
-      function isAdminSlotBlocked(date, time) {
-        const adminUser = getAdminUser();
-        if (!adminUser) return false;
-        // Buscar citas del admin en esa fecha+hora que sean privadas
+      function isAdminSlotBlocked(date, time, adminId) {
+        const aid = adminId || (getAdminUser() || {}).id;
+        if (!aid) return false;
         return EVENTS.some(ev =>
-          ev.assignedTo === adminUser.id &&
+          ev.assignedTo === aid &&
           ev.date === date &&
           ev.time === time &&
           ev.private === true &&
-          ev.assignedTo !== currentUser.id // no se bloquea a sí mismo
+          ev.assignedTo !== currentUser.id
         );
       }
 
@@ -3136,11 +3210,11 @@
       //  NUEVO UTIL: Verificar si ya existe cualquier cita del admin en ese horario
       //  (para evitar doble booking en el calendario del admin)
       // ══════════════════════════════════════════
-      function isAdminSlotOccupied(date, time, excludeEvId) {
-        const adminUser = getAdminUser();
-        if (!adminUser) return false;
+      function isAdminSlotOccupied(date, time, excludeEvId, adminId) {
+        const aid = adminId || (getAdminUser() || {}).id;
+        if (!aid) return false;
         return EVENTS.some(ev =>
-          ev.assignedTo === adminUser.id &&
+          ev.assignedTo === aid &&
           ev.date === date &&
           ev.time === time &&
           ev.id !== excludeEvId
@@ -3971,21 +4045,45 @@
           evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
         }
 
+        // NUEVO: renderizar leyenda de empleados del departamento
+        const legendEl = document.getElementById("dept-" + dept + "-legend");
+        if (legendEl) {
+          if (deptUsers.length) {
+            legendEl.innerHTML = '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+              deptUsers.map(u => {
+                const col = getUserColor(u);
+                return `<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text)">
+                  <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${col.bg};border:2px solid ${col.border};flex-shrink:0"></span>
+                  ${safeHtml(u.name)}
+                </div>`;
+              }).join("") +
+            '</div>';
+            legendEl.style.display = "";
+          } else {
+            legendEl.style.display = "none";
+          }
+        }
+
         const today = todayStr();
-        const colors = ["", "amber", "red"];
         let html = "";
         for (let i = 0; i < dow; i++) html += '<div class="cal-cell empty"></div>';
         for (let day = 1; day <= daysInMonth; day++) {
           const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const isToday = ds === today;
           const dayEvs = evs.filter(e => e.date === ds);
-          const evHTML = dayEvs.slice(0, 3).map((ev, i) => {
+          const evHTML = dayEvs.slice(0, 3).map((ev) => {
             const shouldMask = ev.private && currentUser.role !== 'admin' && ev.assignedTo !== currentUser.id;
             if (shouldMask) {
               return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
             }
+            // NUEVO: color basado en el empleado asignado
             const emp = USERS.find(u => u.id === ev.assignedTo);
-            return `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${ev.time} ${safeHtml(ev.client)}</div>`;
+            const col = getUserColor(emp);
+            const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
+            return `<div class="cell-event${ev.private ? ' private-event' : ''}"
+              style="background:${col.bg};color:${col.text};border-left-color:${col.border}"
+              onclick="showEventDetail(${ev.id},event)"
+            >${ev.private ? '🔒 ' : ''}${timeRange} ${safeHtml(ev.client)}</div>`;
           }).join("");
           html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'dept-${dept}')">
             <div class="cell-num">${day}</div>${evHTML}
@@ -4046,44 +4144,76 @@
       }
 
       function renderAdminViewCalendar() {
-        const adminUser = getAdminUser();
         const isAdmin = currentUser.role === "admin";
         const date = adminViewCalMonth;
 
-        // Actualizar subtítulo y banner informativo
+        // NUEVO: poblar el select de filtro con todos los admins activos
+        const adminUsers = USERS.filter(u => u.role === 'admin' && u.active);
+        const filterSel = document.getElementById("admin-view-filter");
+        if (filterSel) {
+          const currentVal = filterSel.value;
+          filterSel.innerHTML = '<option value="all">Todos los admins</option>' +
+            adminUsers.map(u => `<option value="${u.id}"${String(u.id) === currentVal ? ' selected' : ''}>${safeHtml(u.name)}</option>`).join('');
+        }
+
+        // Determinar qué admins mostrar
+        const filterVal = filterSel ? filterSel.value : "all";
+        const shownAdmins = filterVal === "all"
+          ? adminUsers
+          : adminUsers.filter(u => String(u.id) === filterVal);
+        const shownAdminIds = shownAdmins.map(u => u.id);
+
+        // NUEVO: leyenda de admins mostrados
+        const legendEl = document.getElementById("admin-view-legend");
+        if (legendEl) {
+          if (shownAdmins.length > 1) {
+            legendEl.innerHTML = '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+              shownAdmins.map(u => {
+                const col = getUserColor(u);
+                return `<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text)">
+                  <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${col.bg};border:2px solid ${col.border};flex-shrink:0"></span>
+                  ${safeHtml(u.name)}
+                </div>`;
+              }).join("") +
+            '</div>';
+            legendEl.style.display = "";
+          } else {
+            legendEl.style.display = "none";
+          }
+        }
+
+        // Actualizar subtítulo y banner
         const subEl = document.getElementById("admin-view-cal-sub");
         const bannerEl = document.getElementById("admin-cal-info-banner");
         const btnAdd = document.getElementById("btn-add-admin-appt");
-
-        if (adminUser) {
-          if (subEl) subEl.textContent = "Citas de " + adminUser.name;
-          // Mostrar banner informativo solo para empleados
-          if (bannerEl) bannerEl.style.display = isAdmin ? "none" : "flex";
-          // El admin puede crear citas desde su propio calendario
-          if (btnAdd) btnAdd.textContent = isAdmin ? "+ Nueva cita" : "+ Solicitar cita";
+        if (subEl) {
+          subEl.textContent = shownAdmins.length === 1
+            ? "Citas de " + shownAdmins[0].name
+            : "Citas de todos los administradores";
         }
+        if (bannerEl) bannerEl.style.display = isAdmin ? "none" : "flex";
+        if (btnAdd) btnAdd.textContent = isAdmin ? "+ Nueva cita" : "+ Solicitar cita";
 
         const titleEl = document.getElementById("admin-view-cal-title");
         const cellsEl = document.getElementById("admin-view-cal-cells");
         if (!titleEl || !cellsEl) return;
 
         titleEl.textContent = mthName(date);
-
         const year = date.getFullYear(), month = date.getMonth();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         let dow = new Date(year, month, 1).getDay();
         dow = dow === 0 ? 6 : dow - 1;
         const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
 
-        // Filtrar solo citas del admin
-        let evs = adminUser
-          ? EVENTS.filter(e => e.date.startsWith(monthStr) && e.assignedTo === adminUser.id)
-          : [];
+        // Filtrar eventos de los admins seleccionados
+        let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && shownAdminIds.includes(e.assignedTo));
+        // Empleados solo ven sus propias citas privadas o las públicas
+        if (!isAdmin) {
+          evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
+        }
 
         const today = todayStr();
-        const colors = ["", "amber", "red"];
         let html = "";
-
         for (let i = 0; i < dow; i++) html += '<div class="cal-cell empty"></div>';
 
         for (let day = 1; day <= daysInMonth; day++) {
@@ -4091,13 +4221,19 @@
           const isToday = ds === today;
           const dayEvs = evs.filter(e => e.date === ds);
 
-          const evHTML = dayEvs.slice(0, 3).map((ev, i) => {
-            // Privatización: si el evento es privado y el usuario no es admin
+          const evHTML = dayEvs.slice(0, 3).map((ev) => {
             const shouldMask = ev.private && !isAdmin;
             if (shouldMask) {
               return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
             }
-            return `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${ev.time} ${safeHtml(ev.client)}</div>`;
+            // NUEVO: color del admin asignado
+            const emp = USERS.find(u => u.id === ev.assignedTo);
+            const col = getUserColor(emp);
+            const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
+            return `<div class="cell-event${ev.private ? ' private-event' : ''}"
+              style="background:${col.bg};color:${col.text};border-left-color:${col.border}"
+              onclick="showEventDetail(${ev.id},event)"
+            >${ev.private ? '🔒 ' : ''}${timeRange} ${safeHtml(ev.client)}</div>`;
           }).join("");
 
           html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'admin-view')">
@@ -4110,14 +4246,16 @@
         for (let i = totalCells; i < 42; i++) html += '<div class="cal-cell empty"></div>';
         cellsEl.innerHTML = html;
 
-        // Renderizar lista de citas del mes del admin
-        renderAdminViewApptList(evs);
+        // Renderizar lista de citas
+        renderAdminViewApptList(evs, shownAdmins);
       }
 
-      function renderAdminViewApptList(evs) {
+
+      function renderAdminViewApptList(evs, shownAdmins) {
         const listEl = document.getElementById("admin-view-appt-list");
         if (!listEl) return;
         const isAdmin = currentUser.role === "admin";
+        const multiAdmin = shownAdmins && shownAdmins.length > 1;
         const sorted = evs.slice().sort((a, b) =>
           a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date)
         );
@@ -4128,7 +4266,6 @@
         listEl.innerHTML = sorted.map(ev => {
           const shouldMask = ev.private && !isAdmin;
           if (shouldMask) {
-            // Mostrar como bloqueado pero con la hora visible (para que no se pueda agendar encima)
             return `<div class="appt-item blocked">
               <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
               <div class="appt-info">
@@ -4142,11 +4279,18 @@
             ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>`
             : '';
           const emp = USERS.find(u => u.id === ev.assignedTo);
+          // NUEVO: indicador de color del admin en la lista si hay múltiples
+          const col = getUserColor(emp);
+          const colorDot = multiAdmin
+            ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col.border};margin-right:5px;flex-shrink:0"></span>`
+            : '';
+          const apptTimeEndHtml = ev.timeEnd ? `<span class="appt-time-end">&#8594; ${ev.timeEnd}</span>` : '';
+          const apptDurHtml = ev.timeEnd ? ` &middot; <span class="appt-duration-badge">${calcDuration(ev.time, ev.timeEnd)}</span>` : '';
           return `<div class="appt-item">
-            <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
+            <div class="appt-time-col"><strong>${ev.time}</strong>${apptTimeEndHtml}<span>${ev.date}</span></div>
             <div class="appt-info">
-              <div class="appt-client">${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privado</span>' : ''}</div>
-              <div class="appt-meta">${safeHtml(ev.service)}</div>
+              <div class="appt-client" style="display:flex;align-items:center">${colorDot}${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privado</span>' : ''}</div>
+              <div class="appt-meta">${safeHtml(ev.service)}${emp && multiAdmin ? ' &middot; <strong>' + safeHtml(emp.name) + '</strong>' : ''}${apptDurHtml}</div>
             </div>
             <div class="action-btns">
               ${canEdit ? `
@@ -4174,11 +4318,10 @@
       }
 
       function openAdminCalEventModal(dateStr) {
-        const adminUser = getAdminUser();
         const isAdmin = currentUser.role === "admin";
 
         document.getElementById("admin-event-modal-title").textContent =
-          isAdmin ? "Nueva cita en tu calendario" : ("Solicitar cita con " + (adminUser ? adminUser.name : "el administrador"));
+          isAdmin ? "Nueva cita en tu calendario" : "Solicitar cita con administrador";
         document.getElementById("admin-event-modal-sub").textContent =
           isAdmin ? "Añade una cita a tu calendario de admin" : "Rellena los datos para solicitar la cita";
 
@@ -4189,8 +4332,30 @@
         document.getElementById("aev-err").style.display = "none";
         document.getElementById("aev-blocked-warning").style.display = "none";
 
+        // NUEVO: si hay múltiples admins, llenar select de admin objetivo
+        fillAdminTargetSelect();
         fillAdminEventServiceSelect();
         openModal("admin-event-modal");
+      }
+
+      /** Llena el select de admin objetivo en el modal de solicitud de cita */
+      function fillAdminTargetSelect() {
+        const grp = document.getElementById("aev-admin-group");
+        const sel = document.getElementById("aev-admin-id");
+        if (!grp || !sel) return;
+        const adminUsers = USERS.filter(u => u.role === 'admin' && u.active);
+        if (adminUsers.length <= 1) {
+          grp.style.display = "none";
+          if (sel) sel.value = adminUsers[0] ? String(adminUsers[0].id) : "";
+          return;
+        }
+        grp.style.display = "";
+        // Si hay un filtro activo, preseleccionar ese admin
+        const filterSel = document.getElementById("admin-view-filter");
+        const filterVal = filterSel ? filterSel.value : "all";
+        sel.innerHTML = adminUsers.map(u =>
+          `<option value="${u.id}"${filterVal !== "all" && String(u.id) === filterVal ? ' selected' : ''}>${safeHtml(u.name)}</option>`
+        ).join('');
       }
 
       function saveAdminCalEvent() {
@@ -4212,34 +4377,35 @@
         // Si existe una cita privada del admin en esa fecha+hora,
         // el empleado NO puede agendar encima. Se muestra aviso.
         // ══════════════════════════════════════════════════
-        const adminUser = getAdminUser();
-        if (!adminUser) {
+        // NUEVO: usar el admin seleccionado si hay campo, si no getAdminUser()
+        const aevAdminSel = document.getElementById("aev-admin-id");
+        let targetAdmin = null;
+        if (aevAdminSel && aevAdminSel.value) {
+          targetAdmin = USERS.find(u => String(u.id) === aevAdminSel.value && u.role === 'admin');
+        }
+        if (!targetAdmin) targetAdmin = getAdminUser();
+        if (!targetAdmin) {
           document.getElementById("aev-err").textContent = "No se encontró el administrador.";
           document.getElementById("aev-err").style.display = "";
           return;
         }
 
-        if (isAdminSlotBlocked(date, time)) {
+        if (isAdminSlotBlocked(date, time, targetAdmin.id)) {
           document.getElementById("aev-blocked-warning").style.display = "";
           return;
         }
 
-        // Validar que no haya ya una cita en ese slot (double booking)
-        if (isAdminSlotOccupied(date, time, null)) {
+        if (isAdminSlotOccupied(date, time, null, targetAdmin.id)) {
           document.getElementById("aev-blocked-warning").style.display = "";
           return;
         }
 
         document.getElementById("aev-blocked-warning").style.display = "none";
 
-        // Guardar la cita en el calendario del admin
-        // - ownerId: el usuario que la crea (empleado o admin)
-        // - assignedTo: siempre el admin (porque se crea en su calendario)
-        // - private: false por defecto (el empleado no puede privatizar)
         EVENTS.push({
           id: nextEventId++,
           ownerId: currentUser.id,
-          assignedTo: adminUser.id,
+          assignedTo: targetAdmin.id,
           date,
           time,
           client,
@@ -4263,7 +4429,9 @@
           const time = aevTime ? aevTime.value : "";
           const warningEl = document.getElementById("aev-blocked-warning");
           if (!warningEl || !date || !time) return;
-          if (isAdminSlotBlocked(date, time) || isAdminSlotOccupied(date, time, null)) {
+          const aevAdminSel2 = document.getElementById("aev-admin-id");
+          const chkAdminId = aevAdminSel2 && aevAdminSel2.value ? parseInt(aevAdminSel2.value) : null;
+          if (isAdminSlotBlocked(date, time, chkAdminId) || isAdminSlotOccupied(date, time, null, chkAdminId)) {
             warningEl.style.display = "";
           } else {
             warningEl.style.display = "none";
@@ -4385,7 +4553,34 @@
         document.getElementById("nu-dept").selectedIndex = 0;
         document.getElementById("nu-err").style.display = "none";
         document.getElementById("nu-dept-group").style.display = "";
+        // NUEVO: renderizar color picker con primer color libre
+        const defaultColor = autoAssignColor(nextUserId);
+        renderColorPicker(defaultColor);
         openModal("user-modal");
+      }
+
+      /** Renderiza el selector visual de colores en el modal de usuario */
+      function renderColorPicker(selectedId) {
+        const container = document.getElementById("nu-color-picker");
+        if (!container) return;
+        container.innerHTML = USER_COLOR_PALETTE.map(c => `
+          <div
+            onclick="selectUserColor('${c.id}')"
+            title="${c.id}"
+            style="
+              width:28px;height:28px;border-radius:50%;
+              background:${c.bg};border:3px solid ${c.id === selectedId ? c.border : 'transparent'};
+              cursor:pointer;transition:border-color 0.15s;
+              box-shadow: ${c.id === selectedId ? '0 0 0 2px ' + c.border + '44' : 'none'};
+              outline: 2px solid ${c.border}55;
+            "
+          ></div>
+        `).join("");
+        document.getElementById("nu-color").value = selectedId;
+      }
+
+      function selectUserColor(colorId) {
+        renderColorPicker(colorId);
       }
 
       document.getElementById("nu-role").addEventListener("change", function() {
@@ -4412,6 +4607,8 @@
           document.getElementById("nu-dept").value = u.departamento || "laboral";
         }
         document.getElementById("nu-err").style.display = "none";
+        // NUEVO: renderizar color picker con el color del usuario
+        renderColorPicker(u.color || "teal");
         openModal("user-modal");
       }
 
@@ -4423,6 +4620,7 @@
         const phone = document.getElementById("nu-phone").value.trim();
         const role = document.getElementById("nu-role").value;
         const dept = role !== "admin" ? document.getElementById("nu-dept").value : null;
+        const color = document.getElementById("nu-color")?.value || "teal";
         const errEl = document.getElementById("nu-err");
 
         if (!name || !uname) {
@@ -4459,6 +4657,7 @@
             u.phone = phone;
             u.role = role;
             u.departamento = role !== "admin" ? dept : null;
+            u.color = color; // NUEVO
             if (pass) u.password = pass;
           }
         } else {
@@ -4472,6 +4671,7 @@
             email,
             phone,
             active: true,
+            color, // NUEVO
           });
         }
         closeModal("user-modal");
