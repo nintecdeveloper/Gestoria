@@ -4207,10 +4207,8 @@
 
         // Filtrar eventos de los admins seleccionados
         let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && shownAdminIds.includes(e.assignedTo));
-        // Empleados solo ven sus propias citas privadas o las públicas
-        if (!isAdmin) {
-          evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
-        }
+        // Empleados ven todas las citas (privadas incluidas) pero las que no son suyas se enmascaran
+        // No se filtra aquí: el enmascaramiento ocurre al renderizar cada evento
 
         const today = todayStr();
         let html = "";
@@ -4222,7 +4220,7 @@
           const dayEvs = evs.filter(e => e.date === ds);
 
           const evHTML = dayEvs.slice(0, 3).map((ev) => {
-            const shouldMask = ev.private && !isAdmin;
+            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
             if (shouldMask) {
               return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
             }
@@ -4264,7 +4262,7 @@
           return;
         }
         listEl.innerHTML = sorted.map(ev => {
-          const shouldMask = ev.private && !isAdmin;
+          const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
           if (shouldMask) {
             return `<div class="appt-item blocked">
               <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
