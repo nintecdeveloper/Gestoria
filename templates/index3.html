@@ -4724,9 +4724,7 @@
         // Limpiar input para poder reseleccionar el mismo archivo
         evt.target.value = "";
         if (errors.length) {
-          alert("Problemas con algunos archivos:
-" + errors.join("
-"));
+          alert("Problemas con algunos archivos:\n" + errors.join("\n"));
         }
       }
 
