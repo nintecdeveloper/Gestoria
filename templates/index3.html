@@ -31,9 +31,6 @@
         margin: 0;
         padding: 0;
       }
-      /* CORRECCIÓN: reservar siempre espacio para la barra de scroll.
-         Sin esto, cuando el contenido crece/encoge, la barra aparece/desaparece
-         y roba ~17px de ancho al viewport, desencadenando el encogimiento del calendario. */
       html {
         overflow-y: scroll;
       }
@@ -248,7 +245,6 @@
       #app {
         display: none;
         min-height: 100vh;
-        /* cuando se activa como flex, ocupa exactamente el viewport */
         width: 100%;
         overflow-x: hidden;
       }
@@ -381,10 +377,6 @@
 
       .main {
         margin-left: var(--sidebar-w);
-        /* CORRECCIÓN DEFINITIVA: ancho fijo = viewport − sidebar.
-           Sin esto, .main (flex-item de #app display:flex) toma su ancho
-           del contenido, creando dependencia circular con las columnas 1fr
-           del calendario y causando el encogimiento progresivo. */
         width: calc(100vw - var(--sidebar-w));
         min-width: 0;
         min-height: 100vh;
@@ -590,7 +582,6 @@
         border: 1px solid var(--border);
         box-shadow: var(--shadow);
         overflow: hidden;
-        /* ancho siempre 100% del bloque padre — nunca shrink */
         width: 100%;
         box-sizing: border-box;
       }
@@ -643,9 +634,6 @@
       }
       .cal-cells {
         display: grid;
-        /* minmax(0,1fr) en lugar de 1fr: las columnas nunca toman
-           su tamaño mínimo del contenido, eliminando la dependencia
-           circular que causaba el encogimiento progresivo */
         grid-template-columns: repeat(7, minmax(0, 1fr));
         grid-template-rows: repeat(6, 88px);
         grid-auto-rows: 88px;
@@ -717,6 +705,21 @@
       .cell-event.red {
         background: #f5d5d5;
         color: var(--danger);
+      }
+
+      /* ══════════════════════════════════════════════════
+         NUEVO: Estilo para citas privatizadas en el calendario
+         (visible para no-admin como bloque bloqueado)
+      ══════════════════════════════════════════════════ */
+      .cell-event.blocked-private {
+        background: #e8e6e0;
+        color: #888;
+        cursor: not-allowed;
+        border-left: 3px solid #aaa;
+        font-style: italic;
+      }
+      .cell-event.blocked-private:hover {
+        opacity: 1;
       }
 
       /* MODAL */
@@ -857,7 +860,7 @@
         align-items: center;
       }
 
-      /* SERVICES - diseno limpio sin emojis */
+      /* SERVICES */
       .srv-list {
         background: var(--surface);
         border-radius: var(--radius);
@@ -1375,6 +1378,38 @@
         border-radius: 2px;
       }
 
+      /* ══════════════════════════════════════════════════
+         NUEVO: Banner informativo para calendario del admin
+      ══════════════════════════════════════════════════ */
+      .admin-cal-banner {
+        background: linear-gradient(135deg, var(--accent-light), #e8f4e8);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 13px;
+        color: var(--accent);
+      }
+      .admin-cal-banner strong {
+        font-weight: 600;
+      }
+
+      /* ══════════════════════════════════════════════════
+         NUEVO: Indicador de horario bloqueado en lista de citas
+      ══════════════════════════════════════════════════ */
+      .appt-item.blocked {
+        background: #f5f4f1;
+        opacity: 0.85;
+        border-left: 3px solid #aaa;
+      }
+      .appt-item.blocked .appt-client {
+        color: var(--text-muted);
+        font-style: italic;
+      }
+
       /* ── MOBILE RESPONSIVE ── */
       .sidebar-toggle {
         display: none;
@@ -1472,11 +1507,178 @@
         #topbar-greeting {
           font-size: 12px;
         }
+
+        /* ══════════════════════════════════════════════════
+           NUEVO: Mejoras responsive adicionales para móvil
+        ══════════════════════════════════════════════════ */
+
+        /* Stats grid: 2 columnas en móvil */
+        .stats-grid {
+          grid-template-columns: repeat(2, 1fr) !important;
+          gap: 10px;
+        }
+        .stat-card {
+          padding: 14px 14px;
+        }
+        .stat-value {
+          font-size: 28px;
+        }
+
+        /* Dashboard: 1 columna en móvil */
+        .dash-grid {
+          grid-template-columns: 1fr !important;
+        }
+
+        /* Calendario: reducir altura de celdas para que quepa en pantalla */
+        .cal-cells {
+          grid-template-rows: repeat(6, 56px) !important;
+          grid-auto-rows: 56px !important;
+          height: auto !important;
+          min-height: unset !important;
+          max-height: unset !important;
+        }
+        .cal-cell {
+          height: 56px !important;
+          min-height: 56px !important;
+          max-height: 56px !important;
+          padding: 4px !important;
+        }
+        .cell-num {
+          font-size: 10px !important;
+          margin-bottom: 1px !important;
+        }
+        .cell-event {
+          font-size: 8px !important;
+          padding: 1px 3px !important;
+        }
+        .cal-grid {
+          padding: 10px 8px !important;
+        }
+        .cal-header {
+          padding: 12px 14px !important;
+        }
+        .cal-title {
+          font-size: 17px !important;
+        }
+        .cal-day-name {
+          font-size: 8px !important;
+          letter-spacing: 0 !important;
+        }
+
+        /* Formulario de cita: 1 columna en móvil */
+        .form-row {
+          grid-template-columns: 1fr !important;
+          gap: 0 !important;
+        }
+
+        /* Modal: ocupa más pantalla en móvil */
+        .modal {
+          padding: 22px 16px !important;
+          width: 96vw !important;
+          max-height: 92vh !important;
+          border-radius: 10px !important;
+        }
+        .modal-actions {
+          flex-direction: column-reverse !important;
+          gap: 8px !important;
+        }
+        .modal-actions .btn {
+          width: 100% !important;
+          justify-content: center !important;
+        }
+
+        /* Lista de citas: apilar en móvil */
+        .appt-item {
+          flex-wrap: wrap !important;
+          gap: 8px !important;
+          padding: 10px 14px !important;
+        }
+        .appt-time-col {
+          min-width: 56px !important;
+        }
+        .action-btns {
+          width: 100% !important;
+          justify-content: flex-end !important;
+          padding-top: 4px !important;
+          border-top: 1px solid var(--bg2) !important;
+        }
+
+        /* Servicios: texto no se corte */
+        .srv-item {
+          flex-wrap: wrap !important;
+          gap: 8px !important;
+        }
+        .srv-desc {
+          white-space: normal !important;
+        }
+
+        /* Encabezado sección: botones apilados */
+        .sec-hdr > div:last-child {
+          width: 100% !important;
+        }
+        .sec-hdr > div:last-child .btn {
+          width: 100% !important;
+          justify-content: center !important;
+        }
+
+        /* Admin calendars: grid 1 columna */
+        #section-admin-calendars .card-body > div[style*="grid"] {
+          grid-template-columns: 1fr 1fr !important;
+        }
+
+        /* Calendario global: selector + botón en columna */
+        #section-global-calendar .sec-hdr > div:last-child {
+          flex-direction: column !important;
+          align-items: stretch !important;
+          gap: 8px !important;
+        }
+        #section-global-calendar .sec-hdr > div:last-child > div {
+          width: 100% !important;
+        }
+        #section-global-calendar .sec-hdr > div:last-child select {
+          width: 100% !important;
+        }
+
+        /* Chat: altura de ventana adaptada */
+        .gchat-wrap,
+        .msg-layout {
+          height: calc(100vh - 130px) !important;
+        }
+
+        /* Burbujas de chat: ancho máximo mayor en móvil */
+        .gchat-bubble,
+        .msg-bubble {
+          max-width: 88% !important;
+        }
+
+        /* Botón de enviar texto solo icono en móvil */
+        .msg-send-btn,
+        .msg-composer .msg-send-btn {
+          padding: 0 14px !important;
+          font-size: 13px !important;
+        }
+
+        /* Banner admin cal */
+        .admin-cal-banner {
+          font-size: 12px !important;
+          padding: 10px 12px !important;
+        }
       }
 
       @media (max-width: 400px) {
         .stats-grid, .kpi-grid {
           grid-template-columns: 1fr !important;
+        }
+        /* Calendario muy pequeño: aún más compacto */
+        .cal-cells {
+          grid-template-rows: repeat(6, 44px) !important;
+          grid-auto-rows: 44px !important;
+        }
+        .cal-cell {
+          height: 44px !important;
+          min-height: 44px !important;
+          max-height: 44px !important;
+          padding: 3px !important;
         }
       }
     </style>
@@ -1541,6 +1743,18 @@
             onclick="showSection('global-calendar')"
           >
             <span class="icon">&#10012;</span> Calendario Global
+          </div>
+          <!-- ══════════════════════════════════════════════════
+               NUEVO: Enlace al Calendario del Admin — visible para TODOS los usuarios
+               (empleados incluidos). No tiene clase admin-only.
+          ══════════════════════════════════════════════════ -->
+          <div
+            class="nav-item"
+            data-sec="admin-view-calendar"
+            id="nav-admin-view-calendar"
+            onclick="showSection('admin-view-calendar')"
+          >
+            <span class="icon">&#9673;</span> Cal. Antonio
           </div>
           <!-- Calendarios de departamento - visibilidad controlada por permisos -->
           <div class="nav-item nav-sub dept-cal-nav" data-dept="laboral" data-sec="cal-laboral" onclick="showSection('cal-laboral')" style="display:none">
@@ -1737,6 +1951,57 @@
             </div>
             <div class="appt-list" id="global-appt-list"></div>
           </div>
+
+          <!-- ══════════════════════════════════════════════════
+               NUEVO: CALENDARIO DEL ADMIN (visible para todos)
+               Sección nueva que NO reemplaza ni modifica ninguna sección existente.
+               Permite a empleados ver el calendario del admin y agendar citas en él.
+          ══════════════════════════════════════════════════ -->
+          <div class="section" id="section-admin-view-calendar">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Calendario de Antonio</h2>
+                <p id="admin-view-cal-sub">Citas del administrador</p>
+              </div>
+              <!-- Botón para crear cita en calendario del admin: visible para todos -->
+              <button
+                class="btn btn-primary btn-sm"
+                id="btn-add-admin-appt"
+                onclick="openAdminCalEventModal(null)"
+              >
+                + Solicitar cita
+              </button>
+            </div>
+            <!-- Banner informativo para empleados -->
+            <div class="admin-cal-banner" id="admin-cal-info-banner" style="display:none">
+              <span style="font-size:18px">📅</span>
+              <div>
+                <strong>Calendario compartido</strong> — Puedes ver las citas de Antonio y solicitar una nueva.
+                Las citas marcadas como <em>🔒 Hora bloqueada</em> no están disponibles.
+              </div>
+            </div>
+            <div class="calendar-wrapper">
+              <div class="cal-header">
+                <button class="cal-nav" onclick="changeAdminViewMonth(-1)">&lsaquo;</button>
+                <div class="cal-title" id="admin-view-cal-title"></div>
+                <button class="cal-nav" onclick="changeAdminViewMonth(1)">&rsaquo;</button>
+              </div>
+              <div class="cal-grid">
+                <div class="cal-days-header">
+                  <div class="cal-day-name">Lun</div>
+                  <div class="cal-day-name">Mar</div>
+                  <div class="cal-day-name">Mié</div>
+                  <div class="cal-day-name">Jue</div>
+                  <div class="cal-day-name">Vie</div>
+                  <div class="cal-day-name">Sáb</div>
+                  <div class="cal-day-name">Dom</div>
+                </div>
+                <div class="cal-cells" id="admin-view-cal-cells"></div>
+              </div>
+            </div>
+            <div class="appt-list" id="admin-view-appt-list"></div>
+          </div>
+          <!-- FIN NUEVO: CALENDARIO DEL ADMIN -->
 
           <!-- CALENDARIO LABORAL -->
           <div class="section" id="section-cal-laboral">
@@ -2185,7 +2450,6 @@
           <label>Teléfono</label
           ><input type="tel" id="nu-phone" placeholder="+34 600 000 000" />
         </div>
-        <!-- Departamento: solo visible para empleados, no para admin -->
         <div class="form-group" id="nu-dept-group">
           <label>Departamento *</label>
           <select id="nu-dept">
@@ -2206,7 +2470,7 @@
       </div>
     </div>
 
-    <!-- MODAL: SERVICIO (crear / editar) - sin campo de icono -->
+    <!-- MODAL: SERVICIO (crear / editar) -->
     <div class="modal-overlay" id="service-modal">
       <div class="modal" style="width: 440px">
         <button class="modal-close" onclick="closeModal('service-modal')">
@@ -2250,6 +2514,51 @@
       </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════
+         NUEVO MODAL: Solicitar/crear cita en calendario del admin
+         Modal independiente para no interferir con #event-modal existente.
+         Incluye validación de horario bloqueado por citas privadas.
+    ══════════════════════════════════════════════════ -->
+    <div class="modal-overlay" id="admin-event-modal">
+      <div class="modal">
+        <button class="modal-close" onclick="closeModal('admin-event-modal')">&times;</button>
+        <div class="modal-title" id="admin-event-modal-title">Solicitar cita con Antonio</div>
+        <div class="modal-sub" id="admin-event-modal-sub">Rellena los datos de la cita solicitada</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Fecha *</label>
+            <input type="date" id="aev-date" />
+          </div>
+          <div class="form-group">
+            <label>Hora *</label>
+            <input type="time" id="aev-time" value="09:00" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Cliente / Motivo *</label>
+          <input type="text" id="aev-client" placeholder="Tu nombre o motivo de la cita" />
+        </div>
+        <div class="form-group">
+          <label>Tipo de servicio</label>
+          <select id="aev-service"></select>
+        </div>
+        <div class="form-group">
+          <label>Notas</label>
+          <textarea id="aev-notes" rows="3" placeholder="Información adicional..."></textarea>
+        </div>
+        <!-- Aviso de horario bloqueado -->
+        <div id="aev-blocked-warning" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:var(--radius);padding:10px 14px;font-size:13px;color:#856404;margin-bottom:12px">
+          ⚠️ <strong>Horario bloqueado:</strong> Ya existe una cita en este horario. Por favor, elige otra hora.
+        </div>
+        <div class="form-err" id="aev-err">Rellena los campos obligatorios (*).</div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal('admin-event-modal')">Cancelar</button>
+          <button class="btn btn-primary" id="aev-save-btn" onclick="saveAdminCalEvent()">Confirmar cita</button>
+        </div>
+      </div>
+    </div>
+    <!-- FIN NUEVO MODAL -->
+
     <script>
       // ══════════════════════════════════════════
       //  DATA
@@ -2290,7 +2599,6 @@
         },
       ];
 
-      // Servicios sin campo icono/emoji
       let SERVICES = [
         {
           id: 1,
@@ -2382,7 +2690,6 @@
         },
       ];
 
-      // Mensajes privados (clave: convKey)
       let CONVS = {};
 
       // ══════════════════════════════════════════
@@ -2391,21 +2698,23 @@
 
       const DEPARTAMENTOS = ['laboral', 'fiscal', 'mercantil'];
 
-      // level: 1 = solo calendario personal
-      //        2 = ver calendario de departamento
-      //        3 = acceso a otros departamentos (ver accessToDepts)
       let DEPT_PERMISSIONS = {
         laboral:   { level: 2, accessToDepts: [] },
         fiscal:    { level: 2, accessToDepts: [] },
         mercantil: { level: 2, accessToDepts: [] },
       };
 
-      // Meses activos para calendarios de departamento
       let deptCalMonth = {
         laboral:   new Date(),
         fiscal:    new Date(),
         mercantil: new Date(),
       };
+
+      // ══════════════════════════════════════════
+      //  NUEVO: Estado para calendario del admin
+      // ══════════════════════════════════════════
+      let adminViewCalMonth = new Date();
+
       (function () {
         function seed(a, b, msgs) {
           const key = [a, b].sort((x, y) => x - y).join("-");
@@ -2433,8 +2742,6 @@
         ]);
       })();
 
-      // Chat General: mensajes compartidos por todos los usuarios
-      // Formato: { id, userId, text, time, date }
       let GENERAL_CHAT = [
         {
           id: 1,
@@ -2469,7 +2776,7 @@
       let editingSrvId = null;
       let pendingIsGlobal = false;
       let currentDetailId = null;
-      let gchatUnreadCount = 0; // mensajes del chat general no leídos por el usuario actual
+      let gchatUnreadCount = 0;
 
       // ══════════════════════════════════════════
       //  UTILS
@@ -2566,6 +2873,49 @@
       }
 
       // ══════════════════════════════════════════
+      //  NUEVO UTIL: Obtener el ID del admin principal
+      //  Retorna el primer usuario con role==='admin' activo.
+      //  Permite que la lógica sea dinámica y no dependa del ID hardcodeado.
+      // ══════════════════════════════════════════
+      function getAdminUser() {
+        return USERS.find(u => u.role === 'admin' && u.active) || null;
+      }
+
+      // ══════════════════════════════════════════
+      //  NUEVO UTIL: Verificar si un horario está bloqueado en el calendario del admin
+      //  Un horario está bloqueado si hay una cita privada del admin en esa fecha+hora
+      //  que no sea del propio usuario que intenta agendar.
+      //  Esto aplica la regla: las citas privadas bloquean el horario para otros.
+      // ══════════════════════════════════════════
+      function isAdminSlotBlocked(date, time) {
+        const adminUser = getAdminUser();
+        if (!adminUser) return false;
+        // Buscar citas del admin en esa fecha+hora que sean privadas
+        return EVENTS.some(ev =>
+          ev.assignedTo === adminUser.id &&
+          ev.date === date &&
+          ev.time === time &&
+          ev.private === true &&
+          ev.assignedTo !== currentUser.id // no se bloquea a sí mismo
+        );
+      }
+
+      // ══════════════════════════════════════════
+      //  NUEVO UTIL: Verificar si ya existe cualquier cita del admin en ese horario
+      //  (para evitar doble booking en el calendario del admin)
+      // ══════════════════════════════════════════
+      function isAdminSlotOccupied(date, time, excludeEvId) {
+        const adminUser = getAdminUser();
+        if (!adminUser) return false;
+        return EVENTS.some(ev =>
+          ev.assignedTo === adminUser.id &&
+          ev.date === date &&
+          ev.time === time &&
+          ev.id !== excludeEvId
+        );
+      }
+
+      // ══════════════════════════════════════════
       //  AUTH
       // ══════════════════════════════════════════
 
@@ -2595,7 +2945,6 @@
         document.getElementById("login-screen").style.display = "flex";
         document.getElementById("login-user").value = "";
         document.getElementById("login-pass").value = "";
-        // Close sidebar on logout (mobile)
         document.querySelector(".sidebar").classList.remove("open");
         document.getElementById("sidebar-overlay").classList.remove("active");
       }
@@ -2636,15 +2985,30 @@
         document
           .querySelectorAll(".admin-only")
           .forEach((el) => (el.style.display = isAdmin ? "" : "none"));
-        // Calcular no leídos del chat general: mensajes de otros usuarios desde última visita (todos por defecto)
-        gchatUnreadCount = GENERAL_CHAT.filter(
-          (m) => m.userId !== currentUser.id,
-        ).length;
-        // Poner a 0 si ya es la primera visita — mostramos notificación solo de mensajes nuevos en sesión
         gchatUnreadCount = 0;
         updateBadge();
-        // Mostrar/ocultar calendarios de departamento según permisos del usuario actual
         updateDeptCalNav();
+
+        // ══════════════════════════════════════════
+        //  NUEVO: Ocultar nav del calendario del admin para el propio admin
+        //  (el admin ya tiene acceso a todas sus citas desde "Mi Calendario")
+        //  y personalizar el nombre del nav con el nombre del admin real.
+        // ══════════════════════════════════════════
+        const adminUser = getAdminUser();
+        const navAdminView = document.getElementById("nav-admin-view-calendar");
+        if (navAdminView) {
+          if (isAdmin) {
+            // El admin no necesita ver "Cal. Antonio" porque ya tiene su propio calendario
+            navAdminView.style.display = "none";
+          } else {
+            navAdminView.style.display = "";
+            // Actualizar el nombre del nav con el nombre real del admin
+            if (adminUser) {
+              navAdminView.innerHTML = `<span class="icon">&#9673;</span> Cal. ${adminUser.name.split(' ')[0]}`;
+            }
+          }
+        }
+
         showSection("dashboard");
       }
 
@@ -2656,6 +3020,8 @@
         dashboard: "Inicio",
         "my-calendar": "Mi Calendario",
         "global-calendar": "Calendario Global",
+        // NUEVO: título para la sección del calendario del admin
+        "admin-view-calendar": "Calendario de Antonio",
         "cal-laboral": "Calendario Laboral",
         "cal-fiscal": "Calendario Fiscal",
         "cal-mercantil": "Calendario Mercantil",
@@ -2667,7 +3033,6 @@
       };
 
       function showSection(name) {
-        // Close sidebar on mobile after selecting a section
         if (window.innerWidth <= 768) {
           document.querySelector(".sidebar").classList.remove("open");
           document.getElementById("sidebar-overlay").classList.remove("active");
@@ -2682,11 +3047,20 @@
         if (el) el.classList.add("active");
         const ni = document.querySelector('.nav-item[data-sec="' + name + '"]');
         if (ni) ni.classList.add("active");
-        document.getElementById("topbar-title").textContent =
-          SEC_TITLES[name] || name;
+
+        // Actualizar título del topbar con el nombre real del admin si aplica
+        let titleText = SEC_TITLES[name] || name;
+        if (name === "admin-view-calendar") {
+          const adminUser = getAdminUser();
+          if (adminUser) titleText = "Calendario de " + adminUser.name.split(' ')[0];
+        }
+        document.getElementById("topbar-title").textContent = titleText;
+
         if (name === "dashboard") renderDashboard();
         if (name === "my-calendar") renderCalendar("my");
         if (name === "global-calendar") { populateGlobalFilter(); renderCalendar("global"); }
+        // NUEVO: renderizar calendario del admin
+        if (name === "admin-view-calendar") renderAdminViewCalendar();
         if (name === "cal-laboral") renderDeptCalendar("laboral");
         if (name === "cal-fiscal") renderDeptCalendar("fiscal");
         if (name === "cal-mercantil") renderDeptCalendar("mercantil");
@@ -2704,7 +3078,6 @@
       function renderDashboard() {
         const isAdmin = currentUser.role === "admin";
         const today = todayStr();
-        // El dashboard muestra siempre las citas del usuario actual (admin y empleado igual)
         const myEvs = EVENTS.filter((e) => e.assignedTo === currentUser.id);
         const todayEvs = myEvs.filter((e) => e.date === today);
 
@@ -2834,7 +3207,6 @@
         const date = isMy ? myCalMonth : globalCalMonth;
         const isAdmin = currentUser.role === "admin";
 
-        // ✅ ARREGLO: Validar que date es un objeto Date válido
         if (!(date instanceof Date) || isNaN(date.getTime())) {
           console.error("Invalid calendar date:", date);
           return;
@@ -2854,19 +3226,14 @@
         let evs = EVENTS.filter((e) => e.date.startsWith(monthStr));
 
         if (isMy) {
-          // "Mi Calendario": SIEMPRE solo las citas asignadas al usuario actual (admin incluido)
           evs = evs.filter((e) => e.assignedTo === currentUser.id);
         } else {
-          // "Calendario Global": todas las citas visibles
-          // - Empleados: las suyas + las no privadas de otros
-          // - Admin: ve absolutamente todo
           if (!isAdmin) {
             evs = evs.filter((e) => {
               if (!e.private) return true;
               return e.assignedTo === currentUser.id;
             });
           }
-          // Filtro de persona del calendario global
           const filterSel = document.getElementById("global-filter-person");
           if (filterSel && filterSel.value && filterSel.value !== "all") {
             const filterId = parseInt(filterSel.value);
@@ -2878,43 +3245,50 @@
         const colors = ["", "amber", "red"];
         let html = "";
 
-        // ✅ ARREGLO: Limpiar completamente antes de renderizar
         const calCellsEl = document.getElementById(
           isMy ? "my-cal-cells" : "global-cal-cells",
         );
-        if (!calCellsEl) return; // Validar que existe el elemento
+        if (!calCellsEl) return;
 
-        // Agregar celdas vacías al inicio (para alineación con el día de la semana)
         for (let i = 0; i < dow; i++)
           html += '<div class="cal-cell empty"></div>';
 
-        // Agregar celdas para cada día del mes
         for (let day = 1; day <= daysInMonth; day++) {
           const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const isToday = ds === today;
           const dayEvs = evs.filter((e) => e.date === ds);
+
+          // ══════════════════════════════════════════════════
+          // MODIFICADO (extensión): Renderizar eventos con privatización real
+          // Si el evento es privado Y el usuario no es admin Y no es el assignedTo,
+          // se muestra "🔒 Hora bloqueada" en lugar del título real.
+          // El click en ese evento queda bloqueado (no abre detalle).
+          // La lógica original de colores y formatos se mantiene intacta.
+          // ══════════════════════════════════════════════════
           const evHTML = dayEvs
             .slice(0, 3)
-            .map(
-              (ev, i) =>
-                `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${ev.time} ${safeHtml(ev.client)}</div>`,
-            )
+            .map((ev, i) => {
+              const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+              if (shouldMask) {
+                // Mostrar bloque de horario ocupado sin revelar detalles
+                return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
+              }
+              return `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${ev.time} ${safeHtml(ev.client)}</div>`;
+            })
             .join("");
+
           html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'${which}')">
       <div class="cell-num">${day}</div>${evHTML}
       ${dayEvs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length - 3} más</div>` : ""}
     </div>`;
         }
 
-        // ✅ DEFINITIVO: Siempre exactamente 42 celdas (6 filas × 7 cols). Nunca cambia de tamaño.
         const totalCells = dow + daysInMonth;
         for (let i = totalCells; i < 42; i++)
           html += '<div class="cal-cell empty"></div>';
 
-        // ✅ ARREGLO: Asignar HTML de forma segura
         calCellsEl.innerHTML = html;
 
-        // Renderizar lista de citas del mes
         renderApptList(
           which,
           evs.filter((e) => e.date.startsWith(monthStr)),
@@ -2926,7 +3300,6 @@
         const el = document.getElementById(listId);
         if (!el) return;
         const isAdmin = currentUser.role === "admin";
-        // The evs passed in are already filtered by renderCalendar, no need to re-filter privacy here
         const visibleEvs = evs;
         const sorted = visibleEvs
           .slice()
@@ -2943,15 +3316,29 @@
         el.innerHTML = sorted
           .map((ev) => {
             const emp = USERS.find((u) => u.id === ev.assignedTo);
-            // Admin puede editar cualquier cita; empleado solo las suyas
             const canEdit =
               isAdmin ||
               ev.assignedTo === currentUser.id ||
               ev.ownerId === currentUser.id;
-            // Botón de privatizar/hacer pública: solo admin
             const privBtn = isAdmin
               ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>`
               : '';
+
+            // ══════════════════════════════════════════════════
+            // MODIFICADO (extensión): En la lista de citas, si la cita es privada
+            // y el usuario no es admin ni el assignedTo, mostrar fila bloqueada.
+            // ══════════════════════════════════════════════════
+            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+            if (shouldMask) {
+              return `<div class="appt-item blocked">
+        <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
+        <div class="appt-info">
+          <div class="appt-client">🔒 Tarea privatizada</div>
+          <div class="appt-meta">Horario no disponible</div>
+        </div>
+      </div>`;
+            }
+
             return `<div class="appt-item">
       <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
       <div class="appt-info">
@@ -2972,6 +3359,11 @@
 
       function calCellClick(ds, e, which) {
         if (e.target.classList.contains("cell-event")) return;
+        // NUEVO: si el click viene del calendario del admin, abrir modal correcto
+        if (which === 'admin-view') {
+          openAdminCalEventModal(ds);
+          return;
+        }
         openEventModal(which === "global", ds);
       }
 
@@ -2979,9 +3371,21 @@
         if (e) e.stopPropagation();
         const ev = EVENTS.find((x) => x.id === evId);
         if (!ev) return;
+
+        // ══════════════════════════════════════════════════
+        // NUEVO (extensión): Bloquear acceso al detalle de citas privadas
+        // para usuarios que no son admin ni el assignedTo.
+        // Esto evita que haciendo click directo en la URL o forzando la llamada
+        // se puedan ver los detalles de una cita privatizada.
+        // ══════════════════════════════════════════════════
+        const isAdmin = currentUser.role === "admin";
+        if (ev.private && !isAdmin && ev.assignedTo !== currentUser.id) {
+          // No mostrar detalle: horario bloqueado
+          return;
+        }
+
         currentDetailId = evId;
         const emp = USERS.find((u) => u.id === ev.assignedTo);
-        const isAdmin = currentUser.role === "admin";
         const canEdit =
           isAdmin ||
           ev.ownerId === currentUser.id ||
@@ -2998,7 +3402,6 @@
   </div>`;
         document.getElementById("det-del-btn").style.display = canEdit ? "" : "none";
         document.getElementById("det-edit-btn").style.display = canEdit ? "" : "none";
-        // Botón de privatizar: visible solo para admin
         const privBtn = document.getElementById("det-privacy-btn");
         if (privBtn) {
           privBtn.style.display = isAdmin ? "" : "none";
@@ -3036,7 +3439,6 @@
         renderDashboard();
       }
 
-      // Cambia la privacidad de una cita desde la lista (botón 🔒/🔓)
       function toggleEventPrivacy(evId, e) {
         if (e) e.stopPropagation();
         if (currentUser.role !== "admin") return;
@@ -3047,13 +3449,11 @@
         renderDashboard();
       }
 
-      // Cambia la privacidad de la cita abierta en el modal de detalle
       function toggleCurrentEventPrivacy() {
         if (currentUser.role !== "admin" || currentDetailId === null) return;
         const ev = EVENTS.find((x) => x.id === currentDetailId);
         if (!ev) return;
         ev.private = !ev.private;
-        // Actualiza el modal sin cerrarlo
         const privBtn = document.getElementById("det-privacy-btn");
         if (privBtn) privBtn.textContent = ev.private ? "🔓 Hacer pública" : "🔒 Privatizar";
         const badge = document.querySelector("#detail-body .private-badge");
@@ -3068,7 +3468,7 @@
       }
 
       // ══════════════════════════════════════════
-      //  MODAL EVENTO
+      //  MODAL EVENTO (original — sin modificar)
       // ══════════════════════════════════════════
 
       function fillServiceSelect() {
@@ -3082,7 +3482,6 @@
       function fillEmployeeSelect(selectedId) {
         const grp = document.getElementById("ev-employee-group");
         const isAdmin = currentUser.role === "admin";
-        // Mostrar selector de empleado solo si es admin Y es calendario global
         grp.style.display = (isAdmin && pendingIsGlobal) ? "" : "none";
         if (isAdmin) {
           document.getElementById("ev-employee").innerHTML = USERS.filter(
@@ -3153,7 +3552,6 @@
         }
         document.getElementById("ev-err").style.display = "none";
         const isAdmin = currentUser.role === "admin";
-        // Si se crea desde "mi calendario" (!pendingIsGlobal), el admin se asigna a sí mismo
         const assignedTo = (isAdmin && pendingIsGlobal)
           ? parseInt(document.getElementById("ev-employee").value)
           : currentUser.id;
@@ -3202,8 +3600,11 @@
         try {
           const myCalSection = document.getElementById("section-my-calendar");
           const globalCalSection = document.getElementById("section-global-calendar");
+          // NUEVO: también refrescar la sección del calendario del admin
+          const adminViewSection = document.getElementById("section-admin-view-calendar");
           if (myCalSection && myCalSection.classList.contains("active")) renderCalendar("my");
           if (globalCalSection && globalCalSection.classList.contains("active")) renderCalendar("global");
+          if (adminViewSection && adminViewSection.classList.contains("active")) renderAdminViewCalendar();
           DEPARTAMENTOS.forEach(dept => {
             const sec = document.getElementById("section-cal-" + dept);
             if (sec && sec.classList.contains("active")) renderDeptCalendar(dept);
@@ -3214,10 +3615,9 @@
       }
 
       // ══════════════════════════════════════════
-      //  CALENDARIOS DE DEPARTAMENTO
+      //  CALENDARIOS DE DEPARTAMENTO (sin cambios)
       // ══════════════════════════════════════════
 
-      // Determina si el usuario actual tiene acceso a un calendario de departamento
       function canAccessDeptCalendar(dept) {
         const isAdmin = currentUser.role === "admin";
         if (isAdmin) return true;
@@ -3225,7 +3625,7 @@
         if (!userDept) return false;
         const perm = DEPT_PERMISSIONS[userDept];
         if (!perm) return false;
-        if (perm.level === 1) return false; // solo personal
+        if (perm.level === 1) return false;
         if (perm.level === 2) return dept === userDept;
         if (perm.level === 3) return dept === userDept || perm.accessToDepts.includes(dept);
         return false;
@@ -3233,7 +3633,6 @@
 
       function renderDeptCalendar(dept) {
         if (!canAccessDeptCalendar(dept)) {
-          // No debería llegar aquí, pero como seguridad redirigimos
           showSection('my-calendar');
           return;
         }
@@ -3249,13 +3648,10 @@
         dow = dow === 0 ? 6 : dow - 1;
         const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
 
-        // Obtener usuarios del departamento
         const deptUsers = USERS.filter(u => u.departamento === dept && u.active);
         const deptUserIds = deptUsers.map(u => u.id);
 
-        // Admin también puede ver desde aquí
         let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && deptUserIds.includes(e.assignedTo));
-        // Filtrar privadas: empleados no ven privadas de otros
         if (currentUser.role !== "admin") {
           evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
         }
@@ -3269,6 +3665,10 @@
           const isToday = ds === today;
           const dayEvs = evs.filter(e => e.date === ds);
           const evHTML = dayEvs.slice(0, 3).map((ev, i) => {
+            const shouldMask = ev.private && currentUser.role !== 'admin' && ev.assignedTo !== currentUser.id;
+            if (shouldMask) {
+              return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
+            }
             const emp = USERS.find(u => u.id === ev.assignedTo);
             return `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${ev.time} ${safeHtml(ev.client)}</div>`;
           }).join("");
@@ -3281,7 +3681,6 @@
         for (let i = totalCells; i < 42; i++) html += '<div class="cal-cell empty"></div>';
         cellsEl.innerHTML = html;
 
-        // Render list
         const listEl = document.getElementById("dept-" + dept + "-appt-list");
         if (!listEl) return;
         const sorted = evs.slice().sort((a, b) => a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date));
@@ -3291,6 +3690,16 @@
         }
         const isAdmin = currentUser.role === "admin";
         listEl.innerHTML = sorted.map(ev => {
+          const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+          if (shouldMask) {
+            return `<div class="appt-item blocked">
+              <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
+              <div class="appt-info">
+                <div class="appt-client">🔒 Tarea privatizada</div>
+                <div class="appt-meta">Horario no disponible</div>
+              </div>
+            </div>`;
+          }
           const emp = USERS.find(u => u.id === ev.assignedTo);
           const canEdit = isAdmin || ev.assignedTo === currentUser.id || ev.ownerId === currentUser.id;
           const privBtn = isAdmin ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>` : '';
@@ -3308,7 +3717,249 @@
       }
 
       // ══════════════════════════════════════════
-      //  PANEL DE PERMISOS (solo admin)
+      //  NUEVO: CALENDARIO DEL ADMIN (para empleados)
+      //  Renderiza las citas del admin:
+      //  - Admin: ve todo con detalles completos
+      //  - Empleado: ve citas no privadas con detalle, citas privadas como "Hora bloqueada"
+      //  - Empleado puede crear citas en este calendario
+      //  - Validación de horario ocupado antes de guardar
+      // ══════════════════════════════════════════
+
+      function changeAdminViewMonth(dir) {
+        adminViewCalMonth = new Date(adminViewCalMonth.getFullYear(), adminViewCalMonth.getMonth() + dir, 1);
+        renderAdminViewCalendar();
+      }
+
+      function renderAdminViewCalendar() {
+        const adminUser = getAdminUser();
+        const isAdmin = currentUser.role === "admin";
+        const date = adminViewCalMonth;
+
+        // Actualizar subtítulo y banner informativo
+        const subEl = document.getElementById("admin-view-cal-sub");
+        const bannerEl = document.getElementById("admin-cal-info-banner");
+        const btnAdd = document.getElementById("btn-add-admin-appt");
+
+        if (adminUser) {
+          if (subEl) subEl.textContent = "Citas de " + adminUser.name;
+          // Mostrar banner informativo solo para empleados
+          if (bannerEl) bannerEl.style.display = isAdmin ? "none" : "flex";
+          // El admin puede crear citas desde su propio calendario
+          if (btnAdd) btnAdd.textContent = isAdmin ? "+ Nueva cita" : "+ Solicitar cita";
+        }
+
+        const titleEl = document.getElementById("admin-view-cal-title");
+        const cellsEl = document.getElementById("admin-view-cal-cells");
+        if (!titleEl || !cellsEl) return;
+
+        titleEl.textContent = mthName(date);
+
+        const year = date.getFullYear(), month = date.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        let dow = new Date(year, month, 1).getDay();
+        dow = dow === 0 ? 6 : dow - 1;
+        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+
+        // Filtrar solo citas del admin
+        let evs = adminUser
+          ? EVENTS.filter(e => e.date.startsWith(monthStr) && e.assignedTo === adminUser.id)
+          : [];
+
+        const today = todayStr();
+        const colors = ["", "amber", "red"];
+        let html = "";
+
+        for (let i = 0; i < dow; i++) html += '<div class="cal-cell empty"></div>';
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const isToday = ds === today;
+          const dayEvs = evs.filter(e => e.date === ds);
+
+          const evHTML = dayEvs.slice(0, 3).map((ev, i) => {
+            // Privatización: si el evento es privado y el usuario no es admin
+            const shouldMask = ev.private && !isAdmin;
+            if (shouldMask) {
+              return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
+            }
+            return `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${ev.time} ${safeHtml(ev.client)}</div>`;
+          }).join("");
+
+          html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'admin-view')">
+            <div class="cell-num">${day}</div>${evHTML}
+            ${dayEvs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length - 3} más</div>` : ""}
+          </div>`;
+        }
+
+        const totalCells = dow + daysInMonth;
+        for (let i = totalCells; i < 42; i++) html += '<div class="cal-cell empty"></div>';
+        cellsEl.innerHTML = html;
+
+        // Renderizar lista de citas del mes del admin
+        renderAdminViewApptList(evs);
+      }
+
+      function renderAdminViewApptList(evs) {
+        const listEl = document.getElementById("admin-view-appt-list");
+        if (!listEl) return;
+        const isAdmin = currentUser.role === "admin";
+        const sorted = evs.slice().sort((a, b) =>
+          a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date)
+        );
+        if (!sorted.length) {
+          listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hay citas este mes</div>';
+          return;
+        }
+        listEl.innerHTML = sorted.map(ev => {
+          const shouldMask = ev.private && !isAdmin;
+          if (shouldMask) {
+            // Mostrar como bloqueado pero con la hora visible (para que no se pueda agendar encima)
+            return `<div class="appt-item blocked">
+              <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
+              <div class="appt-info">
+                <div class="appt-client">🔒 Tarea privatizada</div>
+                <div class="appt-meta">Horario no disponible</div>
+              </div>
+            </div>`;
+          }
+          const canEdit = isAdmin || ev.ownerId === currentUser.id || ev.assignedTo === currentUser.id;
+          const privBtn = isAdmin
+            ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>`
+            : '';
+          const emp = USERS.find(u => u.id === ev.assignedTo);
+          return `<div class="appt-item">
+            <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
+            <div class="appt-info">
+              <div class="appt-client">${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privado</span>' : ''}</div>
+              <div class="appt-meta">${safeHtml(ev.service)}</div>
+            </div>
+            <div class="action-btns">
+              ${canEdit ? `
+                ${privBtn}
+                <button class="btn-icon" onclick="editEventFromList(${ev.id},event)">Editar</button>
+                <button class="btn-icon red" onclick="deleteEventFromList(${ev.id},event)">Eliminar</button>
+              ` : ''}
+            </div>
+          </div>`;
+        }).join("");
+      }
+
+      // ══════════════════════════════════════════
+      //  NUEVO: MODAL DE CITA EN CALENDARIO DEL ADMIN
+      //  Función independiente que no modifica openEventModal() existente.
+      //  Incluye validación de horario ocupado/bloqueado.
+      // ══════════════════════════════════════════
+
+      function fillAdminEventServiceSelect() {
+        const sel = document.getElementById("aev-service");
+        if (!sel) return;
+        sel.innerHTML = SERVICES.map(s =>
+          `<option value="${safeHtml(s.name)}">${safeHtml(s.name)}</option>`
+        ).join("");
+      }
+
+      function openAdminCalEventModal(dateStr) {
+        const adminUser = getAdminUser();
+        const isAdmin = currentUser.role === "admin";
+
+        document.getElementById("admin-event-modal-title").textContent =
+          isAdmin ? "Nueva cita en tu calendario" : ("Solicitar cita con " + (adminUser ? adminUser.name : "el administrador"));
+        document.getElementById("admin-event-modal-sub").textContent =
+          isAdmin ? "Añade una cita a tu calendario de admin" : "Rellena los datos para solicitar la cita";
+
+        document.getElementById("aev-date").value = dateStr || todayStr();
+        document.getElementById("aev-time").value = "09:00";
+        document.getElementById("aev-client").value = isAdmin ? "" : currentUser.name;
+        document.getElementById("aev-notes").value = "";
+        document.getElementById("aev-err").style.display = "none";
+        document.getElementById("aev-blocked-warning").style.display = "none";
+
+        fillAdminEventServiceSelect();
+        openModal("admin-event-modal");
+      }
+
+      function saveAdminCalEvent() {
+        const date = document.getElementById("aev-date").value;
+        const time = document.getElementById("aev-time").value;
+        const client = document.getElementById("aev-client").value.trim();
+        const service = document.getElementById("aev-service").value;
+        const notes = document.getElementById("aev-notes").value;
+
+        // Validación de campos obligatorios
+        if (!date || !time || !client) {
+          document.getElementById("aev-err").style.display = "";
+          return;
+        }
+        document.getElementById("aev-err").style.display = "none";
+
+        // ══════════════════════════════════════════════════
+        // NUEVO: Validación de horario bloqueado
+        // Si existe una cita privada del admin en esa fecha+hora,
+        // el empleado NO puede agendar encima. Se muestra aviso.
+        // ══════════════════════════════════════════════════
+        const adminUser = getAdminUser();
+        if (!adminUser) {
+          document.getElementById("aev-err").textContent = "No se encontró el administrador.";
+          document.getElementById("aev-err").style.display = "";
+          return;
+        }
+
+        if (isAdminSlotBlocked(date, time)) {
+          document.getElementById("aev-blocked-warning").style.display = "";
+          return;
+        }
+
+        // Validar que no haya ya una cita en ese slot (double booking)
+        if (isAdminSlotOccupied(date, time, null)) {
+          document.getElementById("aev-blocked-warning").style.display = "";
+          return;
+        }
+
+        document.getElementById("aev-blocked-warning").style.display = "none";
+
+        // Guardar la cita en el calendario del admin
+        // - ownerId: el usuario que la crea (empleado o admin)
+        // - assignedTo: siempre el admin (porque se crea en su calendario)
+        // - private: false por defecto (el empleado no puede privatizar)
+        EVENTS.push({
+          id: nextEventId++,
+          ownerId: currentUser.id,
+          assignedTo: adminUser.id,
+          date,
+          time,
+          client,
+          service,
+          notes,
+          private: false,
+        });
+
+        closeModal("admin-event-modal");
+        refreshCals();
+        renderDashboard();
+      }
+
+      // Validación en tiempo real del horario al cambiar fecha/hora en el modal del admin
+      document.addEventListener("DOMContentLoaded", function() {
+        const aevDate = document.getElementById("aev-date");
+        const aevTime = document.getElementById("aev-time");
+        function checkAdminSlot() {
+          if (!currentUser) return;
+          const date = aevDate ? aevDate.value : "";
+          const time = aevTime ? aevTime.value : "";
+          const warningEl = document.getElementById("aev-blocked-warning");
+          if (!warningEl || !date || !time) return;
+          if (isAdminSlotBlocked(date, time) || isAdminSlotOccupied(date, time, null)) {
+            warningEl.style.display = "";
+          } else {
+            warningEl.style.display = "none";
+          }
+        }
+        if (aevDate) aevDate.addEventListener("change", checkAdminSlot);
+        if (aevTime) aevTime.addEventListener("change", checkAdminSlot);
+      });
+
+      // ══════════════════════════════════════════
+      //  PANEL DE PERMISOS (sin cambios)
       // ══════════════════════════════════════════
 
       function renderPermissionsPanel() {
@@ -3317,7 +3968,6 @@
         el.innerHTML = DEPARTAMENTOS.map(dept => {
           const perm = DEPT_PERMISSIONS[dept];
           const deptLabel = dept.charAt(0).toUpperCase() + dept.slice(1);
-          // Checkboxes para acceso a otros departamentos (solo si level=3)
           const otherDepts = DEPARTAMENTOS.filter(d => d !== dept);
           const deptChecks = otherDepts.map(d => {
             const checked = perm.accessToDepts.includes(d) ? "checked" : "";
@@ -3353,12 +4003,9 @@
       function setDeptPermLevel(dept, level) {
         if (currentUser.role !== "admin") return;
         DEPT_PERMISSIONS[dept].level = parseInt(level);
-        // Si bajamos a nivel 1 o 2, limpiar accessToDepts
         if (level < 3) DEPT_PERMISSIONS[dept].accessToDepts = [];
-        // Mostrar/ocultar bloque de acceso a otros depts
         const accessEl = document.getElementById("perm-access-" + dept);
         if (accessEl) accessEl.style.display = level == 3 ? "" : "none";
-        // Re-renderizar nav para que los cambios de permisos sean inmediatos
         updateDeptCalNav();
       }
 
@@ -3373,7 +4020,6 @@
         updateDeptCalNav();
       }
 
-      // Actualiza la visibilidad de los nav items de calendarios de departamento
       function updateDeptCalNav() {
         const isAdmin = currentUser.role === "admin";
         document.querySelectorAll(".dept-cal-nav").forEach(el => {
@@ -3383,7 +4029,7 @@
       }
 
       // ══════════════════════════════════════════
-      //  USUARIOS
+      //  USUARIOS (sin cambios)
       // ══════════════════════════════════════════
 
       function renderUsers() {
@@ -3420,15 +4066,13 @@
         ["nu-name", "nu-user", "nu-pass", "nu-email", "nu-phone"].forEach(
           (id) => (document.getElementById(id).value = ""),
         );
-        document.getElementById("nu-role").selectedIndex = 0; // "empleado"
+        document.getElementById("nu-role").selectedIndex = 0;
         document.getElementById("nu-dept").selectedIndex = 0;
         document.getElementById("nu-err").style.display = "none";
-        // Mostrar departamento (rol por defecto = empleado)
         document.getElementById("nu-dept-group").style.display = "";
         openModal("user-modal");
       }
 
-      // Mostrar/ocultar campo departamento según rol seleccionado
       document.getElementById("nu-role").addEventListener("change", function() {
         document.getElementById("nu-dept-group").style.display = this.value === "admin" ? "none" : "";
       });
@@ -3445,7 +4089,6 @@
         document.getElementById("nu-email").value = u.email || "";
         document.getElementById("nu-phone").value = u.phone || "";
         document.getElementById("nu-role").value = u.role;
-        // Departamento: solo para empleados
         const deptGroup = document.getElementById("nu-dept-group");
         if (u.role === "admin") {
           deptGroup.style.display = "none";
@@ -3520,7 +4163,7 @@
         renderUsers();
         buildMsgList();
         updateGchatHeader();
-        updateDeptCalNav(); // Actualizar nav si hay cambios de departamento
+        updateDeptCalNav();
       }
 
       function toggleUser(id) {
@@ -3534,7 +4177,7 @@
       }
 
       // ══════════════════════════════════════════
-      //  SERVICIOS (sin emojis, diseño limpio)
+      //  SERVICIOS (sin cambios)
       // ══════════════════════════════════════════
 
       function renderServices() {
@@ -3618,7 +4261,7 @@
       }
 
       // ══════════════════════════════════════════
-      //  CHAT GENERAL
+      //  CHAT GENERAL (sin cambios)
       // ══════════════════════════════════════════
 
       function updateGchatHeader() {
@@ -3637,7 +4280,6 @@
       }
 
       function openGeneralChat() {
-        // Marcar no leídos a cero al abrir
         gchatUnreadCount = 0;
         updateBadge();
         updateGchatHeader();
@@ -3666,7 +4308,6 @@
           const isMe = msg.userId === currentUser.id;
           const msgDate = msg.date;
 
-          // Separador de fecha
           if (msgDate !== lastDate) {
             const today = todayStr();
             let label;
@@ -3675,7 +4316,7 @@
             else label = fmtDateShort(msgDate);
             html += `<div class="gchat-day-sep"><span>${label}</span></div>`;
             lastDate = msgDate;
-            lastUserId = null; // Forzar cabecera de autor tras separador
+            lastUserId = null;
           }
 
           const showMeta = lastUserId !== msg.userId;
@@ -3720,7 +4361,7 @@
       }
 
       // ══════════════════════════════════════════
-      //  MENSAJERÍA PRIVADA
+      //  MENSAJERÍA PRIVADA (sin cambios)
       // ══════════════════════════════════════════
 
       function renderMessages() {
@@ -3818,7 +4459,7 @@
       }
 
       // ══════════════════════════════════════════
-      //  MODAL UTILS
+      //  MODAL UTILS (sin cambios)
       // ══════════════════════════════════════════
 
       function openModal(id) {
