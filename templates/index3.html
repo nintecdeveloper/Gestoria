@@ -339,6 +339,7 @@
         display: flex;
         align-items: center;
         gap: 10px;
+        min-height: 70px;
       }
       .s-avatar {
         width: 34px;
@@ -357,6 +358,8 @@
         color: #fff;
         font-size: 13px;
         font-weight: 500;
+        flex: 1;
+        min-width: 0;
       }
       .s-role {
         display: none;
@@ -364,15 +367,17 @@
       .s-logout {
         background: none;
         border: none;
-        color: rgba(255, 255, 255, 0.35);
+        color: rgba(255, 255, 255, 0.5);
         cursor: pointer;
-        font-size: 17px;
-        padding: 3px;
-        transition: color 0.2s;
-        margin-left: auto;
+        font-size: 18px;
+        padding: 6px 8px;
+        transition: all 0.2s;
+        flex-shrink: 0;
+        border-radius: 4px;
       }
       .s-logout:hover {
         color: #fff;
+        background: rgba(255, 255, 255, 0.15);
       }
 
       .main {
@@ -706,11 +711,6 @@
         background: #f5d5d5;
         color: var(--danger);
       }
-
-      /* ══════════════════════════════════════════════════
-         NUEVO: Estilo para citas privatizadas en el calendario
-         (visible para no-admin como bloque bloqueado)
-      ══════════════════════════════════════════════════ */
       .cell-event.blocked-private {
         background: #e8e6e0;
         color: #888;
@@ -720,6 +720,43 @@
       }
       .cell-event.blocked-private:hover {
         opacity: 1;
+      }
+
+      /* CALENDAR FILTERS */
+      .cal-filters {
+        padding: 16px 22px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .filter-group label {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .filter-group select {
+        padding: 6px 10px;
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius);
+        font-family: "DM Sans", sans-serif;
+        font-size: 13px;
+        background: var(--surface);
+        color: var(--text);
+        outline: none;
+        cursor: pointer;
+        transition: border-color 0.2s;
+      }
+      .filter-group select:focus {
+        border-color: var(--accent);
       }
 
       /* MODAL */
@@ -937,6 +974,18 @@
       .appt-item:hover {
         background: var(--bg);
       }
+      .appt-item.blocked {
+        background: #f5f4f1;
+        opacity: 0.85;
+        border-left: 3px solid #aaa;
+      }
+      .appt-item.blocked .appt-client {
+        color: var(--text-muted);
+        font-style: italic;
+      }
+      .appt-item.blocked .appt-admin {
+        color: var(--text-muted);
+      }
       .appt-time-col {
         min-width: 72px;
         font-size: 12px;
@@ -962,6 +1011,13 @@
         color: var(--text-muted);
         margin-top: 2px;
       }
+      .appt-admin {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 3px;
+      }
 
       /* MENSAJERIA PRIVADA */
       .msg-layout {
@@ -982,6 +1038,24 @@
       .msg-sidebar-header {
         padding: 16px 18px;
         border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .msg-sidebar-header .card-title {
+        margin: 0;
+      }
+      .msg-new-btn {
+        background: none;
+        border: none;
+        color: var(--accent);
+        cursor: pointer;
+        font-size: 18px;
+        padding: 4px;
+        transition: transform 0.15s;
+      }
+      .msg-new-btn:hover {
+        transform: scale(1.15);
       }
       .msg-search {
         padding: 10px 18px;
@@ -1019,6 +1093,9 @@
       }
       .msg-conv.active {
         background: var(--accent-light);
+      }
+      .msg-conv.group {
+        background: #f8f8f8;
       }
       .msg-conv-info {
         flex: 1;
@@ -1075,6 +1152,7 @@
         border-radius: 14px;
         font-size: 13px;
         line-height: 1.5;
+        word-break: break-word;
       }
       .msg-bubble-wrap.me .msg-bubble {
         background: var(--accent);
@@ -1085,6 +1163,30 @@
         background: var(--surface);
         border: 1px solid var(--border);
         border-bottom-left-radius: 4px;
+      }
+      .msg-attachment {
+        max-width: 65%;
+        padding: 8px;
+        border-radius: 8px;
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+      .msg-bubble-wrap.me .msg-attachment {
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.3);
+      }
+      .msg-attachment-icon {
+        font-size: 14px;
+      }
+      .msg-attachment-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .msg-time-label {
         font-size: 11px;
@@ -1098,6 +1200,12 @@
         gap: 10px;
         align-items: flex-end;
         background: var(--surface);
+      }
+      .msg-composer-input {
+        display: flex;
+        gap: 8px;
+        flex: 1;
+        align-items: flex-end;
       }
       .msg-composer textarea {
         flex: 1;
@@ -1120,6 +1228,22 @@
         border-color: var(--accent);
         box-shadow: 0 0 0 3px rgba(44, 74, 62, 0.08);
         background: #fff;
+      }
+      .msg-file-input {
+        display: none;
+      }
+      .msg-attach-btn {
+        background: none;
+        border: none;
+        color: var(--accent);
+        cursor: pointer;
+        font-size: 16px;
+        padding: 6px 8px;
+        transition: transform 0.15s;
+        flex-shrink: 0;
+      }
+      .msg-attach-btn:hover {
+        transform: scale(1.15);
       }
       .msg-send-btn {
         background: var(--accent);
@@ -1294,7 +1418,6 @@
       .tag-dept-mercantil { background: #f3e8ff; color: #6b21a8; }
       .tag-dept-none      { background: var(--bg2); color: var(--text-muted); }
 
-      /* DEPT CALENDAR NAV ITEMS (sub-level) */
       .nav-item.nav-sub {
         padding-left: 38px;
         font-size: 12.5px;
@@ -1376,38 +1499,6 @@
       ::-webkit-scrollbar-thumb {
         background: var(--border);
         border-radius: 2px;
-      }
-
-      /* ══════════════════════════════════════════════════
-         NUEVO: Banner informativo para calendario del admin
-      ══════════════════════════════════════════════════ */
-      .admin-cal-banner {
-        background: linear-gradient(135deg, var(--accent-light), #e8f4e8);
-        border: 1px solid var(--accent);
-        border-radius: var(--radius);
-        padding: 14px 18px;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        font-size: 13px;
-        color: var(--accent);
-      }
-      .admin-cal-banner strong {
-        font-weight: 600;
-      }
-
-      /* ══════════════════════════════════════════════════
-         NUEVO: Indicador de horario bloqueado en lista de citas
-      ══════════════════════════════════════════════════ */
-      .appt-item.blocked {
-        background: #f5f4f1;
-        opacity: 0.85;
-        border-left: 3px solid #aaa;
-      }
-      .appt-item.blocked .appt-client {
-        color: var(--text-muted);
-        font-style: italic;
       }
 
       /* ── MOBILE RESPONSIVE ── */
@@ -1508,11 +1599,6 @@
           font-size: 12px;
         }
 
-        /* ══════════════════════════════════════════════════
-           NUEVO: Mejoras responsive adicionales para móvil
-        ══════════════════════════════════════════════════ */
-
-        /* Stats grid: 2 columnas en móvil */
         .stats-grid {
           grid-template-columns: repeat(2, 1fr) !important;
           gap: 10px;
@@ -1524,12 +1610,10 @@
           font-size: 28px;
         }
 
-        /* Dashboard: 1 columna en móvil */
         .dash-grid {
           grid-template-columns: 1fr !important;
         }
 
-        /* Calendario: reducir altura de celdas para que quepa en pantalla */
         .cal-cells {
           grid-template-rows: repeat(6, 56px) !important;
           grid-auto-rows: 56px !important;
@@ -1564,14 +1648,22 @@
           font-size: 8px !important;
           letter-spacing: 0 !important;
         }
+        .cal-filters {
+          flex-direction: column !important;
+          gap: 8px !important;
+        }
+        .filter-group {
+          width: 100% !important;
+        }
+        .filter-group select {
+          width: 100% !important;
+        }
 
-        /* Formulario de cita: 1 columna en móvil */
         .form-row {
           grid-template-columns: 1fr !important;
           gap: 0 !important;
         }
 
-        /* Modal: ocupa más pantalla en móvil */
         .modal {
           padding: 22px 16px !important;
           width: 96vw !important;
@@ -1587,7 +1679,6 @@
           justify-content: center !important;
         }
 
-        /* Lista de citas: apilar en móvil */
         .appt-item {
           flex-wrap: wrap !important;
           gap: 8px !important;
@@ -1603,7 +1694,6 @@
           border-top: 1px solid var(--bg2) !important;
         }
 
-        /* Servicios: texto no se corte */
         .srv-item {
           flex-wrap: wrap !important;
           gap: 8px !important;
@@ -1612,7 +1702,6 @@
           white-space: normal !important;
         }
 
-        /* Encabezado sección: botones apilados */
         .sec-hdr > div:last-child {
           width: 100% !important;
         }
@@ -1621,47 +1710,34 @@
           justify-content: center !important;
         }
 
-        /* Admin calendars: grid 1 columna */
-        #section-admin-calendars .card-body > div[style*="grid"] {
-          grid-template-columns: 1fr 1fr !important;
-        }
-
-        /* Calendario global: selector + botón en columna */
-        #section-global-calendar .sec-hdr > div:last-child {
-          flex-direction: column !important;
-          align-items: stretch !important;
-          gap: 8px !important;
-        }
-        #section-global-calendar .sec-hdr > div:last-child > div {
-          width: 100% !important;
-        }
-        #section-global-calendar .sec-hdr > div:last-child select {
-          width: 100% !important;
-        }
-
-        /* Chat: altura de ventana adaptada */
         .gchat-wrap,
         .msg-layout {
           height: calc(100vh - 130px) !important;
         }
 
-        /* Burbujas de chat: ancho máximo mayor en móvil */
         .gchat-bubble,
-        .msg-bubble {
+        .msg-bubble,
+        .msg-attachment {
           max-width: 88% !important;
         }
 
-        /* Botón de enviar texto solo icono en móvil */
         .msg-send-btn,
         .msg-composer .msg-send-btn {
           padding: 0 14px !important;
           font-size: 13px !important;
         }
 
-        /* Banner admin cal */
-        .admin-cal-banner {
-          font-size: 12px !important;
-          padding: 10px 12px !important;
+        .sidebar-user {
+          padding: 10px 14px !important;
+          min-height: auto !important;
+          flex-wrap: wrap !important;
+        }
+        .s-logout {
+          position: absolute;
+          right: 14px;
+          top: 14px;
+          font-size: 20px !important;
+          padding: 8px 10px !important;
         }
       }
 
@@ -1669,7 +1745,6 @@
         .stats-grid, .kpi-grid {
           grid-template-columns: 1fr !important;
         }
-        /* Calendario muy pequeño: aún más compacto */
         .cal-cells {
           grid-template-rows: repeat(6, 44px) !important;
           grid-auto-rows: 44px !important;
@@ -1723,40 +1798,18 @@
         <div class="sidebar-logo"><span class="rodon-light">RODON</span><span class="verges-dark">VERGÉS</span><br><span class="verges-dark">ASSOCIATS</span> <span style="color: rgba(255,255,255,0.3);font-size: 10px;display:block;font-family:'DM Sans',sans-serif;font-weight:300;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px">Panel de Gestión</span></div>
         <div class="sidebar-nav">
           <div class="nav-section-title">Principal</div>
-          <div
-            class="nav-item"
-            data-sec="dashboard"
-            onclick="showSection('dashboard')"
-          >
+          <div class="nav-item" data-sec="dashboard" onclick="showSection('dashboard')">
             <span class="icon">&#9672;</span> Inicio
           </div>
-          <div
-            class="nav-item"
-            data-sec="my-calendar"
-            onclick="showSection('my-calendar')"
-          >
+          <div class="nav-item" data-sec="my-calendar" onclick="showSection('my-calendar')">
             <span class="icon">&#9638;</span> Mi Calendario
           </div>
-          <div
-            class="nav-item"
-            data-sec="global-calendar"
-            onclick="showSection('global-calendar')"
-          >
-            <span class="icon">&#10012;</span> Calendario Global
+          <div class="nav-item admin-only" data-sec="admin-calendars-global" onclick="showSection('admin-calendars-global')">
+            <span class="icon">&#10012;</span> Calendario Admins
           </div>
-          <!-- ══════════════════════════════════════════════════
-               NUEVO: Enlace al Calendario del Admin — visible para TODOS los usuarios
-               (empleados incluidos). No tiene clase admin-only.
-          ══════════════════════════════════════════════════ -->
-          <div
-            class="nav-item"
-            data-sec="admin-view-calendar"
-            id="nav-admin-view-calendar"
-            onclick="showSection('admin-view-calendar')"
-          >
-            <span class="icon">&#9673;</span> Cal. Antonio
+          <div class="nav-item" data-sec="global-calendar" onclick="showSection('global-calendar')">
+            <span class="icon">&#9673;</span> Calendario Global
           </div>
-          <!-- Calendarios de departamento - visibilidad controlada por permisos -->
           <div class="nav-item nav-sub dept-cal-nav" data-dept="laboral" data-sec="cal-laboral" onclick="showSection('cal-laboral')" style="display:none">
             <span class="icon">📋</span> Cal. Laboral
           </div>
@@ -1767,47 +1820,23 @@
             <span class="icon">📋</span> Cal. Mercantil
           </div>
           <div class="nav-section-title">Empresa</div>
-          <div
-            class="nav-item admin-only"
-            data-sec="users"
-            onclick="showSection('users')"
-          >
+          <div class="nav-item admin-only" data-sec="users" onclick="showSection('users')">
             <span class="icon">&#8857;</span> Usuarios
           </div>
-          <div
-            class="nav-item admin-only"
-            data-sec="admin-calendars"
-            onclick="showSection('admin-calendars')"
-          >
-            <span class="icon">&#9632;</span> Calendarios
+          <div class="nav-item admin-only" data-sec="admin-manage" onclick="showSection('admin-manage')">
+            <span class="icon">&#9632;</span> Administración
           </div>
-          <div
-            class="nav-item"
-            data-sec="services"
-            onclick="showSection('services')"
-          >
+          <div class="nav-item" data-sec="services" onclick="showSection('services')">
             <span class="icon">&#9671;</span> Servicios
           </div>
           <div class="nav-section-title">Comunicación</div>
-          <div
-            class="nav-item"
-            data-sec="general-chat"
-            onclick="showSection('general-chat')"
-          >
+          <div class="nav-item" data-sec="general-chat" onclick="showSection('general-chat')">
             <span class="icon">&#9635;</span> Chat General
-            <span class="nav-badge" id="gchat-badge" style="display: none"
-              >0</span
-            >
+            <span class="nav-badge" id="gchat-badge" style="display: none">0</span>
           </div>
-          <div
-            class="nav-item"
-            data-sec="messages"
-            onclick="showSection('messages')"
-          >
+          <div class="nav-item" data-sec="messages" onclick="showSection('messages')">
             <span class="icon">&#10003;</span> Mensajería
-            <span class="nav-badge" id="msg-badge" style="display: none"
-              >0</span
-            >
+            <span class="nav-badge" id="msg-badge" style="display: none">0</span>
           </div>
         </div>
         <div class="sidebar-user">
@@ -1816,9 +1845,7 @@
             <div class="s-name" id="sidebar-name">—</div>
             <div class="s-role" id="sidebar-role">—</div>
           </div>
-          <button class="s-logout" onclick="doLogout()" title="Cerrar sesión">
-            &#9211;
-          </button>
+          <button class="s-logout" onclick="doLogout()" title="Cerrar sesión">⎚</button>
         </div>
       </nav>
 
@@ -1826,10 +1853,7 @@
         <header class="topbar">
           <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Menú">&#9776;</button>
           <div class="topbar-title" id="topbar-title">Inicio</div>
-          <div
-            style="font-size: 12px; color: var(--text-muted)"
-            id="topbar-date"
-          ></div>
+          <div style="font-size: 12px; color: var(--text-muted)" id="topbar-date"></div>
           <div id="topbar-greeting" style="font-size:13px;color:var(--accent);font-weight:500;white-space:nowrap;display:none;"></div>
         </header>
         <div class="content">
@@ -1846,10 +1870,7 @@
               <div class="card">
                 <div class="card-hdr">
                   <div class="card-title">Próximas citas</div>
-                  <button
-                    class="btn btn-sm btn-outline"
-                    onclick="showSection('my-calendar')"
-                  >
+                  <button class="btn btn-sm btn-outline" onclick="showSection('my-calendar')">
                     Ver calendario
                   </button>
                 </div>
@@ -1871,22 +1892,15 @@
                 <h2>Mi Calendario</h2>
                 <p>Tus citas personales</p>
               </div>
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="openEventModal(false, null)"
-              >
+              <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">
                 + Nueva cita
               </button>
             </div>
             <div class="calendar-wrapper">
               <div class="cal-header">
-                <button class="cal-nav" onclick="changeMonth(-1, 'my')">
-                  &lsaquo;
-                </button>
+                <button class="cal-nav" onclick="changeMonth(-1, 'my')">&lsaquo;</button>
                 <div class="cal-title" id="my-cal-title"></div>
-                <button class="cal-nav" onclick="changeMonth(1, 'my')">
-                  &rsaquo;
-                </button>
+                <button class="cal-nav" onclick="changeMonth(1, 'my')">&rsaquo;</button>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
@@ -1904,6 +1918,56 @@
             <div class="appt-list" id="my-appt-list"></div>
           </div>
 
+          <!-- CALENDARIO GLOBAL DE ADMINS (NUEVO) -->
+          <div class="section" id="section-admin-calendars-global">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Calendario de Administradores</h2>
+                <p>Todas las citas de los administradores</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openEventModal(true, null)">
+                + Agendar cita
+              </button>
+            </div>
+            <div class="calendar-wrapper">
+              <div class="cal-filters">
+                <div class="filter-group">
+                  <label>Filtrar por:</label>
+                  <select id="admin-filter-person" onchange="renderAdminCalendar()">
+                    <option value="all">Todos los admins</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <label>Departamento:</label>
+                  <select id="admin-filter-dept" onchange="renderAdminCalendar()">
+                    <option value="all">Todos</option>
+                    <option value="laboral">Laboral</option>
+                    <option value="fiscal">Fiscal</option>
+                    <option value="mercantil">Mercantil</option>
+                  </select>
+                </div>
+              </div>
+              <div class="cal-header">
+                <button class="cal-nav" onclick="changeAdminMonth(-1)">&lsaquo;</button>
+                <div class="cal-title" id="admin-cal-title"></div>
+                <button class="cal-nav" onclick="changeAdminMonth(1)">&rsaquo;</button>
+              </div>
+              <div class="cal-grid">
+                <div class="cal-days-header">
+                  <div class="cal-day-name">Lun</div>
+                  <div class="cal-day-name">Mar</div>
+                  <div class="cal-day-name">Mié</div>
+                  <div class="cal-day-name">Jue</div>
+                  <div class="cal-day-name">Vie</div>
+                  <div class="cal-day-name">Sáb</div>
+                  <div class="cal-day-name">Dom</div>
+                </div>
+                <div class="cal-cells" id="admin-cal-cells"></div>
+              </div>
+            </div>
+            <div class="appt-list" id="admin-appt-list"></div>
+          </div>
+
           <!-- CALENDARIO GLOBAL -->
           <div class="section" id="section-global-calendar">
             <div class="sec-hdr">
@@ -1918,23 +1982,16 @@
                     <option value="all">Todos</option>
                   </select>
                 </div>
-                <button
-                  class="btn btn-primary btn-sm"
-                  onclick="openEventModal(true, null)"
-                >
+                <button class="btn btn-primary btn-sm" onclick="openEventModal(true, null)">
                   + Agendar cita
                 </button>
               </div>
             </div>
             <div class="calendar-wrapper">
               <div class="cal-header">
-                <button class="cal-nav" onclick="changeMonth(-1, 'global')">
-                  &lsaquo;
-                </button>
+                <button class="cal-nav" onclick="changeMonth(-1, 'global')">&lsaquo;</button>
                 <div class="cal-title" id="global-cal-title"></div>
-                <button class="cal-nav" onclick="changeMonth(1, 'global')">
-                  &rsaquo;
-                </button>
+                <button class="cal-nav" onclick="changeMonth(1, 'global')">&rsaquo;</button>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
@@ -1952,58 +2009,7 @@
             <div class="appt-list" id="global-appt-list"></div>
           </div>
 
-          <!-- ══════════════════════════════════════════════════
-               NUEVO: CALENDARIO DEL ADMIN (visible para todos)
-               Sección nueva que NO reemplaza ni modifica ninguna sección existente.
-               Permite a empleados ver el calendario del admin y agendar citas en él.
-          ══════════════════════════════════════════════════ -->
-          <div class="section" id="section-admin-view-calendar">
-            <div class="sec-hdr">
-              <div class="sec-hdr-text">
-                <h2>Calendario de Antonio</h2>
-                <p id="admin-view-cal-sub">Citas del administrador</p>
-              </div>
-              <!-- Botón para crear cita en calendario del admin: visible para todos -->
-              <button
-                class="btn btn-primary btn-sm"
-                id="btn-add-admin-appt"
-                onclick="openAdminCalEventModal(null)"
-              >
-                + Solicitar cita
-              </button>
-            </div>
-            <!-- Banner informativo para empleados -->
-            <div class="admin-cal-banner" id="admin-cal-info-banner" style="display:none">
-              <span style="font-size:18px">📅</span>
-              <div>
-                <strong>Calendario compartido</strong> — Puedes ver las citas de Antonio y solicitar una nueva.
-                Las citas marcadas como <em>🔒 Hora bloqueada</em> no están disponibles.
-              </div>
-            </div>
-            <div class="calendar-wrapper">
-              <div class="cal-header">
-                <button class="cal-nav" onclick="changeAdminViewMonth(-1)">&lsaquo;</button>
-                <div class="cal-title" id="admin-view-cal-title"></div>
-                <button class="cal-nav" onclick="changeAdminViewMonth(1)">&rsaquo;</button>
-              </div>
-              <div class="cal-grid">
-                <div class="cal-days-header">
-                  <div class="cal-day-name">Lun</div>
-                  <div class="cal-day-name">Mar</div>
-                  <div class="cal-day-name">Mié</div>
-                  <div class="cal-day-name">Jue</div>
-                  <div class="cal-day-name">Vie</div>
-                  <div class="cal-day-name">Sáb</div>
-                  <div class="cal-day-name">Dom</div>
-                </div>
-                <div class="cal-cells" id="admin-view-cal-cells"></div>
-              </div>
-            </div>
-            <div class="appt-list" id="admin-view-appt-list"></div>
-          </div>
-          <!-- FIN NUEVO: CALENDARIO DEL ADMIN -->
-
-          <!-- CALENDARIO LABORAL -->
+          <!-- CALENDARIOS DE DEPARTAMENTO -->
           <div class="section" id="section-cal-laboral">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
@@ -2029,7 +2035,6 @@
             <div class="appt-list" id="dept-laboral-appt-list"></div>
           </div>
 
-          <!-- CALENDARIO FISCAL -->
           <div class="section" id="section-cal-fiscal">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
@@ -2055,7 +2060,6 @@
             <div class="appt-list" id="dept-fiscal-appt-list"></div>
           </div>
 
-          <!-- CALENDARIO MERCANTIL -->
           <div class="section" id="section-cal-mercantil">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
@@ -2081,57 +2085,36 @@
             <div class="appt-list" id="dept-mercantil-appt-list"></div>
           </div>
 
-          <!-- ADMIN: CALENDARIOS Y PERMISOS -->
-          <div class="section" id="section-admin-calendars">
+          <!-- ADMIN MANAGE -->
+          <div class="section" id="section-admin-manage">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendarios</h2>
-                <p>Acceso a todos los calendarios y configuración de permisos</p>
+                <h2>Administración</h2>
+                <p>Gestión de usuarios y permisos</p>
               </div>
             </div>
-
-            <!-- Accesos rápidos a calendarios -->
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:28px">
-              <div class="card" style="cursor:pointer" onclick="showSection('my-calendar')">
+              <div class="card" style="cursor:pointer" onclick="showSection('users')">
                 <div class="card-body" style="display:flex;align-items:center;gap:12px">
-                  <div style="width:38px;height:38px;border-radius:8px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📅</div>
-                  <div><div style="font-weight:600;font-size:14px">Mi Calendario</div><div style="font-size:12px;color:var(--text-muted)">Personal</div></div>
+                  <div style="width:38px;height:38px;border-radius:8px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">👥</div>
+                  <div><div style="font-weight:600;font-size:14px">Usuarios</div><div style="font-size:12px;color:var(--text-muted)">Gestión de equipo</div></div>
                 </div>
               </div>
-              <div class="card" style="cursor:pointer" onclick="showSection('global-calendar')">
+              <div class="card" style="cursor:pointer" onclick="showSection('admin-calendars-global')">
                 <div class="card-body" style="display:flex;align-items:center;gap:12px">
-                  <div style="width:38px;height:38px;border-radius:8px;background:#e8f4e8;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🌐</div>
-                  <div><div style="font-weight:600;font-size:14px">Calendario Global</div><div style="font-size:12px;color:var(--text-muted)">Todo el equipo</div></div>
-                </div>
-              </div>
-              <div class="card" style="cursor:pointer" onclick="showSection('cal-laboral')">
-                <div class="card-body" style="display:flex;align-items:center;gap:12px">
-                  <div style="width:38px;height:38px;border-radius:8px;background:#e0f0ff;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📋</div>
-                  <div><div style="font-weight:600;font-size:14px">Dept. Laboral</div><div style="font-size:12px;color:var(--text-muted)">Todos los miembros</div></div>
-                </div>
-              </div>
-              <div class="card" style="cursor:pointer" onclick="showSection('cal-fiscal')">
-                <div class="card-body" style="display:flex;align-items:center;gap:12px">
-                  <div style="width:38px;height:38px;border-radius:8px;background:#fff3e0;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📋</div>
-                  <div><div style="font-weight:600;font-size:14px">Dept. Fiscal</div><div style="font-size:12px;color:var(--text-muted)">Todos los miembros</div></div>
-                </div>
-              </div>
-              <div class="card" style="cursor:pointer" onclick="showSection('cal-mercantil')">
-                <div class="card-body" style="display:flex;align-items:center;gap:12px">
-                  <div style="width:38px;height:38px;border-radius:8px;background:#f3e8ff;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📋</div>
-                  <div><div style="font-weight:600;font-size:14px">Dept. Mercantil</div><div style="font-size:12px;color:var(--text-muted)">Todos los miembros</div></div>
+                  <div style="width:38px;height:38px;border-radius:8px;background:#e8f4e8;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📅</div>
+                  <div><div style="font-weight:600;font-size:14px">Calendarios</div><div style="font-size:12px;color:var(--text-muted)">Todos los admins</div></div>
                 </div>
               </div>
             </div>
-
-            <!-- Configuración de permisos -->
             <div class="card">
               <div class="card-hdr">
-                <div class="card-title">Configuración de Permisos por Departamento</div>
+                <div class="card-title">Configuración de Permisos</div>
               </div>
               <div class="card-body" id="permissions-panel"></div>
             </div>
           </div>
+
           <div class="section" id="section-users">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
@@ -2145,10 +2128,7 @@
             <div class="table-wrap">
               <div class="table-header">
                 <div class="card-title">Equipo</div>
-                <span
-                  id="user-count"
-                  style="font-size: 13px; color: var(--text-muted)"
-                ></span>
+                <span id="user-count" style="font-size: 13px; color: var(--text-muted)"></span>
               </div>
               <table>
                 <thead>
@@ -2174,10 +2154,7 @@
                 <h2>Servicios</h2>
                 <p>Catálogo de servicios disponibles</p>
               </div>
-              <button
-                class="btn btn-primary btn-sm admin-only"
-                onclick="openServiceModal()"
-              >
+              <button class="btn btn-primary btn-sm admin-only" onclick="openServiceModal()">
                 + Nuevo servicio
               </button>
             </div>
@@ -2189,9 +2166,7 @@
             <div class="sec-hdr">
               <div class="sec-hdr-text">
                 <h2>Chat General</h2>
-                <p id="gchat-members-label">
-                  Canal compartido por todo el equipo
-                </p>
+                <p id="gchat-members-label">Canal compartido por todo el equipo</p>
               </div>
             </div>
             <div class="gchat-wrap">
@@ -2199,21 +2174,13 @@
                 <div class="gchat-header-icon">#</div>
                 <div class="gchat-header-info">
                   <div class="gchat-header-name">Chat General</div>
-                  <div class="gchat-header-sub" id="gchat-online-count">
-                    Cargando...
-                  </div>
+                  <div class="gchat-header-sub" id="gchat-online-count">Cargando...</div>
                 </div>
               </div>
               <div class="gchat-messages" id="gchat-messages"></div>
               <div class="msg-composer">
-                <textarea
-                  id="gchat-input"
-                  placeholder="Escribe un mensaje para todo el equipo... (Enter para enviar)"
-                  onkeydown="gchatKeydown(event)"
-                ></textarea>
-                <button class="msg-send-btn" onclick="sendGchatMsg()">
-                  Enviar &uarr;
-                </button>
+                <textarea id="gchat-input" placeholder="Escribe un mensaje para todo el equipo... (Enter para enviar)" onkeydown="gchatKeydown(event)"></textarea>
+                <button class="msg-send-btn" onclick="sendGchatMsg()">Enviar &uarr;</button>
               </div>
             </div>
           </div>
@@ -2230,70 +2197,35 @@
               <div class="msg-sidebar">
                 <div class="msg-sidebar-header">
                   <div class="card-title">Conversaciones</div>
+                  <button class="msg-new-btn" onclick="openNewChatModal()" title="Nuevo chat">＋</button>
                 </div>
                 <div class="msg-search">
-                  <input
-                    type="text"
-                    id="msg-search-inp"
-                    placeholder="Buscar..."
-                    oninput="filterConvs()"
-                  />
+                  <input type="text" id="msg-search-inp" placeholder="Buscar..." oninput="filterConvs()" />
                 </div>
                 <div class="msg-list" id="msg-list"></div>
               </div>
               <div class="msg-main" id="msg-main">
                 <div class="msg-empty" id="msg-empty-state">
                   <div class="msg-empty-icon">&#10003;</div>
-                  <div style="font-size: 15px; font-weight: 500">
-                    Selecciona una conversación
-                  </div>
-                  <div
-                    style="
-                      font-size: 13px;
-                      margin-top: 4px;
-                      color: var(--text-muted);
-                    "
-                  >
-                    Elige un contacto para iniciar
-                  </div>
+                  <div style="font-size: 15px; font-weight: 500">Selecciona una conversación</div>
+                  <div style="font-size: 13px; margin-top: 4px; color: var(--text-muted)">Elige un contacto o grupo para iniciar</div>
                 </div>
-                <div
-                  id="msg-active-chat"
-                  style="display: none; flex-direction: column; height: 100%"
-                >
+                <div id="msg-active-chat" style="display: none; flex-direction: column; height: 100%">
                   <div class="msg-main-header">
-                    <div
-                      class="s-avatar"
-                      id="chat-avatar"
-                      style="
-                        background: var(--accent-light);
-                        color: var(--accent);
-                      "
-                    >
-                      ?
-                    </div>
+                    <div class="s-avatar" id="chat-avatar" style="background: var(--accent-light); color: var(--accent)">?</div>
                     <div>
-                      <div
-                        style="font-size: 14px; font-weight: 500"
-                        id="chat-name"
-                      >
-                        —
-                      </div>
-                      <div style="font-size: 12px; color: var(--success)">
-                        &#9679; En línea
-                      </div>
+                      <div style="font-size: 14px; font-weight: 500" id="chat-name">—</div>
+                      <div style="font-size: 12px; color: var(--success)">&#9679; En línea</div>
                     </div>
                   </div>
                   <div class="msg-messages" id="msg-messages"></div>
                   <div class="msg-composer">
-                    <textarea
-                      id="msg-input"
-                      placeholder="Escribe un mensaje... (Enter para enviar)"
-                      onkeydown="msgKeydown(event)"
-                    ></textarea>
-                    <button class="msg-send-btn" onclick="sendMsg()">
-                      Enviar &uarr;
-                    </button>
+                    <div class="msg-composer-input">
+                      <textarea id="msg-input" placeholder="Escribe un mensaje... (Enter para enviar)" onkeydown="msgKeydown(event)"></textarea>
+                      <button class="msg-attach-btn" onclick="document.getElementById('msg-file-input').click()" title="Adjuntar archivo">📎</button>
+                      <input type="file" id="msg-file-input" class="msg-file-input" onchange="handleFileAttachment(event)" />
+                    </div>
+                    <button class="msg-send-btn" onclick="sendMsg()">Enviar &uarr;</button>
                   </div>
                 </div>
               </div>
@@ -2303,28 +2235,23 @@
       </main>
     </div>
 
+    <!-- MODALS -->
     <!-- MODAL: CITA (crear / editar) -->
     <div class="modal-overlay" id="event-modal">
       <div class="modal">
-        <button class="modal-close" onclick="closeModal('event-modal')">
-          &times;
-        </button>
+        <button class="modal-close" onclick="closeModal('event-modal')">&times;</button>
         <div class="modal-title" id="event-modal-title">Nueva cita</div>
-        <div class="modal-sub" id="event-modal-sub">
-          Rellena los datos de la cita
-        </div>
+        <div class="modal-sub" id="event-modal-sub">Rellena los datos de la cita</div>
         <div class="form-row">
           <div class="form-group">
             <label>Fecha *</label><input type="date" id="ev-date" />
           </div>
           <div class="form-group">
-            <label>Hora *</label
-            ><input type="time" id="ev-time" value="09:00" />
+            <label>Hora *</label><input type="time" id="ev-time" value="09:00" />
           </div>
         </div>
         <div class="form-group">
-          <label>Cliente *</label
-          ><input type="text" id="ev-client" placeholder="Nombre del cliente" />
+          <label>Cliente *</label><input type="text" id="ev-client" placeholder="Nombre del cliente" />
         </div>
         <div class="form-group">
           <label>Tipo de servicio</label>
@@ -2335,34 +2262,19 @@
           <select id="ev-employee"></select>
         </div>
         <div class="form-group">
-          <label>Notas</label
-          ><textarea
-            id="ev-notes"
-            rows="3"
-            placeholder="Información adicional..."
-          ></textarea>
+          <label>Notas</label><textarea id="ev-notes" rows="3" placeholder="Información adicional..."></textarea>
         </div>
         <div class="form-group admin-only" id="ev-private-group" style="display:flex;align-items:center;gap:10px;background:var(--bg2);padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border)">
           <input type="checkbox" id="ev-private" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" />
           <div>
             <label for="ev-private" style="font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0">🔒 Cita privada</label>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Solo visible para el admin y el empleado asignado</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Solo visible para el admin y empleados asignados</div>
           </div>
         </div>
-        <div class="form-err" id="ev-err">
-          Rellena los campos obligatorios (*).
-        </div>
+        <div class="form-err" id="ev-err">Rellena los campos obligatorios (*).</div>
         <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="closeModal('event-modal')">
-            Cancelar
-          </button>
-          <button
-            class="btn btn-primary"
-            id="ev-save-btn"
-            onclick="saveEvent()"
-          >
-            Guardar cita
-          </button>
+          <button class="btn btn-ghost" onclick="closeModal('event-modal')">Cancelar</button>
+          <button class="btn btn-primary" id="ev-save-btn" onclick="saveEvent()">Guardar cita</button>
         </div>
       </div>
     </div>
@@ -2370,43 +2282,34 @@
     <!-- MODAL: DETALLE CITA -->
     <div class="modal-overlay" id="detail-modal">
       <div class="modal" style="width: 440px">
-        <button class="modal-close" onclick="closeModal('detail-modal')">
-          &times;
-        </button>
+        <button class="modal-close" onclick="closeModal('detail-modal')">&times;</button>
         <div class="modal-title" id="detail-title">Detalle de la cita</div>
-        <div
-          id="detail-body"
-          style="line-height: 2; font-size: 14px; margin-top: 16px"
-        ></div>
+        <div id="detail-body" style="line-height: 2; font-size: 14px; margin-top: 16px"></div>
         <div class="modal-actions">
-          <button
-            class="btn btn-danger btn-sm"
-            id="det-del-btn"
-            onclick="deleteCurrentEvent()"
-          >
-            Eliminar
-          </button>
-          <button
-            class="btn btn-outline btn-sm"
-            id="det-privacy-btn"
-            onclick="toggleCurrentEventPrivacy()"
-            style="display:none"
-          >
-            🔒 Privatizar
-          </button>
-          <button
-            class="btn btn-outline btn-sm"
-            id="det-edit-btn"
-            onclick="editCurrentEvent()"
-          >
-            Editar
-          </button>
-          <button
-            class="btn btn-ghost btn-sm"
-            onclick="closeModal('detail-modal')"
-          >
-            Cerrar
-          </button>
+          <button class="btn btn-danger btn-sm" id="det-del-btn" onclick="deleteCurrentEvent()">Eliminar</button>
+          <button class="btn btn-outline btn-sm" id="det-privacy-btn" onclick="toggleCurrentEventPrivacy()" style="display:none">🔒 Privatizar</button>
+          <button class="btn btn-outline btn-sm" id="det-edit-btn" onclick="editCurrentEvent()">Editar</button>
+          <button class="btn btn-ghost btn-sm" onclick="closeModal('detail-modal')">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: NUEVO CHAT -->
+    <div class="modal-overlay" id="new-chat-modal">
+      <div class="modal" style="width: 440px">
+        <button class="modal-close" onclick="closeModal('new-chat-modal')">&times;</button>
+        <div class="modal-title">Nuevo Chat</div>
+        <div class="modal-sub">Elige un usuario para iniciar una conversación</div>
+        <div class="form-group">
+          <label>Seleccionar usuario *</label>
+          <select id="new-chat-user" style="width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--bg);outline:none">
+            <option value="">-- Selecciona un usuario --</option>
+          </select>
+        </div>
+        <div class="form-err" id="new-chat-err"></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal('new-chat-modal')">Cancelar</button>
+          <button class="btn btn-primary" onclick="startNewChat()">Iniciar chat</button>
         </div>
       </div>
     </div>
@@ -2414,15 +2317,12 @@
     <!-- MODAL: USUARIO (crear / editar) -->
     <div class="modal-overlay" id="user-modal">
       <div class="modal">
-        <button class="modal-close" onclick="closeModal('user-modal')">
-          &times;
-        </button>
+        <button class="modal-close" onclick="closeModal('user-modal')">&times;</button>
         <div class="modal-title" id="user-modal-title">Nuevo usuario</div>
         <div class="modal-sub">Añade un nuevo miembro al equipo</div>
         <div class="form-row">
           <div class="form-group">
-            <label>Nombre completo *</label
-            ><input type="text" id="nu-name" placeholder="Nombre Apellido" />
+            <label>Nombre completo *</label><input type="text" id="nu-name" placeholder="Nombre Apellido" />
           </div>
           <div class="form-group">
             <label>Rol *</label>
@@ -2434,21 +2334,17 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Usuario *</label
-            ><input type="text" id="nu-user" placeholder="nombre.usuario" />
+            <label>Usuario *</label><input type="text" id="nu-user" placeholder="nombre.usuario" />
           </div>
           <div class="form-group">
-            <label>Contraseña *</label
-            ><input type="password" id="nu-pass" placeholder="••••••••" />
+            <label>Contraseña *</label><input type="password" id="nu-pass" placeholder="••••••••" />
           </div>
         </div>
         <div class="form-group">
-          <label>Email</label
-          ><input type="email" id="nu-email" placeholder="correo@empresa.com" />
+          <label>Email</label><input type="email" id="nu-email" placeholder="correo@empresa.com" />
         </div>
         <div class="form-group">
-          <label>Teléfono</label
-          ><input type="tel" id="nu-phone" placeholder="+34 600 000 000" />
+          <label>Teléfono</label><input type="tel" id="nu-phone" placeholder="+34 600 000 000" />
         </div>
         <div class="form-group" id="nu-dept-group">
           <label>Departamento *</label>
@@ -2460,2021 +2356,32 @@
         </div>
         <div class="form-err" id="nu-err"></div>
         <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="closeModal('user-modal')">
-            Cancelar
-          </button>
-          <button class="btn btn-primary" id="nu-save-btn" onclick="saveUser()">
-            Crear usuario
-          </button>
+          <button class="btn btn-ghost" onclick="closeModal('user-modal')">Cancelar</button>
+          <button class="btn btn-primary" id="nu-save-btn" onclick="saveUser()">Crear usuario</button>
         </div>
       </div>
     </div>
 
-    <!-- MODAL: SERVICIO (crear / editar) -->
+    <!-- MODAL: SERVICIO -->
     <div class="modal-overlay" id="service-modal">
       <div class="modal" style="width: 440px">
-        <button class="modal-close" onclick="closeModal('service-modal')">
-          &times;
-        </button>
+        <button class="modal-close" onclick="closeModal('service-modal')">&times;</button>
         <div class="modal-title" id="srv-modal-title">Nuevo servicio</div>
-        <div class="modal-sub">
-          Define el nombre y la descripción del servicio
+        <div class="modal-sub">Define el nombre y la descripción del servicio</div>
+        <div class="form-group">
+          <label>Nombre del servicio *</label><input type="text" id="srv-name" placeholder="Ej: Consultoría Empresarial" />
         </div>
         <div class="form-group">
-          <label>Nombre del servicio *</label
-          ><input
-            type="text"
-            id="srv-name"
-            placeholder="Ej: Consultoría Empresarial"
-          />
+          <label>Descripción</label><textarea id="srv-desc" rows="4" placeholder="Descripción breve del servicio ofrecido..."></textarea>
         </div>
-        <div class="form-group">
-          <label>Descripción</label
-          ><textarea
-            id="srv-desc"
-            rows="4"
-            placeholder="Descripción breve del servicio ofrecido..."
-          ></textarea>
-        </div>
-        <div class="form-err" id="srv-err">
-          El nombre del servicio es obligatorio.
-        </div>
+        <div class="form-err" id="srv-err">El nombre del servicio es obligatorio.</div>
         <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="closeModal('service-modal')">
-            Cancelar
-          </button>
-          <button
-            class="btn btn-primary"
-            id="srv-save-btn"
-            onclick="saveService()"
-          >
-            Guardar
-          </button>
+          <button class="btn btn-ghost" onclick="closeModal('service-modal')">Cancelar</button>
+          <button class="btn btn-primary" id="srv-save-btn" onclick="saveService()">Guardar</button>
         </div>
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════
-         NUEVO MODAL: Solicitar/crear cita en calendario del admin
-         Modal independiente para no interferir con #event-modal existente.
-         Incluye validación de horario bloqueado por citas privadas.
-    ══════════════════════════════════════════════════ -->
-    <div class="modal-overlay" id="admin-event-modal">
-      <div class="modal">
-        <button class="modal-close" onclick="closeModal('admin-event-modal')">&times;</button>
-        <div class="modal-title" id="admin-event-modal-title">Solicitar cita con Antonio</div>
-        <div class="modal-sub" id="admin-event-modal-sub">Rellena los datos de la cita solicitada</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Fecha *</label>
-            <input type="date" id="aev-date" />
-          </div>
-          <div class="form-group">
-            <label>Hora *</label>
-            <input type="time" id="aev-time" value="09:00" />
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Cliente / Motivo *</label>
-          <input type="text" id="aev-client" placeholder="Tu nombre o motivo de la cita" />
-        </div>
-        <div class="form-group">
-          <label>Tipo de servicio</label>
-          <select id="aev-service"></select>
-        </div>
-        <div class="form-group">
-          <label>Notas</label>
-          <textarea id="aev-notes" rows="3" placeholder="Información adicional..."></textarea>
-        </div>
-        <!-- Aviso de horario bloqueado -->
-        <div id="aev-blocked-warning" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:var(--radius);padding:10px 14px;font-size:13px;color:#856404;margin-bottom:12px">
-          ⚠️ <strong>Horario bloqueado:</strong> Ya existe una cita en este horario. Por favor, elige otra hora.
-        </div>
-        <div class="form-err" id="aev-err">Rellena los campos obligatorios (*).</div>
-        <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="closeModal('admin-event-modal')">Cancelar</button>
-          <button class="btn btn-primary" id="aev-save-btn" onclick="saveAdminCalEvent()">Confirmar cita</button>
-        </div>
-      </div>
-    </div>
-    <!-- FIN NUEVO MODAL -->
-
-    <script>
-      // ══════════════════════════════════════════
-      //  DATA
-      // ══════════════════════════════════════════
-
-      let USERS = [
-        {
-          id: 1,
-          username: "antonio",
-          password: "admin123",
-          name: "Antonio",
-          role: "admin",
-          email: "antonio@rodonverges.com",
-          phone: "+34 93 000 00 01",
-          active: true,
-        },
-        {
-          id: 2,
-          username: "myriam",
-          password: "myriam123",
-          name: "Myriam",
-          role: "empleado",
-          email: "myriam@rodonverges.com",
-          phone: "+34 93 000 00 02",
-          active: true,
-          departamento: "laboral",
-        },
-        {
-          id: 3,
-          username: "sara",
-          password: "sara123",
-          name: "Sara",
-          role: "empleado",
-          email: "sara@rodonverges.com",
-          phone: "+34 93 000 00 03",
-          active: true,
-          departamento: "fiscal",
-        },
-      ];
-
-      let SERVICES = [
-        {
-          id: 1,
-          name: "Asesoramiento Fiscal",
-          desc: "Optimización fiscal y cumplimiento normativo para particulares y empresas.",
-        },
-        {
-          id: 2,
-          name: "Gestión Laboral",
-          desc: "Nóminas, contratos, altas y bajas en la Seguridad Social.",
-        },
-        {
-          id: 3,
-          name: "Contabilidad",
-          desc: "Contabilidad general, balances y cuentas de resultados.",
-        },
-        {
-          id: 4,
-          name: "Auditoría",
-          desc: "Revisión independiente de estados financieros y procesos internos.",
-        },
-        {
-          id: 5,
-          name: "Consultoría Empresarial",
-          desc: "Estrategia, organización y mejora de procesos de negocio.",
-        },
-        {
-          id: 6,
-          name: "Asesoramiento Jurídico",
-          desc: "Apoyo legal en contratos mercantiles y disputas empresariales.",
-        },
-      ];
-
-      let EVENTS = [
-        {
-          id: 1,
-          ownerId: 1,
-          assignedTo: 1,
-          date: dOff(0),
-          time: "09:00",
-          client: "Carlos Martínez",
-          service: "Asesoramiento Fiscal",
-          notes: "Revisión declaración anual",
-          private: false,
-        },
-        {
-          id: 2,
-          ownerId: 1,
-          assignedTo: 2,
-          date: dOff(1),
-          time: "11:00",
-          client: "Laura Gómez",
-          service: "Gestión Laboral",
-          notes: "Alta nuevo trabajador",
-          private: false,
-        },
-        {
-          id: 3,
-          ownerId: 1,
-          assignedTo: 3,
-          date: dOff(2),
-          time: "16:00",
-          client: "Inversions Sud SA",
-          service: "Auditoría",
-          notes: "Primera reunión",
-          private: false,
-        },
-        {
-          id: 4,
-          ownerId: 2,
-          assignedTo: 2,
-          date: dOff(3),
-          time: "10:30",
-          client: "Ana Rodríguez",
-          service: "Contabilidad",
-          notes: "Cierre trimestral",
-          private: false,
-        },
-        {
-          id: 5,
-          ownerId: 1,
-          assignedTo: 1,
-          date: dOff(1),
-          time: "15:00",
-          client: "Consultes Privades SL",
-          service: "Asesoramiento Jurídico",
-          notes: "Reunión confidencial de dirección",
-          private: true,
-        },
-      ];
-
-      let CONVS = {};
-
-      // ══════════════════════════════════════════
-      //  DEPARTAMENTOS Y PERMISOS
-      // ══════════════════════════════════════════
-
-      const DEPARTAMENTOS = ['laboral', 'fiscal', 'mercantil'];
-
-      let DEPT_PERMISSIONS = {
-        laboral:   { level: 2, accessToDepts: [] },
-        fiscal:    { level: 2, accessToDepts: [] },
-        mercantil: { level: 2, accessToDepts: [] },
-      };
-
-      let deptCalMonth = {
-        laboral:   new Date(),
-        fiscal:    new Date(),
-        mercantil: new Date(),
-      };
-
-      // ══════════════════════════════════════════
-      //  NUEVO: Estado para calendario del admin
-      // ══════════════════════════════════════════
-      let adminViewCalMonth = new Date();
-
-      (function () {
-        function seed(a, b, msgs) {
-          const key = [a, b].sort((x, y) => x - y).join("-");
-          CONVS[key] = msgs;
-        }
-        seed(1, 2, [
-          {
-            mine: false,
-            text: "Buenos días, ¿has podido revisar el informe de Carlos?",
-            time: "09:15",
-            read: true,
-          },
-          {
-            mine: true,
-            text: "Sí, acabo de enviarlo por email al cliente.",
-            time: "09:22",
-            read: true,
-          },
-          {
-            mine: false,
-            text: "Perfecto, lo reviso ahora mismo.",
-            time: "10:24",
-            read: false,
-          },
-        ]);
-      })();
-
-      let GENERAL_CHAT = [
-        {
-          id: 1,
-          userId: 1,
-          text: "Buenos días a todos. Recordad que hoy tenemos reunión de equipo a las 10h.",
-          time: "08:45",
-          date: dOff(0),
-        },
-        {
-          id: 2,
-          userId: 2,
-          text: "Anotado, gracias por el aviso!",
-          time: "08:52",
-          date: dOff(0),
-        },
-      ];
-      let nextGchatId = 100;
-
-      // ══════════════════════════════════════════
-      //  ESTADO DE LA APP
-      // ══════════════════════════════════════════
-
-      let nextEventId = 100;
-      let nextUserId = 100;
-      let nextServiceId = 100;
-      let currentUser = null;
-      let myCalMonth = new Date();
-      let globalCalMonth = new Date();
-      let activeConvId = null;
-      let editingEvId = null;
-      let editingUserId = null;
-      let editingSrvId = null;
-      let pendingIsGlobal = false;
-      let currentDetailId = null;
-      let gchatUnreadCount = 0;
-
-      // ══════════════════════════════════════════
-      //  UTILS
-      // ══════════════════════════════════════════
-
-      function dOff(d) {
-        const x = new Date();
-        x.setDate(x.getDate() + d);
-        return x.toISOString().split("T")[0];
-      }
-      function todayStr() {
-        return new Date().toISOString().split("T")[0];
-      }
-      function fmtDate(s) {
-        if (!s) return "";
-        const d = new Date(s + "T00:00:00");
-        return d.toLocaleDateString("es-ES", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        });
-      }
-      function fmtDateShort(s) {
-        if (!s) return "";
-        const d = new Date(s + "T00:00:00");
-        return d.toLocaleDateString("es-ES", { day: "numeric", month: "long" });
-      }
-      function mthName(d) {
-        const n = d.toLocaleDateString("es-ES", {
-          month: "long",
-          year: "numeric",
-        });
-        return n.charAt(0).toUpperCase() + n.slice(1);
-      }
-      function initials(name) {
-        return name
-          .split(" ")
-          .map((w) => w[0])
-          .join("")
-          .slice(0, 2)
-          .toUpperCase();
-      }
-      function greet() {
-        const h = new Date().getHours();
-        return h < 12
-          ? "Buenos días"
-          : h < 19
-            ? "Buenas tardes"
-            : "Buenas noches";
-      }
-      function nowTime() {
-        return new Date().toLocaleTimeString("es-ES", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-      }
-      function convKey(a, b) {
-        return [a, b].sort((x, y) => x - y).join("-");
-      }
-      function convData(otherId) {
-        const k = convKey(currentUser.id, otherId);
-        if (!CONVS[k]) CONVS[k] = [];
-        return CONVS[k];
-      }
-      function unreadOf(otherId) {
-        return convData(otherId).filter((m) => !m.mine && !m.read).length;
-      }
-      function totalUnread() {
-        return USERS.filter((u) => u.id !== currentUser.id).reduce(
-          (s, u) => s + unreadOf(u.id),
-          0,
-        );
-      }
-      function safeHtml(str) {
-        return String(str)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-      }
-
-      function updateBadge() {
-        const n = totalUnread();
-        const b = document.getElementById("msg-badge");
-        if (b) {
-          b.textContent = n;
-          b.style.display = n > 0 ? "" : "none";
-        }
-        const g = document.getElementById("gchat-badge");
-        if (g) {
-          g.textContent = gchatUnreadCount;
-          g.style.display = gchatUnreadCount > 0 ? "" : "none";
-        }
-      }
-
-      // ══════════════════════════════════════════
-      //  NUEVO UTIL: Obtener el ID del admin principal
-      //  Retorna el primer usuario con role==='admin' activo.
-      //  Permite que la lógica sea dinámica y no dependa del ID hardcodeado.
-      // ══════════════════════════════════════════
-      function getAdminUser() {
-        return USERS.find(u => u.role === 'admin' && u.active) || null;
-      }
-
-      // ══════════════════════════════════════════
-      //  NUEVO UTIL: Verificar si un horario está bloqueado en el calendario del admin
-      //  Un horario está bloqueado si hay una cita privada del admin en esa fecha+hora
-      //  que no sea del propio usuario que intenta agendar.
-      //  Esto aplica la regla: las citas privadas bloquean el horario para otros.
-      // ══════════════════════════════════════════
-      function isAdminSlotBlocked(date, time) {
-        const adminUser = getAdminUser();
-        if (!adminUser) return false;
-        // Buscar citas del admin en esa fecha+hora que sean privadas
-        return EVENTS.some(ev =>
-          ev.assignedTo === adminUser.id &&
-          ev.date === date &&
-          ev.time === time &&
-          ev.private === true &&
-          ev.assignedTo !== currentUser.id // no se bloquea a sí mismo
-        );
-      }
-
-      // ══════════════════════════════════════════
-      //  NUEVO UTIL: Verificar si ya existe cualquier cita del admin en ese horario
-      //  (para evitar doble booking en el calendario del admin)
-      // ══════════════════════════════════════════
-      function isAdminSlotOccupied(date, time, excludeEvId) {
-        const adminUser = getAdminUser();
-        if (!adminUser) return false;
-        return EVENTS.some(ev =>
-          ev.assignedTo === adminUser.id &&
-          ev.date === date &&
-          ev.time === time &&
-          ev.id !== excludeEvId
-        );
-      }
-
-      // ══════════════════════════════════════════
-      //  AUTH
-      // ══════════════════════════════════════════
-
-      function doLogin() {
-        const u = document.getElementById("login-user").value.trim();
-        const p = document.getElementById("login-pass").value;
-        const found = USERS.find(
-          (x) => x.username === u && x.password === p && x.active,
-        );
-        if (!found) {
-          document.getElementById("login-error").style.display = "block";
-          return;
-        }
-        document.getElementById("login-error").style.display = "none";
-        currentUser = found;
-        document.getElementById("login-screen").style.display = "none";
-        document.getElementById("app").style.display = "flex";
-        initApp();
-      }
-
-      function doLogout() {
-        currentUser = null;
-        activeConvId = null;
-        editingEvId = null;
-        gchatUnreadCount = 0;
-        document.getElementById("app").style.display = "none";
-        document.getElementById("login-screen").style.display = "flex";
-        document.getElementById("login-user").value = "";
-        document.getElementById("login-pass").value = "";
-        document.querySelector(".sidebar").classList.remove("open");
-        document.getElementById("sidebar-overlay").classList.remove("active");
-      }
-
-      function toggleSidebar() {
-        const sidebar = document.querySelector(".sidebar");
-        const overlay = document.getElementById("sidebar-overlay");
-        sidebar.classList.toggle("open");
-        overlay.classList.toggle("active");
-      }
-
-      document.getElementById("login-pass").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") doLogin();
-      });
-
-      // ══════════════════════════════════════════
-      //  INIT
-      // ══════════════════════════════════════════
-
-      function initApp() {
-        const isAdmin = currentUser.role === "admin";
-        document.getElementById("sidebar-avatar").textContent = initials(
-          currentUser.name,
-        );
-        document.getElementById("sidebar-name").textContent = currentUser.name;
-        document.getElementById("sidebar-role").textContent = isAdmin
-          ? "Administrador"
-          : "Empleado";
-        const greetingEl = document.getElementById("topbar-greeting");
-        greetingEl.textContent = "Hola, " + currentUser.name.split(" ")[0] + "!";
-        greetingEl.style.display = "block";
-        document.getElementById("topbar-date").textContent =
-          new Date().toLocaleDateString("es-ES", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          });
-        document
-          .querySelectorAll(".admin-only")
-          .forEach((el) => (el.style.display = isAdmin ? "" : "none"));
-        gchatUnreadCount = 0;
-        updateBadge();
-        updateDeptCalNav();
-
-        // ══════════════════════════════════════════
-        //  NUEVO: Ocultar nav del calendario del admin para el propio admin
-        //  (el admin ya tiene acceso a todas sus citas desde "Mi Calendario")
-        //  y personalizar el nombre del nav con el nombre del admin real.
-        // ══════════════════════════════════════════
-        const adminUser = getAdminUser();
-        const navAdminView = document.getElementById("nav-admin-view-calendar");
-        if (navAdminView) {
-          if (isAdmin) {
-            // El admin no necesita ver "Cal. Antonio" porque ya tiene su propio calendario
-            navAdminView.style.display = "none";
-          } else {
-            navAdminView.style.display = "";
-            // Actualizar el nombre del nav con el nombre real del admin
-            if (adminUser) {
-              navAdminView.innerHTML = `<span class="icon">&#9673;</span> Cal. ${adminUser.name.split(' ')[0]}`;
-            }
-          }
-        }
-
-        showSection("dashboard");
-      }
-
-      // ══════════════════════════════════════════
-      //  NAVEGACIÓN
-      // ══════════════════════════════════════════
-
-      const SEC_TITLES = {
-        dashboard: "Inicio",
-        "my-calendar": "Mi Calendario",
-        "global-calendar": "Calendario Global",
-        // NUEVO: título para la sección del calendario del admin
-        "admin-view-calendar": "Calendario de Antonio",
-        "cal-laboral": "Calendario Laboral",
-        "cal-fiscal": "Calendario Fiscal",
-        "cal-mercantil": "Calendario Mercantil",
-        "admin-calendars": "Calendarios",
-        users: "Gestión de Usuarios",
-        services: "Servicios",
-        "general-chat": "Chat General",
-        messages: "Mensajería",
-      };
-
-      function showSection(name) {
-        if (window.innerWidth <= 768) {
-          document.querySelector(".sidebar").classList.remove("open");
-          document.getElementById("sidebar-overlay").classList.remove("active");
-        }
-        document
-          .querySelectorAll(".section")
-          .forEach((s) => s.classList.remove("active"));
-        document
-          .querySelectorAll(".nav-item")
-          .forEach((n) => n.classList.remove("active"));
-        const el = document.getElementById("section-" + name);
-        if (el) el.classList.add("active");
-        const ni = document.querySelector('.nav-item[data-sec="' + name + '"]');
-        if (ni) ni.classList.add("active");
-
-        // Actualizar título del topbar con el nombre real del admin si aplica
-        let titleText = SEC_TITLES[name] || name;
-        if (name === "admin-view-calendar") {
-          const adminUser = getAdminUser();
-          if (adminUser) titleText = "Calendario de " + adminUser.name.split(' ')[0];
-        }
-        document.getElementById("topbar-title").textContent = titleText;
-
-        if (name === "dashboard") renderDashboard();
-        if (name === "my-calendar") renderCalendar("my");
-        if (name === "global-calendar") { populateGlobalFilter(); renderCalendar("global"); }
-        // NUEVO: renderizar calendario del admin
-        if (name === "admin-view-calendar") renderAdminViewCalendar();
-        if (name === "cal-laboral") renderDeptCalendar("laboral");
-        if (name === "cal-fiscal") renderDeptCalendar("fiscal");
-        if (name === "cal-mercantil") renderDeptCalendar("mercantil");
-        if (name === "admin-calendars") renderPermissionsPanel();
-        if (name === "users") renderUsers();
-        if (name === "services") renderServices();
-        if (name === "general-chat") openGeneralChat();
-        if (name === "messages") renderMessages();
-      }
-
-      // ══════════════════════════════════════════
-      //  DASHBOARD
-      // ══════════════════════════════════════════
-
-      function renderDashboard() {
-        const isAdmin = currentUser.role === "admin";
-        const today = todayStr();
-        const myEvs = EVENTS.filter((e) => e.assignedTo === currentUser.id);
-        const todayEvs = myEvs.filter((e) => e.date === today);
-
-        const stats = isAdmin
-          ? [
-              {
-                label: "Citas hoy",
-                value: todayEvs.length,
-                sub: "Total del día",
-                cls: "",
-              },
-              {
-                label: "Citas total",
-                value: EVENTS.length,
-                sub: "Programadas",
-                cls: "green",
-              },
-              {
-                label: "Empleados",
-                value: USERS.filter((u) => u.active).length,
-                sub: "Activos",
-                cls: "amber",
-              },
-              {
-                label: "Servicios",
-                value: SERVICES.length,
-                sub: "Disponibles",
-                cls: "",
-              },
-            ]
-          : [
-              {
-                label: "Citas hoy",
-                value: todayEvs.length,
-                sub: "Tus citas de hoy",
-                cls: "",
-              },
-              {
-                label: "Citas mes",
-                value: myEvs.filter((e) => e.date.startsWith(today.slice(0, 7)))
-                  .length,
-                sub: "Este mes",
-                cls: "green",
-              },
-              {
-                label: "Total citas",
-                value: myEvs.length,
-                sub: "Programadas",
-                cls: "amber",
-              },
-              {
-                label: "Clientes",
-                value: [...new Set(myEvs.map((e) => e.client))].length,
-                sub: "Únicos",
-                cls: "",
-              },
-            ];
-
-        document.getElementById("stats-grid").innerHTML = stats
-          .map(
-            (s) => `
-    <div class="stat-card ${s.cls}">
-      <div class="stat-label">${s.label}</div>
-      <div class="stat-value">${s.value}</div>
-      <div class="stat-sub">${s.sub}</div>
-    </div>`,
-          )
-          .join("");
-
-        document.getElementById("dash-greeting").textContent =
-          greet() + ", " + currentUser.name + "!";
-        document.getElementById("dash-sub").textContent =
-          "Resumen de actividad · " + fmtDate(today);
-
-        const upcoming = myEvs
-          .filter((e) => e.date >= today)
-          .sort((a, b) =>
-            a.date === b.date
-              ? a.time.localeCompare(b.time)
-              : a.date.localeCompare(b.date),
-          )
-          .slice(0, 6);
-        const dotCls = ["", "amber", "red"];
-        document.getElementById("upcoming-events").innerHTML = upcoming.length
-          ? upcoming
-              .map((ev, i) => {
-                const emp = USERS.find((u) => u.id === ev.assignedTo);
-                return `<div class="task-item">
-          <div class="t-dot ${dotCls[i % 3]}"></div>
-          <div style="flex:1">
-            <div class="t-title">${safeHtml(ev.client)}</div>
-            <div class="t-meta">${fmtDate(ev.date)} &middot; ${ev.time} &middot; ${safeHtml(ev.service)}${isAdmin && emp ? " &middot; <strong>" + safeHtml(emp.name) + "</strong>" : ""}</div>
-          </div>
-          <span class="tag tag-gray" style="white-space:nowrap">${ev.time}</span>
-        </div>`;
-              })
-              .join("")
-          : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">Sin citas pendientes.</div>';
-
-        document.getElementById("recent-activity").innerHTML = `
-    <div class="task-item"><div class="t-dot"></div><div><div class="t-title">Sesión iniciada</div><div class="t-meta">Hace unos momentos</div></div></div>
-    <div class="task-item"><div class="t-dot amber"></div><div><div class="t-title">Chat General disponible</div><div class="t-meta">${GENERAL_CHAT.length} mensajes en el canal</div></div></div>
-    <div class="task-item"><div class="t-dot red"></div><div><div class="t-title">${EVENTS.length} citas en el sistema</div><div class="t-meta">Actualizado ahora</div></div></div>`;
-      }
-
-      // ══════════════════════════════════════════
-      //  CALENDARIO
-      // ══════════════════════════════════════════
-
-      function changeMonth(dir, which) {
-        if (which === "my") {
-          myCalMonth = new Date(myCalMonth.getFullYear(), myCalMonth.getMonth() + dir, 1);
-          renderCalendar("my");
-        } else {
-          globalCalMonth = new Date(globalCalMonth.getFullYear(), globalCalMonth.getMonth() + dir, 1);
-          renderCalendar("global");
-        }
-      }
-
-      function changeDeptMonth(dir, dept) {
-        deptCalMonth[dept] = new Date(deptCalMonth[dept].getFullYear(), deptCalMonth[dept].getMonth() + dir, 1);
-        renderDeptCalendar(dept);
-      }
-
-      function renderCalendar(which) {
-        const isMy = which === "my";
-        const date = isMy ? myCalMonth : globalCalMonth;
-        const isAdmin = currentUser.role === "admin";
-
-        if (!(date instanceof Date) || isNaN(date.getTime())) {
-          console.error("Invalid calendar date:", date);
-          return;
-        }
-
-        document.getElementById(
-          isMy ? "my-cal-title" : "global-cal-title",
-        ).textContent = mthName(date);
-
-        const year = date.getFullYear(),
-          month = date.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        let dow = new Date(year, month, 1).getDay();
-        dow = dow === 0 ? 6 : dow - 1;
-
-        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
-        let evs = EVENTS.filter((e) => e.date.startsWith(monthStr));
-
-        if (isMy) {
-          evs = evs.filter((e) => e.assignedTo === currentUser.id);
-        } else {
-          if (!isAdmin) {
-            evs = evs.filter((e) => {
-              if (!e.private) return true;
-              return e.assignedTo === currentUser.id;
-            });
-          }
-          const filterSel = document.getElementById("global-filter-person");
-          if (filterSel && filterSel.value && filterSel.value !== "all") {
-            const filterId = parseInt(filterSel.value);
-            evs = evs.filter((e) => e.assignedTo === filterId);
-          }
-        }
-
-        const today = todayStr();
-        const colors = ["", "amber", "red"];
-        let html = "";
-
-        const calCellsEl = document.getElementById(
-          isMy ? "my-cal-cells" : "global-cal-cells",
-        );
-        if (!calCellsEl) return;
-
-        for (let i = 0; i < dow; i++)
-          html += '<div class="cal-cell empty"></div>';
-
-        for (let day = 1; day <= daysInMonth; day++) {
-          const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const isToday = ds === today;
-          const dayEvs = evs.filter((e) => e.date === ds);
-
-          // ══════════════════════════════════════════════════
-          // MODIFICADO (extensión): Renderizar eventos con privatización real
-          // Si el evento es privado Y el usuario no es admin Y no es el assignedTo,
-          // se muestra "🔒 Hora bloqueada" en lugar del título real.
-          // El click en ese evento queda bloqueado (no abre detalle).
-          // La lógica original de colores y formatos se mantiene intacta.
-          // ══════════════════════════════════════════════════
-          const evHTML = dayEvs
-            .slice(0, 3)
-            .map((ev, i) => {
-              const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
-              if (shouldMask) {
-                // Mostrar bloque de horario ocupado sin revelar detalles
-                return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
-              }
-              return `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${ev.time} ${safeHtml(ev.client)}</div>`;
-            })
-            .join("");
-
-          html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'${which}')">
-      <div class="cell-num">${day}</div>${evHTML}
-      ${dayEvs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length - 3} más</div>` : ""}
-    </div>`;
-        }
-
-        const totalCells = dow + daysInMonth;
-        for (let i = totalCells; i < 42; i++)
-          html += '<div class="cal-cell empty"></div>';
-
-        calCellsEl.innerHTML = html;
-
-        renderApptList(
-          which,
-          evs.filter((e) => e.date.startsWith(monthStr)),
-        );
-      }
-
-      function renderApptList(which, evs) {
-        const listId = which === "my" ? "my-appt-list" : "global-appt-list";
-        const el = document.getElementById(listId);
-        if (!el) return;
-        const isAdmin = currentUser.role === "admin";
-        const visibleEvs = evs;
-        const sorted = visibleEvs
-          .slice()
-          .sort((a, b) =>
-            a.date === b.date
-              ? a.time.localeCompare(b.time)
-              : a.date.localeCompare(b.date),
-          );
-        if (!sorted.length) {
-          el.innerHTML =
-            '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hay citas este mes</div>';
-          return;
-        }
-        el.innerHTML = sorted
-          .map((ev) => {
-            const emp = USERS.find((u) => u.id === ev.assignedTo);
-            const canEdit =
-              isAdmin ||
-              ev.assignedTo === currentUser.id ||
-              ev.ownerId === currentUser.id;
-            const privBtn = isAdmin
-              ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>`
-              : '';
-
-            // ══════════════════════════════════════════════════
-            // MODIFICADO (extensión): En la lista de citas, si la cita es privada
-            // y el usuario no es admin ni el assignedTo, mostrar fila bloqueada.
-            // ══════════════════════════════════════════════════
-            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
-            if (shouldMask) {
-              return `<div class="appt-item blocked">
-        <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
-        <div class="appt-info">
-          <div class="appt-client">🔒 Tarea privatizada</div>
-          <div class="appt-meta">Horario no disponible</div>
-        </div>
-      </div>`;
-            }
-
-            return `<div class="appt-item">
-      <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
-      <div class="appt-info">
-        <div class="appt-client">${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privado</span>' : ''}</div>
-        <div class="appt-meta">${safeHtml(ev.service)}${emp && (isAdmin || which === 'global') ? " &middot; <strong>" + safeHtml(emp.name) + "</strong>" : ""}</div>
-      </div>
-      <div class="action-btns">
-        ${canEdit ? `
-          ${privBtn}
-          <button class="btn-icon" title="Editar" onclick="editEventFromList(${ev.id},event)">Editar</button>
-          <button class="btn-icon red" title="Eliminar" onclick="deleteEventFromList(${ev.id},event)">Eliminar</button>
-        ` : ''}
-      </div>
-    </div>`;
-          })
-          .join("");
-      }
-
-      function calCellClick(ds, e, which) {
-        if (e.target.classList.contains("cell-event")) return;
-        // NUEVO: si el click viene del calendario del admin, abrir modal correcto
-        if (which === 'admin-view') {
-          openAdminCalEventModal(ds);
-          return;
-        }
-        openEventModal(which === "global", ds);
-      }
-
-      function showEventDetail(evId, e) {
-        if (e) e.stopPropagation();
-        const ev = EVENTS.find((x) => x.id === evId);
-        if (!ev) return;
-
-        // ══════════════════════════════════════════════════
-        // NUEVO (extensión): Bloquear acceso al detalle de citas privadas
-        // para usuarios que no son admin ni el assignedTo.
-        // Esto evita que haciendo click directo en la URL o forzando la llamada
-        // se puedan ver los detalles de una cita privatizada.
-        // ══════════════════════════════════════════════════
-        const isAdmin = currentUser.role === "admin";
-        if (ev.private && !isAdmin && ev.assignedTo !== currentUser.id) {
-          // No mostrar detalle: horario bloqueado
-          return;
-        }
-
-        currentDetailId = evId;
-        const emp = USERS.find((u) => u.id === ev.assignedTo);
-        const canEdit =
-          isAdmin ||
-          ev.ownerId === currentUser.id ||
-          ev.assignedTo === currentUser.id;
-        document.getElementById("detail-title").textContent = ev.client;
-        const isPrivate = ev.private;
-        document.getElementById("detail-body").innerHTML =
-          `<div style="display:grid;gap:14px">
-    ${isPrivate ? `<div><span class="private-badge">🔒 Cita privada</span></div>` : ""}
-    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Fecha y hora</span><br>${fmtDate(ev.date)} a las ${ev.time}</div>
-    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Servicio</span><br>${safeHtml(ev.service)}</div>
-    ${emp ? `<div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Empleado asignado</span><br>${safeHtml(emp.name)}</div>` : ""}
-    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Notas</span><br>${safeHtml(ev.notes) || "—"}</div>
-  </div>`;
-        document.getElementById("det-del-btn").style.display = canEdit ? "" : "none";
-        document.getElementById("det-edit-btn").style.display = canEdit ? "" : "none";
-        const privBtn = document.getElementById("det-privacy-btn");
-        if (privBtn) {
-          privBtn.style.display = isAdmin ? "" : "none";
-          privBtn.textContent = ev.private ? "🔓 Hacer pública" : "🔒 Privatizar";
-        }
-        openModal("detail-modal");
-      }
-
-      function deleteCurrentEvent() {
-        if (currentDetailId === null) return;
-        EVENTS = EVENTS.filter((e) => e.id !== currentDetailId);
-        currentDetailId = null;
-        closeModal("detail-modal");
-        refreshCals();
-        renderDashboard();
-      }
-
-      function editCurrentEvent() {
-        const ev = EVENTS.find((x) => x.id === currentDetailId);
-        if (!ev) return;
-        closeModal("detail-modal");
-        openEditEvent(ev);
-      }
-
-      function editEventFromList(evId, e) {
-        if (e) e.stopPropagation();
-        const ev = EVENTS.find((x) => x.id === evId);
-        if (ev) openEditEvent(ev);
-      }
-      function deleteEventFromList(evId, e) {
-        if (e) e.stopPropagation();
-        if (!confirm("¿Eliminar esta cita?")) return;
-        EVENTS = EVENTS.filter((x) => x.id !== evId);
-        refreshCals();
-        renderDashboard();
-      }
-
-      function toggleEventPrivacy(evId, e) {
-        if (e) e.stopPropagation();
-        if (currentUser.role !== "admin") return;
-        const ev = EVENTS.find((x) => x.id === evId);
-        if (!ev) return;
-        ev.private = !ev.private;
-        refreshCals();
-        renderDashboard();
-      }
-
-      function toggleCurrentEventPrivacy() {
-        if (currentUser.role !== "admin" || currentDetailId === null) return;
-        const ev = EVENTS.find((x) => x.id === currentDetailId);
-        if (!ev) return;
-        ev.private = !ev.private;
-        const privBtn = document.getElementById("det-privacy-btn");
-        if (privBtn) privBtn.textContent = ev.private ? "🔓 Hacer pública" : "🔒 Privatizar";
-        const badge = document.querySelector("#detail-body .private-badge");
-        if (ev.private && !badge) {
-          const firstDiv = document.querySelector("#detail-body > div > div:first-child");
-          if (firstDiv) firstDiv.insertAdjacentHTML("beforebegin", '<div><span class="private-badge">🔒 Cita privada</span></div>');
-        } else if (!ev.private && badge) {
-          badge.closest("div").remove();
-        }
-        refreshCals();
-        renderDashboard();
-      }
-
-      // ══════════════════════════════════════════
-      //  MODAL EVENTO (original — sin modificar)
-      // ══════════════════════════════════════════
-
-      function fillServiceSelect() {
-        const sel = document.getElementById("ev-service");
-        sel.innerHTML = SERVICES.map(
-          (s) =>
-            `<option value="${safeHtml(s.name)}">${safeHtml(s.name)}</option>`,
-        ).join("");
-      }
-
-      function fillEmployeeSelect(selectedId) {
-        const grp = document.getElementById("ev-employee-group");
-        const isAdmin = currentUser.role === "admin";
-        grp.style.display = (isAdmin && pendingIsGlobal) ? "" : "none";
-        if (isAdmin) {
-          document.getElementById("ev-employee").innerHTML = USERS.filter(
-            (u) => u.active,
-          )
-            .map(
-              (u) =>
-                `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)}</option>`,
-            )
-            .join("");
-        }
-      }
-
-      function openEventModal(isGlobal, dateStr) {
-        editingEvId = null;
-        pendingIsGlobal = isGlobal;
-        document.getElementById("event-modal-title").textContent = isGlobal
-          ? "Agendar cita (Global)"
-          : "Nueva cita";
-        document.getElementById("event-modal-sub").textContent = isGlobal
-          ? "Asigna una cita a un empleado"
-          : "Añade una nueva cita a tu calendario";
-        document.getElementById("ev-save-btn").textContent = "Guardar cita";
-        document.getElementById("ev-date").value = dateStr || todayStr();
-        document.getElementById("ev-time").value = "09:00";
-        document.getElementById("ev-client").value = "";
-        document.getElementById("ev-notes").value = "";
-        document.getElementById("ev-err").style.display = "none";
-        const pvGroup = document.getElementById("ev-private-group");
-        if (pvGroup) pvGroup.style.display = currentUser.role === "admin" ? "flex" : "none";
-        const pvChk = document.getElementById("ev-private");
-        if (pvChk) pvChk.checked = false;
-        fillServiceSelect();
-        fillEmployeeSelect(currentUser.id);
-        openModal("event-modal");
-      }
-
-      function openEditEvent(ev) {
-        editingEvId = ev.id;
-        pendingIsGlobal = currentUser.role === "admin";
-        document.getElementById("event-modal-title").textContent =
-          "Editar cita";
-        document.getElementById("event-modal-sub").textContent =
-          "Modifica los datos de la cita";
-        document.getElementById("ev-save-btn").textContent = "Guardar cambios";
-        document.getElementById("ev-date").value = ev.date;
-        document.getElementById("ev-time").value = ev.time;
-        document.getElementById("ev-client").value = ev.client;
-        document.getElementById("ev-notes").value = ev.notes || "";
-        document.getElementById("ev-err").style.display = "none";
-        const pvGroup = document.getElementById("ev-private-group");
-        if (pvGroup) pvGroup.style.display = currentUser.role === "admin" ? "flex" : "none";
-        const pvChk = document.getElementById("ev-private");
-        if (pvChk) pvChk.checked = !!ev.private;
-        fillServiceSelect();
-        document.getElementById("ev-service").value = ev.service;
-        fillEmployeeSelect(ev.assignedTo);
-        openModal("event-modal");
-      }
-
-      function saveEvent() {
-        const date = document.getElementById("ev-date").value;
-        const time = document.getElementById("ev-time").value;
-        const client = document.getElementById("ev-client").value.trim();
-        if (!date || !time || !client) {
-          document.getElementById("ev-err").style.display = "";
-          return;
-        }
-        document.getElementById("ev-err").style.display = "none";
-        const isAdmin = currentUser.role === "admin";
-        const assignedTo = (isAdmin && pendingIsGlobal)
-          ? parseInt(document.getElementById("ev-employee").value)
-          : currentUser.id;
-        const service = document.getElementById("ev-service").value;
-        const notes = document.getElementById("ev-notes").value;
-        const isPrivate = isAdmin ? (document.getElementById("ev-private")?.checked || false) : false;
-        if (editingEvId !== null) {
-          const ev = EVENTS.find((e) => e.id === editingEvId);
-          if (ev) {
-            ev.date = date;
-            ev.time = time;
-            ev.client = client;
-            ev.service = service;
-            ev.notes = notes;
-            if (isAdmin) { ev.assignedTo = assignedTo; ev.private = isPrivate; }
-          }
-        } else {
-          EVENTS.push({
-            id: nextEventId++,
-            ownerId: currentUser.id,
-            assignedTo,
-            date,
-            time,
-            client,
-            service,
-            notes,
-            private: isPrivate,
-          });
-        }
-        closeModal("event-modal");
-        refreshCals();
-        renderDashboard();
-      }
-
-      function populateGlobalFilter() {
-        const sel = document.getElementById("global-filter-person");
-        if (!sel) return;
-        const current = sel.value;
-        sel.innerHTML = '<option value="all">Todos</option>' +
-          USERS.filter(u => u.active).map(u =>
-            `<option value="${u.id}"${String(u.id) === current ? ' selected' : ''}>${safeHtml(u.name)}</option>`
-          ).join('');
-      }
-
-      function refreshCals() {
-        try {
-          const myCalSection = document.getElementById("section-my-calendar");
-          const globalCalSection = document.getElementById("section-global-calendar");
-          // NUEVO: también refrescar la sección del calendario del admin
-          const adminViewSection = document.getElementById("section-admin-view-calendar");
-          if (myCalSection && myCalSection.classList.contains("active")) renderCalendar("my");
-          if (globalCalSection && globalCalSection.classList.contains("active")) renderCalendar("global");
-          if (adminViewSection && adminViewSection.classList.contains("active")) renderAdminViewCalendar();
-          DEPARTAMENTOS.forEach(dept => {
-            const sec = document.getElementById("section-cal-" + dept);
-            if (sec && sec.classList.contains("active")) renderDeptCalendar(dept);
-          });
-        } catch (e) {
-          console.error("Error refreshing calendars:", e);
-        }
-      }
-
-      // ══════════════════════════════════════════
-      //  CALENDARIOS DE DEPARTAMENTO (sin cambios)
-      // ══════════════════════════════════════════
-
-      function canAccessDeptCalendar(dept) {
-        const isAdmin = currentUser.role === "admin";
-        if (isAdmin) return true;
-        const userDept = currentUser.departamento;
-        if (!userDept) return false;
-        const perm = DEPT_PERMISSIONS[userDept];
-        if (!perm) return false;
-        if (perm.level === 1) return false;
-        if (perm.level === 2) return dept === userDept;
-        if (perm.level === 3) return dept === userDept || perm.accessToDepts.includes(dept);
-        return false;
-      }
-
-      function renderDeptCalendar(dept) {
-        if (!canAccessDeptCalendar(dept)) {
-          showSection('my-calendar');
-          return;
-        }
-        const date = deptCalMonth[dept];
-        const titleEl = document.getElementById("dept-" + dept + "-cal-title");
-        const cellsEl = document.getElementById("dept-" + dept + "-cal-cells");
-        if (!titleEl || !cellsEl) return;
-
-        titleEl.textContent = mthName(date);
-        const year = date.getFullYear(), month = date.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        let dow = new Date(year, month, 1).getDay();
-        dow = dow === 0 ? 6 : dow - 1;
-        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
-
-        const deptUsers = USERS.filter(u => u.departamento === dept && u.active);
-        const deptUserIds = deptUsers.map(u => u.id);
-
-        let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && deptUserIds.includes(e.assignedTo));
-        if (currentUser.role !== "admin") {
-          evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
-        }
-
-        const today = todayStr();
-        const colors = ["", "amber", "red"];
-        let html = "";
-        for (let i = 0; i < dow; i++) html += '<div class="cal-cell empty"></div>';
-        for (let day = 1; day <= daysInMonth; day++) {
-          const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const isToday = ds === today;
-          const dayEvs = evs.filter(e => e.date === ds);
-          const evHTML = dayEvs.slice(0, 3).map((ev, i) => {
-            const shouldMask = ev.private && currentUser.role !== 'admin' && ev.assignedTo !== currentUser.id;
-            if (shouldMask) {
-              return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
-            }
-            const emp = USERS.find(u => u.id === ev.assignedTo);
-            return `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${ev.time} ${safeHtml(ev.client)}</div>`;
-          }).join("");
-          html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'dept-${dept}')">
-            <div class="cell-num">${day}</div>${evHTML}
-            ${dayEvs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length - 3} más</div>` : ""}
-          </div>`;
-        }
-        const totalCells = dow + daysInMonth;
-        for (let i = totalCells; i < 42; i++) html += '<div class="cal-cell empty"></div>';
-        cellsEl.innerHTML = html;
-
-        const listEl = document.getElementById("dept-" + dept + "-appt-list");
-        if (!listEl) return;
-        const sorted = evs.slice().sort((a, b) => a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date));
-        if (!sorted.length) {
-          listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hay citas este mes en el departamento</div>';
-          return;
-        }
-        const isAdmin = currentUser.role === "admin";
-        listEl.innerHTML = sorted.map(ev => {
-          const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
-          if (shouldMask) {
-            return `<div class="appt-item blocked">
-              <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
-              <div class="appt-info">
-                <div class="appt-client">🔒 Tarea privatizada</div>
-                <div class="appt-meta">Horario no disponible</div>
-              </div>
-            </div>`;
-          }
-          const emp = USERS.find(u => u.id === ev.assignedTo);
-          const canEdit = isAdmin || ev.assignedTo === currentUser.id || ev.ownerId === currentUser.id;
-          const privBtn = isAdmin ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>` : '';
-          return `<div class="appt-item">
-            <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
-            <div class="appt-info">
-              <div class="appt-client">${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privado</span>' : ''}</div>
-              <div class="appt-meta">${safeHtml(ev.service)}${emp ? ' &middot; <strong>' + safeHtml(emp.name) + '</strong>' : ''}</div>
-            </div>
-            <div class="action-btns">
-              ${canEdit ? `${privBtn}<button class="btn-icon" onclick="editEventFromList(${ev.id},event)">Editar</button><button class="btn-icon red" onclick="deleteEventFromList(${ev.id},event)">Eliminar</button>` : ''}
-            </div>
-          </div>`;
-        }).join("");
-      }
-
-      // ══════════════════════════════════════════
-      //  NUEVO: CALENDARIO DEL ADMIN (para empleados)
-      //  Renderiza las citas del admin:
-      //  - Admin: ve todo con detalles completos
-      //  - Empleado: ve citas no privadas con detalle, citas privadas como "Hora bloqueada"
-      //  - Empleado puede crear citas en este calendario
-      //  - Validación de horario ocupado antes de guardar
-      // ══════════════════════════════════════════
-
-      function changeAdminViewMonth(dir) {
-        adminViewCalMonth = new Date(adminViewCalMonth.getFullYear(), adminViewCalMonth.getMonth() + dir, 1);
-        renderAdminViewCalendar();
-      }
-
-      function renderAdminViewCalendar() {
-        const adminUser = getAdminUser();
-        const isAdmin = currentUser.role === "admin";
-        const date = adminViewCalMonth;
-
-        // Actualizar subtítulo y banner informativo
-        const subEl = document.getElementById("admin-view-cal-sub");
-        const bannerEl = document.getElementById("admin-cal-info-banner");
-        const btnAdd = document.getElementById("btn-add-admin-appt");
-
-        if (adminUser) {
-          if (subEl) subEl.textContent = "Citas de " + adminUser.name;
-          // Mostrar banner informativo solo para empleados
-          if (bannerEl) bannerEl.style.display = isAdmin ? "none" : "flex";
-          // El admin puede crear citas desde su propio calendario
-          if (btnAdd) btnAdd.textContent = isAdmin ? "+ Nueva cita" : "+ Solicitar cita";
-        }
-
-        const titleEl = document.getElementById("admin-view-cal-title");
-        const cellsEl = document.getElementById("admin-view-cal-cells");
-        if (!titleEl || !cellsEl) return;
-
-        titleEl.textContent = mthName(date);
-
-        const year = date.getFullYear(), month = date.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        let dow = new Date(year, month, 1).getDay();
-        dow = dow === 0 ? 6 : dow - 1;
-        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
-
-        // Filtrar solo citas del admin
-        let evs = adminUser
-          ? EVENTS.filter(e => e.date.startsWith(monthStr) && e.assignedTo === adminUser.id)
-          : [];
-
-        const today = todayStr();
-        const colors = ["", "amber", "red"];
-        let html = "";
-
-        for (let i = 0; i < dow; i++) html += '<div class="cal-cell empty"></div>';
-
-        for (let day = 1; day <= daysInMonth; day++) {
-          const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const isToday = ds === today;
-          const dayEvs = evs.filter(e => e.date === ds);
-
-          const evHTML = dayEvs.slice(0, 3).map((ev, i) => {
-            // Privatización: si el evento es privado y el usuario no es admin
-            const shouldMask = ev.private && !isAdmin;
-            if (shouldMask) {
-              return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
-            }
-            return `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${ev.time} ${safeHtml(ev.client)}</div>`;
-          }).join("");
-
-          html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'admin-view')">
-            <div class="cell-num">${day}</div>${evHTML}
-            ${dayEvs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length - 3} más</div>` : ""}
-          </div>`;
-        }
-
-        const totalCells = dow + daysInMonth;
-        for (let i = totalCells; i < 42; i++) html += '<div class="cal-cell empty"></div>';
-        cellsEl.innerHTML = html;
-
-        // Renderizar lista de citas del mes del admin
-        renderAdminViewApptList(evs);
-      }
-
-      function renderAdminViewApptList(evs) {
-        const listEl = document.getElementById("admin-view-appt-list");
-        if (!listEl) return;
-        const isAdmin = currentUser.role === "admin";
-        const sorted = evs.slice().sort((a, b) =>
-          a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date)
-        );
-        if (!sorted.length) {
-          listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hay citas este mes</div>';
-          return;
-        }
-        listEl.innerHTML = sorted.map(ev => {
-          const shouldMask = ev.private && !isAdmin;
-          if (shouldMask) {
-            // Mostrar como bloqueado pero con la hora visible (para que no se pueda agendar encima)
-            return `<div class="appt-item blocked">
-              <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
-              <div class="appt-info">
-                <div class="appt-client">🔒 Tarea privatizada</div>
-                <div class="appt-meta">Horario no disponible</div>
-              </div>
-            </div>`;
-          }
-          const canEdit = isAdmin || ev.ownerId === currentUser.id || ev.assignedTo === currentUser.id;
-          const privBtn = isAdmin
-            ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>`
-            : '';
-          const emp = USERS.find(u => u.id === ev.assignedTo);
-          return `<div class="appt-item">
-            <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
-            <div class="appt-info">
-              <div class="appt-client">${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privado</span>' : ''}</div>
-              <div class="appt-meta">${safeHtml(ev.service)}</div>
-            </div>
-            <div class="action-btns">
-              ${canEdit ? `
-                ${privBtn}
-                <button class="btn-icon" onclick="editEventFromList(${ev.id},event)">Editar</button>
-                <button class="btn-icon red" onclick="deleteEventFromList(${ev.id},event)">Eliminar</button>
-              ` : ''}
-            </div>
-          </div>`;
-        }).join("");
-      }
-
-      // ══════════════════════════════════════════
-      //  NUEVO: MODAL DE CITA EN CALENDARIO DEL ADMIN
-      //  Función independiente que no modifica openEventModal() existente.
-      //  Incluye validación de horario ocupado/bloqueado.
-      // ══════════════════════════════════════════
-
-      function fillAdminEventServiceSelect() {
-        const sel = document.getElementById("aev-service");
-        if (!sel) return;
-        sel.innerHTML = SERVICES.map(s =>
-          `<option value="${safeHtml(s.name)}">${safeHtml(s.name)}</option>`
-        ).join("");
-      }
-
-      function openAdminCalEventModal(dateStr) {
-        const adminUser = getAdminUser();
-        const isAdmin = currentUser.role === "admin";
-
-        document.getElementById("admin-event-modal-title").textContent =
-          isAdmin ? "Nueva cita en tu calendario" : ("Solicitar cita con " + (adminUser ? adminUser.name : "el administrador"));
-        document.getElementById("admin-event-modal-sub").textContent =
-          isAdmin ? "Añade una cita a tu calendario de admin" : "Rellena los datos para solicitar la cita";
-
-        document.getElementById("aev-date").value = dateStr || todayStr();
-        document.getElementById("aev-time").value = "09:00";
-        document.getElementById("aev-client").value = isAdmin ? "" : currentUser.name;
-        document.getElementById("aev-notes").value = "";
-        document.getElementById("aev-err").style.display = "none";
-        document.getElementById("aev-blocked-warning").style.display = "none";
-
-        fillAdminEventServiceSelect();
-        openModal("admin-event-modal");
-      }
-
-      function saveAdminCalEvent() {
-        const date = document.getElementById("aev-date").value;
-        const time = document.getElementById("aev-time").value;
-        const client = document.getElementById("aev-client").value.trim();
-        const service = document.getElementById("aev-service").value;
-        const notes = document.getElementById("aev-notes").value;
-
-        // Validación de campos obligatorios
-        if (!date || !time || !client) {
-          document.getElementById("aev-err").style.display = "";
-          return;
-        }
-        document.getElementById("aev-err").style.display = "none";
-
-        // ══════════════════════════════════════════════════
-        // NUEVO: Validación de horario bloqueado
-        // Si existe una cita privada del admin en esa fecha+hora,
-        // el empleado NO puede agendar encima. Se muestra aviso.
-        // ══════════════════════════════════════════════════
-        const adminUser = getAdminUser();
-        if (!adminUser) {
-          document.getElementById("aev-err").textContent = "No se encontró el administrador.";
-          document.getElementById("aev-err").style.display = "";
-          return;
-        }
-
-        if (isAdminSlotBlocked(date, time)) {
-          document.getElementById("aev-blocked-warning").style.display = "";
-          return;
-        }
-
-        // Validar que no haya ya una cita en ese slot (double booking)
-        if (isAdminSlotOccupied(date, time, null)) {
-          document.getElementById("aev-blocked-warning").style.display = "";
-          return;
-        }
-
-        document.getElementById("aev-blocked-warning").style.display = "none";
-
-        // Guardar la cita en el calendario del admin
-        // - ownerId: el usuario que la crea (empleado o admin)
-        // - assignedTo: siempre el admin (porque se crea en su calendario)
-        // - private: false por defecto (el empleado no puede privatizar)
-        EVENTS.push({
-          id: nextEventId++,
-          ownerId: currentUser.id,
-          assignedTo: adminUser.id,
-          date,
-          time,
-          client,
-          service,
-          notes,
-          private: false,
-        });
-
-        closeModal("admin-event-modal");
-        refreshCals();
-        renderDashboard();
-      }
-
-      // Validación en tiempo real del horario al cambiar fecha/hora en el modal del admin
-      document.addEventListener("DOMContentLoaded", function() {
-        const aevDate = document.getElementById("aev-date");
-        const aevTime = document.getElementById("aev-time");
-        function checkAdminSlot() {
-          if (!currentUser) return;
-          const date = aevDate ? aevDate.value : "";
-          const time = aevTime ? aevTime.value : "";
-          const warningEl = document.getElementById("aev-blocked-warning");
-          if (!warningEl || !date || !time) return;
-          if (isAdminSlotBlocked(date, time) || isAdminSlotOccupied(date, time, null)) {
-            warningEl.style.display = "";
-          } else {
-            warningEl.style.display = "none";
-          }
-        }
-        if (aevDate) aevDate.addEventListener("change", checkAdminSlot);
-        if (aevTime) aevTime.addEventListener("change", checkAdminSlot);
-      });
-
-      // ══════════════════════════════════════════
-      //  PANEL DE PERMISOS (sin cambios)
-      // ══════════════════════════════════════════
-
-      function renderPermissionsPanel() {
-        const el = document.getElementById("permissions-panel");
-        if (!el || currentUser.role !== "admin") return;
-        el.innerHTML = DEPARTAMENTOS.map(dept => {
-          const perm = DEPT_PERMISSIONS[dept];
-          const deptLabel = dept.charAt(0).toUpperCase() + dept.slice(1);
-          const otherDepts = DEPARTAMENTOS.filter(d => d !== dept);
-          const deptChecks = otherDepts.map(d => {
-            const checked = perm.accessToDepts.includes(d) ? "checked" : "";
-            return `<label><input type="checkbox" ${checked} onchange="updateDeptAccess('${dept}','${d}',this.checked)" />${d.charAt(0).toUpperCase() + d.slice(1)}</label>`;
-          }).join("");
-          return `<div class="perm-dept-block">
-            <div class="perm-dept-title">
-              <span class="tag tag-dept-${dept}">${deptLabel}</span>
-              Departamento ${deptLabel}
-            </div>
-            <div class="perm-radio-group">
-              <label class="perm-radio-label">
-                <input type="radio" name="perm-${dept}" value="1" ${perm.level === 1 ? 'checked' : ''} onchange="setDeptPermLevel('${dept}',1)" />
-                <div><div>Solo calendario personal</div><div class="perm-radio-desc">El empleado solo ve sus propias citas</div></div>
-              </label>
-              <label class="perm-radio-label">
-                <input type="radio" name="perm-${dept}" value="2" ${perm.level === 2 ? 'checked' : ''} onchange="setDeptPermLevel('${dept}',2)" />
-                <div><div>Ver calendario de departamento</div><div class="perm-radio-desc">Ve las citas de todos sus compañeros de departamento</div></div>
-              </label>
-              <label class="perm-radio-label">
-                <input type="radio" name="perm-${dept}" value="3" ${perm.level === 3 ? 'checked' : ''} onchange="setDeptPermLevel('${dept}',3)" />
-                <div><div>Acceso a otros calendarios</div><div class="perm-radio-desc">Además de su departamento, puede acceder a otros departamentos seleccionados</div></div>
-              </label>
-            </div>
-            <div class="perm-dept-access" id="perm-access-${dept}" style="${perm.level === 3 ? '' : 'display:none'}">
-              <div style="font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.8px">Departamentos accesibles:</div>
-              ${deptChecks}
-            </div>
-          </div>`;
-        }).join("");
-      }
-
-      function setDeptPermLevel(dept, level) {
-        if (currentUser.role !== "admin") return;
-        DEPT_PERMISSIONS[dept].level = parseInt(level);
-        if (level < 3) DEPT_PERMISSIONS[dept].accessToDepts = [];
-        const accessEl = document.getElementById("perm-access-" + dept);
-        if (accessEl) accessEl.style.display = level == 3 ? "" : "none";
-        updateDeptCalNav();
-      }
-
-      function updateDeptAccess(dept, targetDept, checked) {
-        if (currentUser.role !== "admin") return;
-        if (checked) {
-          if (!DEPT_PERMISSIONS[dept].accessToDepts.includes(targetDept))
-            DEPT_PERMISSIONS[dept].accessToDepts.push(targetDept);
-        } else {
-          DEPT_PERMISSIONS[dept].accessToDepts = DEPT_PERMISSIONS[dept].accessToDepts.filter(d => d !== targetDept);
-        }
-        updateDeptCalNav();
-      }
-
-      function updateDeptCalNav() {
-        const isAdmin = currentUser.role === "admin";
-        document.querySelectorAll(".dept-cal-nav").forEach(el => {
-          const dept = el.getAttribute("data-dept");
-          el.style.display = canAccessDeptCalendar(dept) ? "" : "none";
-        });
-      }
-
-      // ══════════════════════════════════════════
-      //  USUARIOS (sin cambios)
-      // ══════════════════════════════════════════
-
-      function renderUsers() {
-        document.getElementById("user-count").textContent =
-          USERS.filter((u) => u.active).length + " usuarios activos";
-        document.getElementById("users-table-body").innerHTML = USERS.map(
-          (u) => {
-            const deptTag = u.role !== "admin" && u.departamento
-              ? `<span class="tag tag-dept-${u.departamento}" style="text-transform:capitalize">${u.departamento}</span>`
-              : `<span class="tag tag-dept-none">—</span>`;
-            return `
-    <tr>
-      <td><div class="user-cell"><div class="mini-avatar">${initials(u.name)}</div><div><div style="font-weight:500">${safeHtml(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">@${safeHtml(u.username)}</div></div></div></td>
-      <td><span class="tag ${u.role === "admin" ? "tag-blue" : "tag-green"}">${u.role === "admin" ? "Admin" : "Empleado"}</span></td>
-      <td>${deptTag}</td>
-      <td style="color:var(--text-muted)">${safeHtml(u.email || "—")}</td>
-      <td style="color:var(--text-muted)">${safeHtml(u.phone || "—")}</td>
-      <td><span class="tag ${u.active ? "tag-green" : "tag-gray"}">${u.active ? "Activo" : "Inactivo"}</span></td>
-      <td>
-        <div class="action-btns">
-          <button class="btn-icon" title="Editar" onclick="editUser(${u.id})">Editar</button>
-          <button class="btn-icon red" title="${u.active ? "Desactivar" : "Activar"}" onclick="toggleUser(${u.id})">${u.active ? "Desactivar" : "Activar"}</button>
-        </div>
-      </td>
-    </tr>`;
-          }
-        ).join("");
-      }
-
-      function openUserModal() {
-        editingUserId = null;
-        document.getElementById("user-modal-title").textContent = "Nuevo usuario";
-        document.getElementById("nu-save-btn").textContent = "Crear usuario";
-        ["nu-name", "nu-user", "nu-pass", "nu-email", "nu-phone"].forEach(
-          (id) => (document.getElementById(id).value = ""),
-        );
-        document.getElementById("nu-role").selectedIndex = 0;
-        document.getElementById("nu-dept").selectedIndex = 0;
-        document.getElementById("nu-err").style.display = "none";
-        document.getElementById("nu-dept-group").style.display = "";
-        openModal("user-modal");
-      }
-
-      document.getElementById("nu-role").addEventListener("change", function() {
-        document.getElementById("nu-dept-group").style.display = this.value === "admin" ? "none" : "";
-      });
-
-      function editUser(id) {
-        const u = USERS.find((x) => x.id === id);
-        if (!u) return;
-        editingUserId = id;
-        document.getElementById("user-modal-title").textContent = "Editar usuario";
-        document.getElementById("nu-save-btn").textContent = "Guardar cambios";
-        document.getElementById("nu-name").value = u.name;
-        document.getElementById("nu-user").value = u.username;
-        document.getElementById("nu-pass").value = "";
-        document.getElementById("nu-email").value = u.email || "";
-        document.getElementById("nu-phone").value = u.phone || "";
-        document.getElementById("nu-role").value = u.role;
-        const deptGroup = document.getElementById("nu-dept-group");
-        if (u.role === "admin") {
-          deptGroup.style.display = "none";
-        } else {
-          deptGroup.style.display = "";
-          document.getElementById("nu-dept").value = u.departamento || "laboral";
-        }
-        document.getElementById("nu-err").style.display = "none";
-        openModal("user-modal");
-      }
-
-      function saveUser() {
-        const name = document.getElementById("nu-name").value.trim();
-        const uname = document.getElementById("nu-user").value.trim();
-        const pass = document.getElementById("nu-pass").value;
-        const email = document.getElementById("nu-email").value.trim();
-        const phone = document.getElementById("nu-phone").value.trim();
-        const role = document.getElementById("nu-role").value;
-        const dept = role !== "admin" ? document.getElementById("nu-dept").value : null;
-        const errEl = document.getElementById("nu-err");
-
-        if (!name || !uname) {
-          errEl.textContent = "Nombre y usuario son obligatorios.";
-          errEl.style.display = "";
-          return;
-        }
-        if (editingUserId === null && !pass) {
-          errEl.textContent = "La contraseña es obligatoria.";
-          errEl.style.display = "";
-          return;
-        }
-        if (role !== "admin" && !dept) {
-          errEl.textContent = "El departamento es obligatorio para empleados.";
-          errEl.style.display = "";
-          return;
-        }
-        const dupUser = USERS.find(
-          (u) => u.username === uname && u.id !== editingUserId,
-        );
-        if (dupUser) {
-          errEl.textContent = "El nombre de usuario ya existe.";
-          errEl.style.display = "";
-          return;
-        }
-        errEl.style.display = "none";
-
-        if (editingUserId !== null) {
-          const u = USERS.find((x) => x.id === editingUserId);
-          if (u) {
-            u.name = name;
-            u.username = uname;
-            u.email = email;
-            u.phone = phone;
-            u.role = role;
-            u.departamento = role !== "admin" ? dept : null;
-            if (pass) u.password = pass;
-          }
-        } else {
-          USERS.push({
-            id: nextUserId++,
-            username: uname,
-            password: pass,
-            name,
-            role,
-            departamento: role !== "admin" ? dept : null,
-            email,
-            phone,
-            active: true,
-          });
-        }
-        closeModal("user-modal");
-        renderUsers();
-        buildMsgList();
-        updateGchatHeader();
-        updateDeptCalNav();
-      }
-
-      function toggleUser(id) {
-        if (id === currentUser.id) {
-          alert("No puedes desactivar tu propio usuario.");
-          return;
-        }
-        const u = USERS.find((x) => x.id === id);
-        if (u) u.active = !u.active;
-        renderUsers();
-      }
-
-      // ══════════════════════════════════════════
-      //  SERVICIOS (sin cambios)
-      // ══════════════════════════════════════════
-
-      function renderServices() {
-        const isAdmin = currentUser.role === "admin";
-        if (!SERVICES.length) {
-          document.getElementById("services-list").innerHTML =
-            '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No hay servicios registrados.</div>';
-          return;
-        }
-        document.getElementById("services-list").innerHTML = SERVICES.map(
-          (s, idx) => `
-    <div class="srv-item">
-      <div class="srv-num">${String(idx + 1).padStart(2, "0")}</div>
-      <div class="srv-info">
-        <div class="srv-name">${safeHtml(s.name)}</div>
-        <div class="srv-desc">${safeHtml(s.desc || "")}</div>
-      </div>
-      ${
-        isAdmin
-          ? `
-        <div class="action-btns">
-          <button class="btn-icon" title="Editar" onclick="editService(${s.id})">Editar</button>
-          <button class="btn-icon red" title="Eliminar" onclick="deleteService(${s.id})">Eliminar</button>
-        </div>`
-          : ""
-      }
-    </div>`,
-        ).join("");
-      }
-
-      function openServiceModal() {
-        editingSrvId = null;
-        document.getElementById("srv-modal-title").textContent =
-          "Nuevo servicio";
-        document.getElementById("srv-save-btn").textContent = "Guardar";
-        document.getElementById("srv-name").value = "";
-        document.getElementById("srv-desc").value = "";
-        document.getElementById("srv-err").style.display = "none";
-        openModal("service-modal");
-      }
-
-      function editService(id) {
-        const s = SERVICES.find((x) => x.id === id);
-        if (!s) return;
-        editingSrvId = id;
-        document.getElementById("srv-modal-title").textContent =
-          "Editar servicio";
-        document.getElementById("srv-save-btn").textContent = "Guardar cambios";
-        document.getElementById("srv-name").value = s.name;
-        document.getElementById("srv-desc").value = s.desc || "";
-        document.getElementById("srv-err").style.display = "none";
-        openModal("service-modal");
-      }
-
-      function saveService() {
-        const name = document.getElementById("srv-name").value.trim();
-        const desc = document.getElementById("srv-desc").value.trim();
-        const errEl = document.getElementById("srv-err");
-        if (!name) {
-          errEl.style.display = "";
-          return;
-        }
-        errEl.style.display = "none";
-        if (editingSrvId !== null) {
-          const s = SERVICES.find((x) => x.id === editingSrvId);
-          if (s) {
-            s.name = name;
-            s.desc = desc;
-          }
-        } else {
-          SERVICES.push({ id: nextServiceId++, name, desc });
-        }
-        closeModal("service-modal");
-        renderServices();
-      }
-
-      function deleteService(id) {
-        if (!confirm("¿Eliminar este servicio?")) return;
-        SERVICES = SERVICES.filter((s) => s.id !== id);
-        renderServices();
-      }
-
-      // ══════════════════════════════════════════
-      //  CHAT GENERAL (sin cambios)
-      // ══════════════════════════════════════════
-
-      function updateGchatHeader() {
-        const activeCount = USERS.filter((u) => u.active).length;
-        const el = document.getElementById("gchat-online-count");
-        if (el)
-          el.textContent =
-            activeCount +
-            " miembro" +
-            (activeCount !== 1 ? "s" : "") +
-            " en el equipo";
-        const lbl = document.getElementById("gchat-members-label");
-        if (lbl)
-          lbl.textContent =
-            "Canal compartido · " + activeCount + " participantes";
-      }
-
-      function openGeneralChat() {
-        gchatUnreadCount = 0;
-        updateBadge();
-        updateGchatHeader();
-        renderGeneralChat();
-        setTimeout(() => {
-          document.getElementById("gchat-input").focus();
-        }, 50);
-      }
-
-      function renderGeneralChat() {
-        const el = document.getElementById("gchat-messages");
-        if (!el) return;
-        if (!GENERAL_CHAT.length) {
-          el.innerHTML =
-            '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:40px 0">No hay mensajes aún. ¡Sé el primero en escribir!</div>';
-          return;
-        }
-
-        let html = "";
-        let lastDate = null;
-        let lastUserId = null;
-
-        GENERAL_CHAT.forEach((msg) => {
-          const sender = USERS.find((u) => u.id === msg.userId);
-          const senderName = sender ? sender.name : "Usuario";
-          const isMe = msg.userId === currentUser.id;
-          const msgDate = msg.date;
-
-          if (msgDate !== lastDate) {
-            const today = todayStr();
-            let label;
-            if (msgDate === today) label = "Hoy";
-            else if (msgDate === dOff(-1)) label = "Ayer";
-            else label = fmtDateShort(msgDate);
-            html += `<div class="gchat-day-sep"><span>${label}</span></div>`;
-            lastDate = msgDate;
-            lastUserId = null;
-          }
-
-          const showMeta = lastUserId !== msg.userId;
-          lastUserId = msg.userId;
-
-          html += `<div class="gchat-msg-group ${isMe ? "me" : ""}">`;
-          if (showMeta) {
-            html += `<div class="gchat-msg-meta ${isMe ? "me" : ""}">
-        <div class="gchat-uavatar ${isMe ? "me" : ""}">${initials(senderName)}</div>
-        <span class="gchat-sender">${isMe ? "Tú" : safeHtml(senderName)}</span>
-      </div>`;
-          }
-          html += `<div class="gchat-bubble">${safeHtml(msg.text)}</div>
-    <div class="gchat-time">${msg.time}</div>
-    </div>`;
-        });
-
-        el.innerHTML = html;
-        el.scrollTop = el.scrollHeight;
-      }
-
-      function gchatKeydown(e) {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          sendGchatMsg();
-        }
-      }
-
-      function sendGchatMsg() {
-        const inp = document.getElementById("gchat-input");
-        const text = inp.value.trim();
-        if (!text || !currentUser) return;
-        GENERAL_CHAT.push({
-          id: nextGchatId++,
-          userId: currentUser.id,
-          text,
-          time: nowTime(),
-          date: todayStr(),
-        });
-        inp.value = "";
-        renderGeneralChat();
-      }
-
-      // ══════════════════════════════════════════
-      //  MENSAJERÍA PRIVADA (sin cambios)
-      // ══════════════════════════════════════════
-
-      function renderMessages() {
-        buildMsgList();
-        if (activeConvId !== null) openConv(activeConvId);
-      }
-
-      function buildMsgList(filter) {
-        const others = USERS.filter((u) => u.id !== currentUser.id && u.active);
-        const filtered = filter
-          ? others.filter(
-              (u) =>
-                u.name.toLowerCase().includes(filter.toLowerCase()) ||
-                u.username.toLowerCase().includes(filter.toLowerCase()),
-            )
-          : others;
-
-        document.getElementById("msg-list").innerHTML = filtered
-          .map((u) => {
-            const msgs = convData(u.id);
-            const last = msgs.length ? msgs[msgs.length - 1] : null;
-            const unread = unreadOf(u.id);
-            return `<div class="msg-conv ${activeConvId === u.id ? "active" : ""}" onclick="openConv(${u.id})">
-      <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:12px;flex-shrink:0">${initials(u.name)}</div>
-      <div class="msg-conv-info">
-        <div class="msg-conv-name">${safeHtml(u.name)}</div>
-        <div class="msg-conv-preview">${last ? (last.mine ? "Tú: " : "") + safeHtml(last.text) : "Inicia una conversación"}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        ${last ? `<div class="msg-conv-time">${last.time}</div>` : ""}
-        ${unread > 0 ? `<div class="nav-badge">${unread}</div>` : ""}
-      </div>
-    </div>`;
-          })
-          .join("");
-      }
-
-      function filterConvs() {
-        buildMsgList(document.getElementById("msg-search-inp").value);
-      }
-
-      function openConv(otherId) {
-        activeConvId = otherId;
-        const other = USERS.find((u) => u.id === otherId);
-        if (!other) return;
-        convData(otherId).forEach((m) => {
-          if (!m.mine) m.read = true;
-        });
-        updateBadge();
-        buildMsgList(document.getElementById("msg-search-inp").value);
-        document.getElementById("msg-empty-state").style.display = "none";
-        const chat = document.getElementById("msg-active-chat");
-        chat.style.display = "flex";
-        document.getElementById("chat-avatar").textContent = initials(
-          other.name,
-        );
-        document.getElementById("chat-name").textContent = other.name;
-        renderMsgs(otherId);
-        document.getElementById("msg-input").focus();
-      }
-
-      function renderMsgs(otherId) {
-        const msgs = convData(otherId);
-        const el = document.getElementById("msg-messages");
-        el.innerHTML = msgs.length
-          ? msgs
-              .map(
-                (m) => `<div class="msg-bubble-wrap ${m.mine ? "me" : ""}">
-        <div class="msg-bubble">${safeHtml(m.text)}</div>
-        <div class="msg-time-label">${m.time}</div>
-      </div>`,
-              )
-              .join("")
-          : '<div style="text-align:center;color:var(--text-muted);font-size:13px;margin:auto">Inicia la conversación</div>';
-        el.scrollTop = el.scrollHeight;
-      }
-
-      function msgKeydown(e) {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          sendMsg();
-        }
-      }
-
-      function sendMsg() {
-        if (activeConvId === null) return;
-        const inp = document.getElementById("msg-input");
-        const text = inp.value.trim();
-        if (!text) return;
-        const time = nowTime();
-        convData(activeConvId).push({ mine: true, text, time, read: true });
-        inp.value = "";
-        renderMsgs(activeConvId);
-        buildMsgList(document.getElementById("msg-search-inp").value);
-      }
-
-      // ══════════════════════════════════════════
-      //  MODAL UTILS (sin cambios)
-      // ══════════════════════════════════════════
-
-      function openModal(id) {
-        document.getElementById(id).classList.add("open");
-      }
-      function closeModal(id) {
-        document.getElementById(id).classList.remove("open");
-      }
-
-      document.querySelectorAll(".modal-overlay").forEach((o) => {
-        o.addEventListener("click", (e) => {
-          if (e.target === o) o.classList.remove("open");
-        });
-      });
-      
-    </script>
+    <script src="app.js"></script>
   </body>
 </html>

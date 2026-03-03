@@ -43,7 +43,7 @@ def api_status():
     return jsonify({
         'status': 'ok',
         'app': 'GestióPro',
-        'version': '1.0',
+        'version': '2.0',
         'timestamp': datetime.now().isoformat(),
         'environment': app.config['ENV']
     })
