@@ -1097,6 +1097,25 @@
         align-items: center;
         gap: 10px;
       }
+      /* Back button: hidden on desktop, shown on mobile via media query */
+      .msg-back-btn {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--accent);
+        font-size: 22px;
+        flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
+        border-radius: 8px;
+        padding: 0;
+        margin-right: 2px;
+      }
+      .msg-back-btn:active { background: var(--bg2); }
       .msg-messages {
         flex: 1;
         overflow-y: auto;
@@ -1324,6 +1343,7 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        min-height: 0;
       }
       .gchat-header {
         padding: 16px 22px;
@@ -1362,11 +1382,14 @@
       .gchat-messages {
         flex: 1;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
         padding: 20px 24px;
         display: flex;
         flex-direction: column;
         gap: 2px;
         background: var(--bg);
+        min-height: 0;
       }
       .gchat-day-sep {
         text-align: center;
@@ -1826,48 +1849,111 @@
           width: 100% !important;
         }
 
-        /* Chat: altura de ventana adaptada */
-        .gchat-wrap,
-        .msg-layout {
+        /* ══ MOBILE CHAT GENERAL: altura total ══ */
+        .gchat-wrap {
           height: calc(100vh - 130px) !important;
           height: calc(100dvh - 130px) !important;
+          border-radius: 10px !important;
         }
 
-        /* Burbujas de chat: ancho máximo mayor en móvil */
-        .gchat-bubble,
-        .msg-bubble {
+        /* ══ MENSAJERÍA PRIVADA MÓVIL: navegación panel-a-panel ══ */
+        .msg-layout {
+          display: flex !important;
+          flex-direction: column !important;
+          height: calc(100vh - 130px) !important;
+          height: calc(100dvh - 130px) !important;
+          position: relative !important;
+          overflow: hidden !important;
+          border-radius: 10px !important;
+        }
+
+        /* En móvil: sidebar ocupa TODO cuando no hay chat abierto */
+        .msg-sidebar {
+          position: absolute !important;
+          inset: 0 !important;
+          width: 100% !important;
+          max-height: none !important;
+          min-height: 0 !important;
+          height: 100% !important;
+          border-right: none !important;
+          border-bottom: none !important;
+          z-index: 2 !important;
+          transition: transform 0.28s cubic-bezier(0.4,0,0.2,1) !important;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch !important;
+          background: var(--surface) !important;
+        }
+        /* Cuando hay chat abierto, sidebar se desliza fuera */
+        .msg-sidebar.conv-open {
+          transform: translateX(-100%) !important;
+          pointer-events: none !important;
+        }
+
+        /* En móvil: msg-main ocupa TODO, espera a la derecha */
+        .msg-main {
+          position: absolute !important;
+          inset: 0 !important;
+          width: 100% !important;
+          z-index: 1 !important;
+          transition: transform 0.28s cubic-bezier(0.4,0,0.2,1) !important;
+          transform: translateX(100%) !important;
+          background: var(--surface) !important;
+        }
+        /* Cuando hay chat abierto, main entra desde derecha */
+        .msg-main.conv-open {
+          transform: translateX(0) !important;
+          z-index: 3 !important;
+        }
+
+        /* Cabecera del chat: más compacta */
+        .msg-main-header {
+          padding: 10px 14px !important;
+        }
+        /* Botón volver: visible en móvil */
+        .msg-back-btn {
+          display: flex !important;
+        }
+
+        /* Burbujas: ancho mayor en móvil */
+        .gchat-bubble, .msg-bubble {
           max-width: 88% !important;
         }
 
-        /* Botón de enviar texto solo icono en móvil */
-        .msg-send-btn,
-        .msg-composer .msg-send-btn {
+        /* Textarea: font-size 16px evita zoom en iOS */
+        .msg-composer textarea,
+        #gchat-input {
+          font-size: 16px !important;
+          min-height: 44px !important;
+        }
+
+        /* Botones táctiles: mínimo 44px */
+        .msg-send-btn {
+          min-height: 44px !important;
+          padding: 0 16px !important;
+          font-size: 14px !important;
+        }
+        .msg-attach-btn {
+          min-height: 44px !important;
           padding: 0 14px !important;
           font-size: 13px !important;
         }
-
-        /* Adjuntar archivo: área táctil mínima 44px */
-        .msg-attach-btn {
-          min-height: 44px !important;
-          padding: 10px 14px !important;
-          font-size: 13px !important;
-        }
-        .msg-send-btn {
-          min-height: 44px !important;
-        }
-        /* Textarea móvil: teclado virtual no rompa layout */
-        .msg-composer textarea {
-          font-size: 16px !important; /* evita zoom en iOS */
-          min-height: 44px !important;
-        }
-        /* Chips de adjunto: legibles en táctil */
         .msg-attach-chip {
-          padding: 5px 10px !important;
+          padding: 6px 10px !important;
           font-size: 12px !important;
         }
         .msg-attach-chip-del {
           padding: 4px !important;
           font-size: 16px !important;
+        }
+        .msg-attach-bar {
+          padding: 6px 12px 4px !important;
+        }
+        .msg-composer {
+          padding: 10px 12px !important;
+          gap: 8px !important;
+        }
+        .msg-messages, .gchat-messages {
+          padding: 14px 12px !important;
         }
 
         /* Banner admin cal */
@@ -2502,6 +2588,26 @@
                 </div>
               </div>
               <div class="gchat-messages" id="gchat-messages"></div>
+              <!-- Adjuntos chat general -->
+              <div class="msg-attach-bar" id="gchat-attach-bar">
+                <label
+                  for="gchat-file-input"
+                  class="msg-attach-btn"
+                  title="Adjuntar archivo (máx. 5 MB)"
+                  role="button"
+                  tabindex="0"
+                  onkeydown="if(event.key==='Enter'||event.key===' '){document.getElementById('gchat-file-input').click();}"
+                >📎 Adjuntar</label>
+                <input
+                  type="file"
+                  id="gchat-file-input"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.mp3,.mp4,.odt,.ods,.odp,.csv,.rtf,.gif,.webp,.svg,.bmp,.wav,.m4a,.ogg,.flac,.aac,.mov,.avi,.mkv,.webm,.m4v,.7z,.tar,.gz,.bz2"
+                  style="position:fixed;top:-9999px;left:-9999px;opacity:0;width:1px;height:1px;"
+                  onchange="gchatHandleFiles(event)"
+                />
+                <div id="gchat-attach-chips" style="display:flex;flex-wrap:wrap;gap:4px;min-width:0;flex:1;"></div>
+              </div>
               <div class="msg-composer">
                 <textarea
                   id="gchat-input"
@@ -2559,6 +2665,7 @@
                   style="display: none; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;"
                 >
                   <div class="msg-main-header">
+                    <button class="msg-back-btn" onclick="closeMobileConv()" title="Volver">&#8592;</button>
                     <div
                       class="s-avatar"
                       id="chat-avatar"
@@ -5050,13 +5157,94 @@
         <span class="gchat-sender">${isMe ? "Tú" : safeHtml(senderName)}</span>
       </div>`;
           }
-          html += `<div class="gchat-bubble">${safeHtml(msg.text)}</div>
+          // Renderizar adjuntos si existen
+          const attsHtml = (msg.attachments && msg.attachments.length)
+            ? msg.attachments.map(att => {
+                const ext = (att.name.split(".").pop() || "").toLowerCase();
+                const isImage = ["jpg","jpeg","png","gif","webp","svg","bmp"].includes(ext);
+                if (isImage && att.dataUrl) {
+                  return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;margin-top:4px;">
+                    <img src="${att.dataUrl}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:140px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
+                    <span class="msg-file-info" style="margin-top:4px;"><span class="msg-file-name">${safeHtml(att.name)}</span><span class="msg-file-size">${att.size}</span></span>
+                  </a>`;
+                }
+                return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card" style="margin-top:4px;">
+                  <span class="msg-file-icon">${msgGetFileIcon(att.name)}</span>
+                  <span class="msg-file-info"><span class="msg-file-name">${safeHtml(att.name)}</span><span class="msg-file-size">${att.size}</span></span>
+                </a>`;
+              }).join("")
+            : "";
+          const bubbleHtml = msg.text ? `<div class="gchat-bubble">${safeHtml(msg.text)}</div>` : "";
+          html += `${bubbleHtml}${attsHtml}
     <div class="gchat-time">${msg.time}</div>
     </div>`;
         });
 
         el.innerHTML = html;
-        el.scrollTop = el.scrollHeight;
+        requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+      }
+
+      // ── Adjuntos Chat General ──────────────────────
+      let gchatPendingAttachments = [];
+
+      function gchatHandleFiles(evt) {
+        const files = Array.from(evt.target.files || []);
+        let pending = files.length;
+        let errors = [];
+        if (!pending) return;
+        files.forEach(file => {
+          const ext = (file.name.split(".").pop() || "").toLowerCase();
+          if (MSG_BLOCKED_EXTS.includes(ext)) {
+            errors.push('"' + file.name + '" no está permitido.');
+            pending--;
+            if (pending === 0 && errors.length) alert(errors.join("\n"));
+            return;
+          }
+          if (file.size > MSG_MAX_SIZE) {
+            errors.push('"' + file.name + '" supera el límite de 5 MB.');
+            pending--;
+            if (pending === 0 && errors.length) alert(errors.join("\n"));
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            if (e.target && e.target.result) {
+              gchatPendingAttachments.push({
+                name: file.name,
+                size: msgFormatSize(file.size),
+                dataUrl: e.target.result,
+                type: file.type || "application/octet-stream",
+              });
+            }
+            pending--;
+            gchatRenderChips();
+            if (pending === 0 && errors.length) alert(errors.join("\n"));
+          };
+          reader.onerror = () => {
+            errors.push('No se pudo leer "' + file.name + '".');
+            pending--;
+            if (pending === 0 && errors.length) alert(errors.join("\n"));
+          };
+          reader.readAsDataURL(file);
+        });
+        try { evt.target.value = ""; } catch(e) {}
+      }
+
+      function gchatRenderChips() {
+        const chips = document.getElementById("gchat-attach-chips");
+        if (!chips) return;
+        chips.innerHTML = gchatPendingAttachments.map((att, idx) =>
+          '<div class="msg-attach-chip" title="' + safeHtml(att.name) + '">' +
+          '<span class="msg-attach-chip-name">' + safeHtml(att.name) + '</span>' +
+          '<span style="font-size:10px;color:var(--text-muted);flex-shrink:0">' + att.size + '</span>' +
+          '<button class="msg-attach-chip-del" onclick="gchatRemoveAttachment(' + idx + ')" title="Quitar">&times;</button>' +
+          '</div>'
+        ).join("");
+      }
+
+      function gchatRemoveAttachment(idx) {
+        gchatPendingAttachments.splice(idx, 1);
+        gchatRenderChips();
       }
 
       function gchatKeydown(e) {
@@ -5069,15 +5257,22 @@
       function sendGchatMsg() {
         const inp = document.getElementById("gchat-input");
         const text = inp.value.trim();
-        if (!text || !currentUser) return;
+        if (!text && gchatPendingAttachments.length === 0) return;
+        if (!currentUser) return;
+        const attachments = gchatPendingAttachments.length
+          ? gchatPendingAttachments.map(a => ({ name: a.name, size: a.size, dataUrl: a.dataUrl, type: a.type }))
+          : [];
         GENERAL_CHAT.push({
           id: nextGchatId++,
           userId: currentUser.id,
           text,
           time: nowTime(),
           date: todayStr(),
+          attachments,
         });
         inp.value = "";
+        gchatPendingAttachments = [];
+        gchatRenderChips();
         renderGeneralChat();
       }
 
@@ -5250,6 +5445,10 @@
         buildMsgList(document.getElementById("msg-search-inp").value);
       }
 
+      function isMobile() {
+        return window.innerWidth <= 768;
+      }
+
       function openConv(otherId) {
         activeConvId = otherId;
         const other = USERS.find((u) => u.id === otherId);
@@ -5262,15 +5461,29 @@
         document.getElementById("msg-empty-state").style.display = "none";
         const chat = document.getElementById("msg-active-chat");
         chat.style.display = "flex";
-        document.getElementById("chat-avatar").textContent = initials(
-          other.name,
-        );
+        document.getElementById("chat-avatar").textContent = initials(other.name);
         document.getElementById("chat-name").textContent = other.name;
-        // NUEVO: limpiar adjuntos pendientes al cambiar de conversación
+        // Limpiar adjuntos pendientes al cambiar de conversación
         msgPendingAttachments = [];
         msgRenderChips();
         renderMsgs(otherId);
-        document.getElementById("msg-input").focus();
+        // Mobile: slide animation
+        if (isMobile()) {
+          document.getElementById("msg-main").classList.add("conv-open");
+          document.querySelector(".msg-sidebar").classList.add("conv-open");
+        }
+        setTimeout(() => {
+          const inp = document.getElementById("msg-input");
+          if (inp && !isMobile()) inp.focus();
+        }, 50);
+      }
+
+      function closeMobileConv() {
+        document.getElementById("msg-main").classList.remove("conv-open");
+        document.querySelector(".msg-sidebar").classList.remove("conv-open");
+        activeConvId = null;
+        document.getElementById("msg-active-chat").style.display = "none";
+        document.getElementById("msg-empty-state").style.display = "flex";
       }
 
       function renderMsgs(otherId) {
