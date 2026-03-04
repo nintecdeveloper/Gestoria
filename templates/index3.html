@@ -1009,12 +1009,15 @@
         border: 1px solid var(--border);
         box-shadow: var(--shadow);
         height: calc(100vh - 160px);
+        height: calc(100dvh - 160px);
         overflow: hidden;
       }
       .msg-sidebar {
         border-right: 1px solid var(--border);
         display: flex;
         flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
       }
       .msg-sidebar-header {
         padding: 16px 18px;
@@ -1040,7 +1043,10 @@
       }
       .msg-list {
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
         flex: 1;
+        min-height: 0;
       }
       .msg-conv {
         display: flex;
@@ -1081,6 +1087,8 @@
       .msg-main {
         display: flex;
         flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
       }
       .msg-main-header {
         padding: 14px 22px;
@@ -1092,11 +1100,14 @@
       .msg-messages {
         flex: 1;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
         padding: 20px;
         display: flex;
         flex-direction: column;
         gap: 14px;
         background: var(--bg);
+        min-height: 0;
       }
       .msg-bubble-wrap {
         display: flex;
@@ -1204,6 +1215,7 @@
       .msg-attach-btn {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 5px;
         padding: 5px 10px;
         background: none;
@@ -1216,6 +1228,11 @@
         transition: all 0.15s;
         white-space: nowrap;
         flex-shrink: 0;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        min-height: 32px;
+        line-height: 1;
       }
       .msg-attach-btn:hover {
         border-color: var(--accent);
@@ -1303,6 +1320,7 @@
         border: 1px solid var(--border);
         box-shadow: var(--shadow);
         height: calc(100vh - 160px);
+        height: calc(100dvh - 160px);
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -1650,9 +1668,12 @@
         }
         .msg-sidebar {
           width: 100% !important;
-          max-height: 180px;
+          max-height: 200px;
+          min-height: 120px;
           border-right: none !important;
           border-bottom: 1px solid var(--border);
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         }
         .login-card {
           width: 94vw;
@@ -1809,6 +1830,7 @@
         .gchat-wrap,
         .msg-layout {
           height: calc(100vh - 130px) !important;
+          height: calc(100dvh - 130px) !important;
         }
 
         /* Burbujas de chat: ancho máximo mayor en móvil */
@@ -1822,6 +1844,30 @@
         .msg-composer .msg-send-btn {
           padding: 0 14px !important;
           font-size: 13px !important;
+        }
+
+        /* Adjuntar archivo: área táctil mínima 44px */
+        .msg-attach-btn {
+          min-height: 44px !important;
+          padding: 10px 14px !important;
+          font-size: 13px !important;
+        }
+        .msg-send-btn {
+          min-height: 44px !important;
+        }
+        /* Textarea móvil: teclado virtual no rompa layout */
+        .msg-composer textarea {
+          font-size: 16px !important; /* evita zoom en iOS */
+          min-height: 44px !important;
+        }
+        /* Chips de adjunto: legibles en táctil */
+        .msg-attach-chip {
+          padding: 5px 10px !important;
+          font-size: 12px !important;
+        }
+        .msg-attach-chip-del {
+          padding: 4px !important;
+          font-size: 16px !important;
         }
 
         /* Banner admin cal */
@@ -2510,7 +2556,7 @@
                 </div>
                 <div
                   id="msg-active-chat"
-                  style="display: none; flex-direction: column; height: 100%"
+                  style="display: none; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;"
                 >
                   <div class="msg-main-header">
                     <div
@@ -2536,22 +2582,25 @@
                     </div>
                   </div>
                   <div class="msg-messages" id="msg-messages"></div>
-                  <!-- NUEVO: barra de adjuntos + chips de previsualización -->
+                  <!-- Adjuntos: barra + chips de previsualización -->
                   <div class="msg-attach-bar" id="msg-attach-bar">
-                    <button
+                    <label
+                      for="msg-file-input"
                       class="msg-attach-btn"
-                      type="button"
-                      onclick="msgTriggerFileInput()"
                       title="Adjuntar archivo (máx. 5 MB, no ejecutables)"
-                    >📎 Adjuntar</button>
+                      role="button"
+                      tabindex="0"
+                      onkeydown="if(event.key==='Enter'||event.key===' '){document.getElementById('msg-file-input').click();}"
+                    >📎 Adjuntar</label>
                     <input
                       type="file"
                       id="msg-file-input"
                       multiple
-                      style="display:none"
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.mp3,.mp4,.odt,.ods,.odp,.csv,.rtf,.gif,.webp,.svg,.bmp,.wav,.m4a,.ogg,.flac,.aac,.mov,.avi,.mkv,.webm,.m4v,.7z,.tar,.gz,.bz2"
+                      style="position:fixed;top:-9999px;left:-9999px;opacity:0;width:1px;height:1px;"
                       onchange="msgHandleFiles(event)"
                     />
-                    <div id="msg-attach-chips" style="display:flex;flex-wrap:wrap;gap:4px;min-width:0"></div>
+                    <div id="msg-attach-chips" style="display:flex;flex-wrap:wrap;gap:4px;min-width:0;flex:1;"></div>
                   </div>
                   <div class="msg-composer">
                     <textarea
@@ -5047,42 +5096,78 @@
 
       function msgTriggerFileInput() {
         const inp = document.getElementById("msg-file-input");
-        if (inp) inp.click();
+        if (!inp) return;
+        // iOS Safari requires a direct user gesture to trigger file input
+        // Ensure the input is visible enough for the click to register
+        inp.style.position = "fixed";
+        inp.style.top = "-9999px";
+        inp.style.left = "-9999px";
+        inp.style.opacity = "0";
+        inp.style.width = "1px";
+        inp.style.height = "1px";
+        inp.click();
       }
 
       function msgHandleFiles(evt) {
         const files = Array.from(evt.target.files || []);
         let errors = [];
+        let pending = files.length;
+
+        if (pending === 0) return;
+
         files.forEach(file => {
           const ext = (file.name.split(".").pop() || "").toLowerCase();
           if (MSG_BLOCKED_EXTS.includes(ext)) {
             errors.push(`"${file.name}" no está permitido (tipo de archivo bloqueado).`);
+            pending--;
+            if (pending === 0 && errors.length) alert("Problemas con algunos archivos:\n" + errors.join("\n"));
             return;
           }
           if (file.size > MSG_MAX_SIZE) {
             errors.push(`"${file.name}" supera el límite de 5 MB.`);
+            pending--;
+            if (pending === 0 && errors.length) alert("Problemas con algunos archivos:\n" + errors.join("\n"));
             return;
           }
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            msgPendingAttachments.push({
-              name: file.name,
-              size: msgFormatSize(file.size),
-              dataUrl: e.target.result,
-              type: file.type || "application/octet-stream",
-            });
-            msgRenderChips();
-          };
-          reader.onerror = () => {
-            errors.push(`No se pudo leer "${file.name}".`);
-          };
-          reader.readAsDataURL(file);
+
+          // Use FileReader with explicit error handling for all browsers
+          try {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              if (e.target && e.target.result) {
+                msgPendingAttachments.push({
+                  name: file.name,
+                  size: msgFormatSize(file.size),
+                  dataUrl: e.target.result,
+                  type: file.type || "application/octet-stream",
+                });
+              } else {
+                errors.push(`No se pudo leer "${file.name}".`);
+              }
+              pending--;
+              msgRenderChips();
+              if (pending === 0 && errors.length) {
+                alert("Problemas con algunos archivos:\n" + errors.join("\n"));
+              }
+            };
+            reader.onerror = () => {
+              errors.push(`No se pudo leer "${file.name}".`);
+              pending--;
+              msgRenderChips();
+              if (pending === 0 && errors.length) {
+                alert("Problemas con algunos archivos:\n" + errors.join("\n"));
+              }
+            };
+            reader.readAsDataURL(file);
+          } catch(e) {
+            errors.push(`Error al procesar "${file.name}".`);
+            pending--;
+            if (pending === 0 && errors.length) alert("Problemas con algunos archivos:\n" + errors.join("\n"));
+          }
         });
+
         // Limpiar input para poder reseleccionar el mismo archivo
-        evt.target.value = "";
-        if (errors.length) {
-          alert("Problemas con algunos archivos:\n" + errors.join("\n"));
-        }
+        try { evt.target.value = ""; } catch(e) {}
       }
 
       function msgFormatSize(bytes) {
@@ -5150,7 +5235,7 @@
       <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:12px;flex-shrink:0">${initials(u.name)}</div>
       <div class="msg-conv-info">
         <div class="msg-conv-name">${safeHtml(u.name)}</div>
-        <div class="msg-conv-preview">${last ? (last.mine ? "Tú: " : "") + safeHtml(last.text) : "Inicia una conversación"}</div>
+        <div class="msg-conv-preview">${last ? (last.mine ? "Tú: " : "") + (last.text ? safeHtml(last.text) : (last.attachments && last.attachments.length ? "📎 " + safeHtml(last.attachments[0].name) : "")) : "Inicia una conversación"}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         ${last ? `<div class="msg-conv-time">${last.time}</div>` : ""}
@@ -5194,17 +5279,29 @@
         el.innerHTML = msgs.length
           ? msgs
               .map((m) => {
-                // NUEVO: renderizar adjuntos si existen
+                // Renderizar adjuntos si existen
                 const attsHtml = (m.attachments && m.attachments.length)
-                  ? m.attachments.map(att =>
-                      `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card" title="Descargar ${safeHtml(att.name)}">
+                  ? m.attachments.map(att => {
+                      const ext = (att.name.split(".").pop() || "").toLowerCase();
+                      const isImage = ["jpg","jpeg","png","gif","webp","svg","bmp"].includes(ext);
+                      if (isImage && att.dataUrl) {
+                        // Previsualización de imagen inline
+                        return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" title="Descargar ${safeHtml(att.name)}" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;">
+                          <img src="${att.dataUrl}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:160px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
+                          <span class="msg-file-info" style="margin-top:4px;">
+                            <span class="msg-file-name">${safeHtml(att.name)}</span>
+                            <span class="msg-file-size">${att.size}</span>
+                          </span>
+                        </a>`;
+                      }
+                      return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card" title="Descargar ${safeHtml(att.name)}">
                         <span class="msg-file-icon">${msgGetFileIcon(att.name)}</span>
                         <span class="msg-file-info">
                           <span class="msg-file-name">${safeHtml(att.name)}</span>
                           <span class="msg-file-size">${att.size}</span>
                         </span>
-                      </a>`
-                    ).join("")
+                      </a>`;
+                    }).join("")
                   : "";
                 // Si no hay texto pero sí adjuntos, no mostrar burbuja vacía
                 const bubbleHtml = m.text
@@ -5217,7 +5314,10 @@
               })
               .join("")
           : '<div style="text-align:center;color:var(--text-muted);font-size:13px;margin:auto">Inicia la conversación</div>';
-        el.scrollTop = el.scrollHeight;
+        // Scroll suave al final compatible con todos los navegadores
+        requestAnimationFrame(() => {
+          el.scrollTop = el.scrollHeight;
+        });
       }
 
       function msgKeydown(e) {
@@ -5231,16 +5331,21 @@
         if (activeConvId === null) return;
         const inp = document.getElementById("msg-input");
         const text = inp.value.trim();
-        // NUEVO: permitir envío sin texto si hay adjuntos
+        // Permitir envío sin texto si hay adjuntos
         if (!text && msgPendingAttachments.length === 0) return;
         const time = nowTime();
-        // NUEVO: copiar adjuntos pendientes al mensaje
+        // Clonar adjuntos pendientes para el mensaje (deep copy garantizado)
         const attachments = msgPendingAttachments.length
-          ? JSON.parse(JSON.stringify(msgPendingAttachments))
+          ? msgPendingAttachments.map(a => ({
+              name: a.name,
+              size: a.size,
+              dataUrl: a.dataUrl,
+              type: a.type
+            }))
           : [];
         convData(activeConvId).push({ mine: true, text, time, read: true, attachments });
         inp.value = "";
-        // NUEVO: limpiar adjuntos pendientes
+        // Limpiar adjuntos pendientes
         msgPendingAttachments = [];
         msgRenderChips();
         renderMsgs(activeConvId);
