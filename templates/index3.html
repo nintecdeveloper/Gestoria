@@ -722,14 +722,21 @@
          (visible para no-admin como bloque bloqueado)
       ══════════════════════════════════════════════════ */
       .cell-event.blocked-private {
-        background: #e8e6e0;
-        color: #888;
-        cursor: not-allowed;
-        border-left: 3px solid #aaa;
-        font-style: italic;
+        background: #ede9e0;
+        color: #666;
+        cursor: default;
+        border-left: 3px solid #bbb;
+        font-style: normal;
+        font-weight: 600;
+        font-size: 10px;
+        letter-spacing: 0.1px;
+        -webkit-line-clamp: unset;
+        overflow: visible;
+        white-space: nowrap;
       }
       .cell-event.blocked-private:hover {
         opacity: 1;
+        background: #e5e0d5;
       }
 
       /* MODAL */
@@ -1546,8 +1553,16 @@
       ══════════════════════════════════════════════════ */
       .appt-item.blocked {
         background: #f5f4f1;
-        opacity: 0.85;
+        opacity: 1;
         border-left: 3px solid #aaa;
+      }
+      .appt-item.blocked .appt-time-col strong {
+        color: var(--text);
+      }
+      .appt-item.blocked .appt-time-end {
+        color: var(--accent) !important;
+        font-weight: 600;
+        font-size: 11px;
       }
       .appt-item.blocked .appt-client {
         color: var(--text-muted);
@@ -3696,11 +3711,17 @@
             // ══════════════════════════════════════════════════
             const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
             if (shouldMask) {
+              const dur = ev.timeEnd ? calcDuration(ev.time, ev.timeEnd) : '';
               return `<div class="appt-item blocked">
-        <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd || '?'}</span><span>${ev.date}</span></div>
+        <div class="appt-time-col">
+          <strong>${ev.time}</strong>
+          <span class="appt-time-end">&#8594; ${ev.timeEnd || '—'}</span>
+          ${dur ? `<span class="appt-duration-badge" style="display:inline-block;margin-top:3px">${dur}</span>` : ''}
+          <span style="font-size:10px;color:var(--text-muted);margin-top:2px;display:block">${ev.date}</span>
+        </div>
         <div class="appt-info">
-          <div class="appt-client">🔒 Tarea privatizada</div>
-          <div class="appt-meta">Horario no disponible</div>
+          <div class="appt-client" style="color:var(--text-muted)">🔒 Franja reservada</div>
+          <div class="appt-meta">${ev.time}${ev.timeEnd ? ' – ' + ev.timeEnd : ''}</div>
         </div>
       </div>`;
             }
@@ -4177,12 +4198,17 @@
         listEl.innerHTML = sorted.map(ev => {
           const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
           if (shouldMask) {
-            const maskedEnd = ev.timeEnd ? ` – ${ev.timeEnd}` : '';
+            const dur = ev.timeEnd ? calcDuration(ev.time, ev.timeEnd) : '';
             return `<div class="appt-item blocked">
-              <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd || '?'}</span><span>${ev.date}</span></div>
+              <div class="appt-time-col">
+                <strong>${ev.time}</strong>
+                <span class="appt-time-end">&#8594; ${ev.timeEnd || '—'}</span>
+                ${dur ? `<span class="appt-duration-badge" style="display:inline-block;margin-top:3px">${dur}</span>` : ''}
+                <span style="font-size:10px;color:var(--text-muted);margin-top:2px;display:block">${ev.date}</span>
+              </div>
               <div class="appt-info">
-                <div class="appt-client">🔒 Tarea privatizada</div>
-                <div class="appt-meta">Horario no disponible${maskedEnd}</div>
+                <div class="appt-client" style="color:var(--text-muted)">🔒 Franja reservada</div>
+                <div class="appt-meta">${ev.time}${ev.timeEnd ? ' – ' + ev.timeEnd : ''}</div>
               </div>
             </div>`;
           }
@@ -4337,11 +4363,17 @@
         listEl.innerHTML = sorted.map(ev => {
           const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
           if (shouldMask) {
+            const dur = ev.timeEnd ? calcDuration(ev.time, ev.timeEnd) : '';
             return `<div class="appt-item blocked">
-              <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd || '?'}</span><span>${ev.date}</span></div>
+              <div class="appt-time-col">
+                <strong>${ev.time}</strong>
+                <span class="appt-time-end">&#8594; ${ev.timeEnd || '—'}</span>
+                ${dur ? `<span class="appt-duration-badge" style="display:inline-block;margin-top:3px">${dur}</span>` : ''}
+                <span style="font-size:10px;color:var(--text-muted);margin-top:2px;display:block">${ev.date}</span>
+              </div>
               <div class="appt-info">
-                <div class="appt-client">🔒 Tarea privatizada</div>
-                <div class="appt-meta">Horario no disponible</div>
+                <div class="appt-client" style="color:var(--text-muted)">🔒 Franja reservada</div>
+                <div class="appt-meta">${ev.time}${ev.timeEnd ? ' – ' + ev.timeEnd : ''}</div>
               </div>
             </div>`;
           }
