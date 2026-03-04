@@ -1972,7 +1972,7 @@
             <span class="icon">&#9638;</span> Mi Calendario
           </div>
           <div
-            class="nav-item"
+            class="nav-item admin-only"
             data-sec="global-calendar"
             onclick="showSection('global-calendar')"
           >
@@ -3437,7 +3437,10 @@
 
         if (name === "dashboard") renderDashboard();
         if (name === "my-calendar") renderCalendar("my");
-        if (name === "global-calendar") { populateGlobalFilter(); renderCalendar("global"); }
+        if (name === "global-calendar") {
+          if (currentUser.role !== "admin") { showSection("my-calendar"); return; }
+          populateGlobalFilter(); renderCalendar("global");
+        }
         // NUEVO: renderizar calendario del admin
         if (name === "admin-view-calendar") renderAdminViewCalendar();
         if (name === "cal-laboral") renderDeptCalendar("laboral");
