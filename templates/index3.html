@@ -1675,17 +1675,18 @@
 
         /* Calendario: reducir altura de celdas para que quepa en pantalla */
         .cal-cells {
-          grid-template-rows: repeat(6, 60px) !important;
-          grid-auto-rows: 60px !important;
+          grid-template-rows: repeat(6, 80px) !important;
+          grid-auto-rows: 80px !important;
           height: auto !important;
           min-height: unset !important;
           max-height: unset !important;
         }
         .cal-cell {
-          height: 60px !important;
-          min-height: 60px !important;
-          max-height: 60px !important;
+          height: 80px !important;
+          min-height: 80px !important;
+          max-height: 80px !important;
           padding: 4px 3px !important;
+          overflow: hidden !important;
         }
         .cell-num {
           font-size: 10px !important;
@@ -1696,6 +1697,10 @@
           padding: 2px 3px !important;
           border-left-width: 2px !important;
           margin-bottom: 2px !important;
+          -webkit-line-clamp: 2 !important;
+          line-height: 1.3 !important;
+          white-space: normal !important;
+          word-break: break-word !important;
         }
         .cal-grid {
           padding: 10px 8px !important;
@@ -1817,19 +1822,20 @@
         }
         /* Calendario muy pequeño: aún más compacto */
         .cal-cells {
-          grid-template-rows: repeat(6, 46px) !important;
-          grid-auto-rows: 46px !important;
+          grid-template-rows: repeat(6, 62px) !important;
+          grid-auto-rows: 62px !important;
         }
         .cal-cell {
-          height: 46px !important;
-          min-height: 46px !important;
-          max-height: 46px !important;
+          height: 62px !important;
+          min-height: 62px !important;
+          max-height: 62px !important;
           padding: 3px !important;
         }
         .cell-event {
           font-size: 8px !important;
           padding: 1px 2px !important;
           border-left-width: 1px !important;
+          -webkit-line-clamp: 2 !important;
         }
         /* Modal muy pequeño */
         .modal {
@@ -2570,13 +2576,10 @@
             <input type="time" id="ev-time" value="09:00" oninput="updateEvDuration()" />
           </div>
         </div>
-        <!-- NUEVO: hora fin opcional -->
+        <!-- Hora fin OBLIGATORIA -->
         <div class="form-row" style="margin-top:-8px">
           <div class="form-group">
-            <label for="ev-time-end" style="display:flex;align-items:center;gap:6px">
-              Hora fin
-              <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)">(opcional)</span>
-            </label>
+            <label for="ev-time-end">Hora fin *</label>
             <input type="time" id="ev-time-end" oninput="updateEvDuration()" />
           </div>
           <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:18px">
@@ -2802,8 +2805,18 @@
             <input type="date" id="aev-date" />
           </div>
           <div class="form-group">
-            <label>Hora *</label>
-            <input type="time" id="aev-time" value="09:00" />
+            <label>Hora inicio *</label>
+            <input type="time" id="aev-time" value="09:00" oninput="updateAevDuration()" />
+          </div>
+        </div>
+        <!-- Hora fin OBLIGATORIA -->
+        <div class="form-row" style="margin-top:-8px">
+          <div class="form-group">
+            <label>Hora fin *</label>
+            <input type="time" id="aev-time-end" oninput="updateAevDuration()" />
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:18px">
+            <div id="aev-duration-hint" style="font-size:12px;color:var(--accent);font-weight:500;min-height:18px"></div>
           </div>
         </div>
         <div class="form-group">
@@ -2946,6 +2959,7 @@
           assignedTo: 1,
           date: dOff(0),
           time: "09:00",
+          timeEnd: "10:00",
           client: "Carlos Martínez",
           service: "Asesoramiento Fiscal",
           notes: "Revisión declaración anual",
@@ -2957,6 +2971,7 @@
           assignedTo: 2,
           date: dOff(1),
           time: "11:00",
+          timeEnd: "12:00",
           client: "Laura Gómez",
           service: "Gestión Laboral",
           notes: "Alta nuevo trabajador",
@@ -2968,6 +2983,7 @@
           assignedTo: 3,
           date: dOff(2),
           time: "16:00",
+          timeEnd: "17:00",
           client: "Inversions Sud SA",
           service: "Auditoría",
           notes: "Primera reunión",
@@ -2979,6 +2995,7 @@
           assignedTo: 2,
           date: dOff(3),
           time: "10:30",
+          timeEnd: "11:30",
           client: "Ana Rodríguez",
           service: "Contabilidad",
           notes: "Cierre trimestral",
@@ -2990,6 +3007,7 @@
           assignedTo: 1,
           date: dOff(1),
           time: "15:00",
+          timeEnd: "16:30",
           client: "Consultes Privades SL",
           service: "Asesoramiento Jurídico",
           notes: "Reunión confidencial de dirección",
@@ -3176,6 +3194,46 @@
         if (g) {
           g.textContent = gchatUnreadCount;
           g.style.display = gchatUnreadCount > 0 ? "" : "none";
+        }
+      }
+
+      // ══════════════════════════════════════════
+      //  NUEVO UTIL: Verificar solapamiento de citas para una persona
+      //  Retorna el evento que se solapa, o null si no hay conflicto.
+      //  Compara rangos: newStart < existingEnd AND newEnd > existingStart
+      // ══════════════════════════════════════════
+      function hasOverlappingEvent(assignedTo, date, timeStart, timeEnd, excludeEvId) {
+        const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+        const newS = toMin(timeStart);
+        const newE = toMin(timeEnd);
+        return EVENTS.find(ev => {
+          if (ev.assignedTo !== assignedTo) return false;
+          if (ev.date !== date) return false;
+          if (excludeEvId !== null && ev.id === excludeEvId) return false;
+          const evS = toMin(ev.time);
+          const evE = ev.timeEnd ? toMin(ev.timeEnd) : evS + 60; // fallback 60min si no tiene fin
+          return newS < evE && newE > evS;
+        }) || null;
+      }
+
+      /**
+       * Actualiza el hint de duración en el modal de cita del admin (aev-duration-hint).
+       */
+      function updateAevDuration() {
+        const t1 = (document.getElementById("aev-time") || {}).value || "";
+        const t2 = (document.getElementById("aev-time-end") || {}).value || "";
+        const hint = document.getElementById("aev-duration-hint");
+        if (!hint) return;
+        if (!t2) { hint.textContent = ""; return; }
+        const dur = calcDuration(t1, t2);
+        if (dur) {
+          hint.textContent = "⏱ " + dur;
+          hint.style.color = "var(--accent)";
+        } else if (t2 && t1 && t2 <= t1) {
+          hint.textContent = "⚠ Hora fin inválida";
+          hint.style.color = "var(--danger)";
+        } else {
+          hint.textContent = "";
         }
       }
 
@@ -3639,7 +3697,7 @@
             const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
             if (shouldMask) {
               return `<div class="appt-item blocked">
-        <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
+        <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd || '?'}</span><span>${ev.date}</span></div>
         <div class="appt-info">
           <div class="appt-client">🔒 Tarea privatizada</div>
           <div class="appt-meta">Horario no disponible</div>
@@ -3921,20 +3979,25 @@
         const date = document.getElementById("ev-date").value;
         const time = document.getElementById("ev-time").value;
         const client = document.getElementById("ev-client").value.trim();
-        if (!date || !time || !client) {
-          document.getElementById("ev-err").style.display = "";
-          return;
-        }
-        // NUEVO: leer y validar hora fin (opcional)
         const timeEndEl = document.getElementById("ev-time-end");
         const timeEnd = timeEndEl ? (timeEndEl.value || null) : null;
         const errEl = document.getElementById("ev-err");
-        if (timeEnd) {
-          if (timeEnd <= time) {
-            errEl.textContent = "La hora de fin debe ser posterior a la hora de inicio.";
-            errEl.style.display = "";
-            return;
-          }
+
+        if (!date || !time || !client) {
+          errEl.textContent = "Rellena los campos obligatorios (*).";
+          errEl.style.display = "";
+          return;
+        }
+        // Hora fin es OBLIGATORIA
+        if (!timeEnd) {
+          errEl.textContent = "La hora de fin es obligatoria.";
+          errEl.style.display = "";
+          return;
+        }
+        if (timeEnd <= time) {
+          errEl.textContent = "La hora de fin debe ser posterior a la hora de inicio.";
+          errEl.style.display = "";
+          return;
         }
         errEl.textContent = "Rellena los campos obligatorios (*).";
         errEl.style.display = "none";
@@ -3945,12 +4008,21 @@
         const service = document.getElementById("ev-service").value;
         const notes = document.getElementById("ev-notes").value;
         const isPrivate = isAdmin ? (document.getElementById("ev-private")?.checked || false) : false;
+
+        // Verificar solapamiento con otras citas de la misma persona
+        const overlap = hasOverlappingEvent(assignedTo, date, time, timeEnd, editingEvId !== null ? editingEvId : null);
+        if (overlap) {
+          errEl.textContent = `⚠ ${overlap.client} ya tiene una cita de ${overlap.time} a ${overlap.timeEnd} en esa franja. Elige otro horario.`;
+          errEl.style.display = "";
+          return;
+        }
+
         if (editingEvId !== null) {
           const ev = EVENTS.find((e) => e.id === editingEvId);
           if (ev) {
             ev.date = date;
             ev.time = time;
-            ev.timeEnd = timeEnd; // NUEVO: guardar hora fin
+            ev.timeEnd = timeEnd;
             ev.client = client;
             ev.service = service;
             ev.notes = notes;
@@ -3963,7 +4035,7 @@
             assignedTo,
             date,
             time,
-            timeEnd, // NUEVO: campo hora fin (null si no se especificó)
+            timeEnd,
             client,
             service,
             notes,
@@ -4105,11 +4177,12 @@
         listEl.innerHTML = sorted.map(ev => {
           const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
           if (shouldMask) {
+            const maskedEnd = ev.timeEnd ? ` – ${ev.timeEnd}` : '';
             return `<div class="appt-item blocked">
-              <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
+              <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd || '?'}</span><span>${ev.date}</span></div>
               <div class="appt-info">
                 <div class="appt-client">🔒 Tarea privatizada</div>
-                <div class="appt-meta">Horario no disponible</div>
+                <div class="appt-meta">Horario no disponible${maskedEnd}</div>
               </div>
             </div>`;
           }
@@ -4117,10 +4190,10 @@
           const canEdit = isAdmin || ev.assignedTo === currentUser.id || ev.ownerId === currentUser.id;
           const privBtn = isAdmin ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>` : '';
           return `<div class="appt-item">
-            <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
+            <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd || '—'}</span><span>${ev.date}</span></div>
             <div class="appt-info">
               <div class="appt-client">${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privado</span>' : ''}</div>
-              <div class="appt-meta">${safeHtml(ev.service)}${emp ? ' &middot; <strong>' + safeHtml(emp.name) + '</strong>' : ''}</div>
+              <div class="appt-meta">${safeHtml(ev.service)}${emp ? ' &middot; <strong>' + safeHtml(emp.name) + '</strong>' : ''}${ev.timeEnd ? ' &middot; <span class="appt-duration-badge">' + calcDuration(ev.time, ev.timeEnd) + '</span>' : ''}</div>
             </div>
             <div class="action-btns">
               ${canEdit ? `${privBtn}<button class="btn-icon" onclick="editEventFromList(${ev.id},event)">Editar</button><button class="btn-icon red" onclick="deleteEventFromList(${ev.id},event)">Eliminar</button>` : ''}
@@ -4265,7 +4338,7 @@
           const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
           if (shouldMask) {
             return `<div class="appt-item blocked">
-              <div class="appt-time-col"><strong>${ev.time}</strong><span>${ev.date}</span></div>
+              <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd || '?'}</span><span>${ev.date}</span></div>
               <div class="appt-info">
                 <div class="appt-client">🔒 Tarea privatizada</div>
                 <div class="appt-meta">Horario no disponible</div>
@@ -4325,6 +4398,10 @@
 
         document.getElementById("aev-date").value = dateStr || todayStr();
         document.getElementById("aev-time").value = "09:00";
+        const aevTimeEndEl = document.getElementById("aev-time-end");
+        if (aevTimeEndEl) aevTimeEndEl.value = "";
+        const aevDurHint = document.getElementById("aev-duration-hint");
+        if (aevDurHint) aevDurHint.textContent = "";
         document.getElementById("aev-client").value = isAdmin ? "" : currentUser.name;
         document.getElementById("aev-notes").value = "";
         document.getElementById("aev-err").style.display = "none";
@@ -4359,23 +4436,31 @@
       function saveAdminCalEvent() {
         const date = document.getElementById("aev-date").value;
         const time = document.getElementById("aev-time").value;
+        const timeEnd = (document.getElementById("aev-time-end") || {}).value || null;
         const client = document.getElementById("aev-client").value.trim();
         const service = document.getElementById("aev-service").value;
         const notes = document.getElementById("aev-notes").value;
+        const errEl = document.getElementById("aev-err");
 
-        // Validación de campos obligatorios
+        // Validación campos obligatorios
         if (!date || !time || !client) {
-          document.getElementById("aev-err").style.display = "";
+          errEl.textContent = "Rellena los campos obligatorios (*).";
+          errEl.style.display = "";
           return;
         }
-        document.getElementById("aev-err").style.display = "none";
+        if (!timeEnd) {
+          errEl.textContent = "La hora de fin es obligatoria.";
+          errEl.style.display = "";
+          return;
+        }
+        if (timeEnd <= time) {
+          errEl.textContent = "La hora de fin debe ser posterior a la hora de inicio.";
+          errEl.style.display = "";
+          return;
+        }
+        errEl.style.display = "none";
 
-        // ══════════════════════════════════════════════════
-        // NUEVO: Validación de horario bloqueado
-        // Si existe una cita privada del admin en esa fecha+hora,
-        // el empleado NO puede agendar encima. Se muestra aviso.
-        // ══════════════════════════════════════════════════
-        // NUEVO: usar el admin seleccionado si hay campo, si no getAdminUser()
+        // Determinar admin objetivo
         const aevAdminSel = document.getElementById("aev-admin-id");
         let targetAdmin = null;
         if (aevAdminSel && aevAdminSel.value) {
@@ -4383,18 +4468,19 @@
         }
         if (!targetAdmin) targetAdmin = getAdminUser();
         if (!targetAdmin) {
-          document.getElementById("aev-err").textContent = "No se encontró el administrador.";
-          document.getElementById("aev-err").style.display = "";
+          errEl.textContent = "No se encontró el administrador.";
+          errEl.style.display = "";
           return;
         }
 
-        if (isAdminSlotBlocked(date, time, targetAdmin.id)) {
-          document.getElementById("aev-blocked-warning").style.display = "";
-          return;
-        }
-
-        if (isAdminSlotOccupied(date, time, null, targetAdmin.id)) {
-          document.getElementById("aev-blocked-warning").style.display = "";
+        // Verificar solapamiento
+        const overlap = hasOverlappingEvent(targetAdmin.id, date, time, timeEnd, null);
+        if (overlap) {
+          const warningEl = document.getElementById("aev-blocked-warning");
+          if (warningEl) {
+            warningEl.innerHTML = `⚠️ <strong>Horario no disponible:</strong> Ya existe una cita de ${overlap.time} a ${overlap.timeEnd} en esa franja. Por favor, elige otro horario.`;
+            warningEl.style.display = "";
+          }
           return;
         }
 
@@ -4406,6 +4492,7 @@
           assignedTo: targetAdmin.id,
           date,
           time,
+          timeEnd,
           client,
           service,
           notes,
@@ -4421,15 +4508,20 @@
       document.addEventListener("DOMContentLoaded", function() {
         const aevDate = document.getElementById("aev-date");
         const aevTime = document.getElementById("aev-time");
+        const aevTimeEnd = document.getElementById("aev-time-end");
         function checkAdminSlot() {
           if (!currentUser) return;
           const date = aevDate ? aevDate.value : "";
           const time = aevTime ? aevTime.value : "";
+          const timeEnd = aevTimeEnd ? aevTimeEnd.value : "";
           const warningEl = document.getElementById("aev-blocked-warning");
-          if (!warningEl || !date || !time) return;
+          if (!warningEl || !date || !time || !timeEnd) { if (warningEl) warningEl.style.display = "none"; return; }
           const aevAdminSel2 = document.getElementById("aev-admin-id");
           const chkAdminId = aevAdminSel2 && aevAdminSel2.value ? parseInt(aevAdminSel2.value) : null;
-          if (isAdminSlotBlocked(date, time, chkAdminId) || isAdminSlotOccupied(date, time, null, chkAdminId)) {
+          const adminForCheck = chkAdminId ? USERS.find(u => u.id === chkAdminId) : getAdminUser();
+          const overlap = adminForCheck ? hasOverlappingEvent(adminForCheck.id, date, time, timeEnd, null) : null;
+          if (overlap) {
+            warningEl.innerHTML = `⚠️ <strong>Horario no disponible:</strong> Ya existe una cita de ${overlap.time} a ${overlap.timeEnd || '?'} en esa franja.`;
             warningEl.style.display = "";
           } else {
             warningEl.style.display = "none";
@@ -4437,6 +4529,34 @@
         }
         if (aevDate) aevDate.addEventListener("change", checkAdminSlot);
         if (aevTime) aevTime.addEventListener("change", checkAdminSlot);
+        if (aevTimeEnd) aevTimeEnd.addEventListener("change", checkAdminSlot);
+
+        // Validación en tiempo real para el modal principal de cita
+        const evTime = document.getElementById("ev-time");
+        const evTimeEnd = document.getElementById("ev-time-end");
+        function checkMainSlot() {
+          if (!currentUser) return;
+          const dateEl = document.getElementById("ev-date");
+          const date = dateEl ? dateEl.value : "";
+          const time = evTime ? evTime.value : "";
+          const timeEnd = evTimeEnd ? evTimeEnd.value : "";
+          const errEl = document.getElementById("ev-err");
+          if (!date || !time || !timeEnd || !errEl) return;
+          const assignedTo = (currentUser.role === "admin" && pendingIsGlobal)
+            ? parseInt((document.getElementById("ev-employee") || {}).value || currentUser.id)
+            : currentUser.id;
+          const overlap = hasOverlappingEvent(assignedTo, date, time, timeEnd, editingEvId);
+          if (overlap && timeEnd > time) {
+            errEl.textContent = `⚠ ${overlap.client} ya tiene cita de ${overlap.time} a ${overlap.timeEnd} en esa franja.`;
+            errEl.style.display = "";
+          } else if (errEl.textContent.startsWith("⚠")) {
+            errEl.style.display = "none";
+          }
+        }
+        if (evTime) evTime.addEventListener("change", checkMainSlot);
+        if (evTimeEnd) evTimeEnd.addEventListener("change", checkMainSlot);
+        const evDate = document.getElementById("ev-date");
+        if (evDate) evDate.addEventListener("change", checkMainSlot);
       });
 
       // ══════════════════════════════════════════
