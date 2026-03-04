@@ -718,6 +718,66 @@
       }
 
       /* ══════════════════════════════════════════════════
+         VISTA SEMANAL
+      ══════════════════════════════════════════════════ */
+      .cal-view-toggle {
+        display: flex;
+        gap: 3px;
+        background: var(--bg2);
+        border-radius: 8px;
+        padding: 3px;
+        margin-left: auto;
+      }
+      .cal-view-btn {
+        background: none;
+        border: none;
+        border-radius: 5px;
+        padding: 4px 13px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--text-muted);
+        transition: all 0.15s;
+        letter-spacing: 0.3px;
+        font-family: 'DM Sans', sans-serif;
+      }
+      .cal-view-btn.active {
+        background: var(--surface);
+        color: var(--accent);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.13);
+      }
+      .cal-view-btn:hover:not(.active) { color: var(--text); }
+
+      .cal-cells.week-view {
+        grid-template-rows: auto;
+        height: auto;
+        min-height: unset;
+        max-height: unset;
+      }
+      .cal-cell.week-cell {
+        height: auto;
+        min-height: 150px;
+        max-height: unset;
+      }
+      .week-day-label {
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.7px;
+        line-height: 1.1;
+        margin-bottom: 2px;
+      }
+      .week-day-num {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text);
+        line-height: 1;
+        margin-bottom: 7px;
+      }
+      .cal-cell.week-cell.today .week-day-num { color: var(--accent); }
+
+      /* ══════════════════════════════════════════════════
          NUEVO: Estilo para citas privatizadas en el calendario
          (visible para no-admin como bloque bloqueado)
       ══════════════════════════════════════════════════ */
@@ -2246,13 +2306,13 @@
             </div>
             <div class="calendar-wrapper">
               <div class="cal-header">
-                <button class="cal-nav" onclick="changeMonth(-1, 'my')">
-                  &lsaquo;
-                </button>
+                <button class="cal-nav" onclick="calNav(-1,'my')">&lsaquo;</button>
                 <div class="cal-title" id="my-cal-title"></div>
-                <button class="cal-nav" onclick="changeMonth(1, 'my')">
-                  &rsaquo;
-                </button>
+                <button class="cal-nav" onclick="calNav(1,'my')">&rsaquo;</button>
+                <div class="cal-view-toggle">
+                  <button class="cal-view-btn active" id="my-btn-month" onclick="setCalView('my','month')">Mes</button>
+                  <button class="cal-view-btn" id="my-btn-week" onclick="setCalView('my','week')">Semana</button>
+                </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
@@ -2294,13 +2354,13 @@
             </div>
             <div class="calendar-wrapper">
               <div class="cal-header">
-                <button class="cal-nav" onclick="changeMonth(-1, 'global')">
-                  &lsaquo;
-                </button>
+                <button class="cal-nav" onclick="calNav(-1,'global')">&lsaquo;</button>
                 <div class="cal-title" id="global-cal-title"></div>
-                <button class="cal-nav" onclick="changeMonth(1, 'global')">
-                  &rsaquo;
-                </button>
+                <button class="cal-nav" onclick="calNav(1,'global')">&rsaquo;</button>
+                <div class="cal-view-toggle">
+                  <button class="cal-view-btn active" id="global-btn-month" onclick="setCalView('global','month')">Mes</button>
+                  <button class="cal-view-btn" id="global-btn-week" onclick="setCalView('global','week')">Semana</button>
+                </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
@@ -2359,9 +2419,13 @@
             </div>
             <div class="calendar-wrapper">
               <div class="cal-header">
-                <button class="cal-nav" onclick="changeAdminViewMonth(-1)">&lsaquo;</button>
+                <button class="cal-nav" onclick="calNavAdminView(-1)">&lsaquo;</button>
                 <div class="cal-title" id="admin-view-cal-title"></div>
-                <button class="cal-nav" onclick="changeAdminViewMonth(1)">&rsaquo;</button>
+                <button class="cal-nav" onclick="calNavAdminView(1)">&rsaquo;</button>
+                <div class="cal-view-toggle">
+                  <button class="cal-view-btn active" id="admin-view-btn-month" onclick="setCalView('admin-view','month')">Mes</button>
+                  <button class="cal-view-btn" id="admin-view-btn-week" onclick="setCalView('admin-view','week')">Semana</button>
+                </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
@@ -2393,9 +2457,13 @@
             <div id="dept-laboral-legend" class="dept-legend" style="display:none"></div>
             <div class="calendar-wrapper">
               <div class="cal-header">
-                <button class="cal-nav" onclick="changeDeptMonth(-1,'laboral')">&lsaquo;</button>
+                <button class="cal-nav" onclick="calNavDept(-1,'laboral')">&lsaquo;</button>
                 <div class="cal-title" id="dept-laboral-cal-title"></div>
-                <button class="cal-nav" onclick="changeDeptMonth(1,'laboral')">&rsaquo;</button>
+                <button class="cal-nav" onclick="calNavDept(1,'laboral')">&rsaquo;</button>
+                <div class="cal-view-toggle">
+                  <button class="cal-view-btn active" id="dept-laboral-btn-month" onclick="setCalView('dept-laboral','month')">Mes</button>
+                  <button class="cal-view-btn" id="dept-laboral-btn-week" onclick="setCalView('dept-laboral','week')">Semana</button>
+                </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
@@ -2421,9 +2489,13 @@
             <div id="dept-fiscal-legend" class="dept-legend" style="display:none"></div>
             <div class="calendar-wrapper">
               <div class="cal-header">
-                <button class="cal-nav" onclick="changeDeptMonth(-1,'fiscal')">&lsaquo;</button>
+                <button class="cal-nav" onclick="calNavDept(-1,'fiscal')">&lsaquo;</button>
                 <div class="cal-title" id="dept-fiscal-cal-title"></div>
-                <button class="cal-nav" onclick="changeDeptMonth(1,'fiscal')">&rsaquo;</button>
+                <button class="cal-nav" onclick="calNavDept(1,'fiscal')">&rsaquo;</button>
+                <div class="cal-view-toggle">
+                  <button class="cal-view-btn active" id="dept-fiscal-btn-month" onclick="setCalView('dept-fiscal','month')">Mes</button>
+                  <button class="cal-view-btn" id="dept-fiscal-btn-week" onclick="setCalView('dept-fiscal','week')">Semana</button>
+                </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
@@ -2449,9 +2521,13 @@
             <div id="dept-mercantil-legend" class="dept-legend" style="display:none"></div>
             <div class="calendar-wrapper">
               <div class="cal-header">
-                <button class="cal-nav" onclick="changeDeptMonth(-1,'mercantil')">&lsaquo;</button>
+                <button class="cal-nav" onclick="calNavDept(-1,'mercantil')">&lsaquo;</button>
                 <div class="cal-title" id="dept-mercantil-cal-title"></div>
-                <button class="cal-nav" onclick="changeDeptMonth(1,'mercantil')">&rsaquo;</button>
+                <button class="cal-nav" onclick="calNavDept(1,'mercantil')">&rsaquo;</button>
+                <div class="cal-view-toggle">
+                  <button class="cal-view-btn active" id="dept-mercantil-btn-month" onclick="setCalView('dept-mercantil','month')">Mes</button>
+                  <button class="cal-view-btn" id="dept-mercantil-btn-week" onclick="setCalView('dept-mercantil','week')">Semana</button>
+                </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
@@ -3725,6 +3801,105 @@
       //  CALENDARIO
       // ══════════════════════════════════════════
 
+      // ══════════════════════════════════════════════════
+      // VISTA SEMANAL — estado y utilidades
+      // ══════════════════════════════════════════════════
+      const _calView = {
+        'my': 'month', 'global': 'month', 'admin-view': 'month',
+        'dept-laboral': 'month', 'dept-fiscal': 'month', 'dept-mercantil': 'month'
+      };
+      const _calWeek = {}; // lunes de la semana activa por calId
+
+      function _monday(date) {
+        const d = new Date(date); d.setHours(0,0,0,0);
+        const day = d.getDay();
+        d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+        return d;
+      }
+      function _initWeek(calId) {
+        if (!_calWeek[calId]) _calWeek[calId] = _monday(new Date());
+      }
+      function _weekTitle(mon) {
+        const sun = new Date(mon.getTime() + 6*86400000);
+        const f = (d, yr) => d.toLocaleDateString('es-ES', {day:'numeric', month:'short', ...(yr?{year:'numeric'}:{})});
+        return mon.getMonth() === sun.getMonth()
+          ? mon.getDate() + ' – ' + f(sun, true)
+          : f(mon, false) + ' – ' + f(sun, true);
+      }
+      function _dsOf(d) {
+        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      }
+
+      // Actualizar botones Mes/Semana
+      function _syncViewBtns(calId, view) {
+        const mb = document.getElementById(calId+'-btn-month');
+        const wb = document.getElementById(calId+'-btn-week');
+        if (mb) mb.classList.toggle('active', view==='month');
+        if (wb) wb.classList.toggle('active', view==='week');
+      }
+
+      // Cambiar vista
+      function setCalView(calId, view) {
+        _calView[calId] = view;
+        _initWeek(calId);
+        _syncViewBtns(calId, view);
+        _rerenderCal(calId);
+      }
+
+      // Re-render por ID
+      function _rerenderCal(calId) {
+        if (calId === 'my' || calId === 'global') { renderCalendar(calId); }
+        else if (calId === 'admin-view') { renderAdminViewCalendar(); }
+        else { renderDeptCalendar(calId.replace('dept-','')); }
+      }
+
+      // Navegación unificada (respeta vista activa)
+      function calNav(dir, which) {
+        if (_calView[which] === 'week') {
+          _initWeek(which);
+          _calWeek[which] = new Date(_calWeek[which].getTime() + dir*7*86400000);
+          renderCalendar(which);
+        } else { changeMonth(dir, which); }
+      }
+      function calNavDept(dir, dept) {
+        const calId = 'dept-' + dept;
+        if (_calView[calId] === 'week') {
+          _initWeek(calId);
+          _calWeek[calId] = new Date(_calWeek[calId].getTime() + dir*7*86400000);
+          renderDeptCalendar(dept);
+        } else { changeDeptMonth(dir, dept); }
+      }
+      function calNavAdminView(dir) {
+        if (_calView['admin-view'] === 'week') {
+          _initWeek('admin-view');
+          _calWeek['admin-view'] = new Date(_calWeek['admin-view'].getTime() + dir*7*86400000);
+          renderAdminViewCalendar();
+        } else { changeAdminViewMonth(dir); }
+      }
+
+      // Renderizar 7 celdas de semana con callback para HTML de eventos
+      function _renderWeekGrid(calId, evs, clickWhich, evHtmlFn) {
+        _initWeek(calId);
+        const mon = _calWeek[calId];
+        const today = todayStr();
+        let html = '';
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(mon.getTime() + i*86400000);
+          const ds = _dsOf(d);
+          const isToday = ds === today;
+          const dayName = d.toLocaleDateString('es-ES', {weekday:'short'});
+          const dayEvs = evs.filter(e => e.date === ds);
+          const evHtml = evHtmlFn(dayEvs);
+          html += `<div class="cal-cell week-cell${isToday?' today':''}" onclick="calCellClick('${ds}',event,'${clickWhich}')">
+            <div class="week-day-label">${dayName}</div>
+            <div class="week-day-num">${d.getDate()}</div>
+            ${evHtml}
+            ${dayEvs.length > 4 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length-4} más</div>` : ''}
+          </div>`;
+        }
+        return html;
+      }
+
       function changeMonth(dir, which) {
         if (which === "my") {
           myCalMonth = new Date(myCalMonth.getFullYear(), myCalMonth.getMonth() + dir, 1);
@@ -3742,97 +3917,89 @@
 
       function renderCalendar(which) {
         const isMy = which === "my";
+        const calId = which;
         const date = isMy ? myCalMonth : globalCalMonth;
         const isAdmin = currentUser.role === "admin";
+        const viewMode = _calView[calId] || 'month';
 
         if (!(date instanceof Date) || isNaN(date.getTime())) {
           console.error("Invalid calendar date:", date);
           return;
         }
 
-        document.getElementById(
-          isMy ? "my-cal-title" : "global-cal-title",
-        ).textContent = mthName(date);
+        const titleEl = document.getElementById(isMy ? "my-cal-title" : "global-cal-title");
+        const calCellsEl = document.getElementById(isMy ? "my-cal-cells" : "global-cal-cells");
+        if (!calCellsEl) return;
 
-        const year = date.getFullYear(),
-          month = date.getMonth();
+        const colors = ["", "amber", "red"];
+
+        // Filtrar eventos según who
+        const filterEvs = (evs) => {
+          if (isMy) return evs.filter(e => e.assignedTo === currentUser.id);
+          if (!isAdmin) evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
+          const filterSel = document.getElementById("global-filter-person");
+          if (filterSel && filterSel.value && filterSel.value !== "all") {
+            const filterId = parseInt(filterSel.value);
+            evs = evs.filter(e => e.assignedTo === filterId);
+          }
+          return evs;
+        };
+
+        // HTML de un evento individual
+        const evHtml = (ev, i) => {
+          const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+          if (shouldMask)
+            return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
+          const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
+          return `<div class="cell-event ${colors[i%3]}${ev.private?' private-event':''}" onclick="showEventDetail(${ev.id},event)">${ev.private?'🔒 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
+        };
+
+        // ── VISTA SEMANA ──────────────────────────────────
+        if (viewMode === 'week') {
+          _initWeek(calId);
+          const mon = _calWeek[calId];
+          const sun = new Date(mon.getTime() + 6*86400000);
+          const startStr = _dsOf(mon), endStr = _dsOf(sun);
+          const evs = filterEvs(EVENTS.filter(e => e.date >= startStr && e.date <= endStr));
+          titleEl.textContent = _weekTitle(mon);
+          calCellsEl.className = 'cal-cells week-view';
+          calCellsEl.innerHTML = _renderWeekGrid(calId, evs, which,
+            dayEvs => dayEvs.slice(0,4).map((ev,i) => evHtml(ev,i)).join(''));
+          renderApptList(which, evs);
+          return;
+        }
+
+        // ── VISTA MES ─────────────────────────────────────
+        calCellsEl.className = 'cal-cells';
+        titleEl.textContent = mthName(date);
+
+        const year = date.getFullYear(), month = date.getMonth();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         let dow = new Date(year, month, 1).getDay();
         dow = dow === 0 ? 6 : dow - 1;
 
-        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
-        let evs = EVENTS.filter((e) => e.date.startsWith(monthStr));
-
-        if (isMy) {
-          evs = evs.filter((e) => e.assignedTo === currentUser.id);
-        } else {
-          if (!isAdmin) {
-            evs = evs.filter((e) => {
-              if (!e.private) return true;
-              return e.assignedTo === currentUser.id;
-            });
-          }
-          const filterSel = document.getElementById("global-filter-person");
-          if (filterSel && filterSel.value && filterSel.value !== "all") {
-            const filterId = parseInt(filterSel.value);
-            evs = evs.filter((e) => e.assignedTo === filterId);
-          }
-        }
+        const monthStr = `${year}-${String(month+1).padStart(2,"0")}`;
+        const evs = filterEvs(EVENTS.filter(e => e.date.startsWith(monthStr)));
 
         const today = todayStr();
-        const colors = ["", "amber", "red"];
         let html = "";
-
-        const calCellsEl = document.getElementById(
-          isMy ? "my-cal-cells" : "global-cal-cells",
-        );
-        if (!calCellsEl) return;
-
-        for (let i = 0; i < dow; i++)
-          html += '<div class="cal-cell empty"></div>';
+        for (let i = 0; i < dow; i++) html += '<div class="cal-cell empty"></div>';
 
         for (let day = 1; day <= daysInMonth; day++) {
-          const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const ds = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
           const isToday = ds === today;
-          const dayEvs = evs.filter((e) => e.date === ds);
-
-          // ══════════════════════════════════════════════════
-          // MODIFICADO (extensión): Renderizar eventos con privatización real
-          // Si el evento es privado Y el usuario no es admin Y no es el assignedTo,
-          // se muestra "🔒 Hora bloqueada" en lugar del título real.
-          // El click en ese evento queda bloqueado (no abre detalle).
-          // La lógica original de colores y formatos se mantiene intacta.
-          // ══════════════════════════════════════════════════
-          const evHTML = dayEvs
-            .slice(0, 3)
-            .map((ev, i) => {
-              const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
-              if (shouldMask) {
-                // Mostrar bloque de horario ocupado sin revelar detalles
-                return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}</div>`;
-              }
-              // NUEVO: mostrar rango "09:00-10:00" si hay hora fin
-              const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
-              return `<div class="cell-event ${colors[i % 3]}${ev.private ? ' private-event' : ''}" onclick="showEventDetail(${ev.id},event)">${ev.private ? '🔒 ' : ''}${timeRange} ${safeHtml(ev.client)}</div>`;
-            })
-            .join("");
-
-          html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'${which}')">
+          const dayEvs = evs.filter(e => e.date === ds);
+          const evHTML = dayEvs.slice(0,3).map((ev,i) => evHtml(ev,i)).join("");
+          html += `<div class="cal-cell${isToday?" today":""}" onclick="calCellClick('${ds}',event,'${which}')">
       <div class="cell-num">${day}</div>${evHTML}
-      ${dayEvs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length - 3} más</div>` : ""}
+      ${dayEvs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length-3} más</div>` : ""}
     </div>`;
         }
 
         const totalCells = dow + daysInMonth;
-        for (let i = totalCells; i < 42; i++)
-          html += '<div class="cal-cell empty"></div>';
-
+        for (let i = totalCells; i < 42; i++) html += '<div class="cal-cell empty"></div>';
         calCellsEl.innerHTML = html;
-
-        renderApptList(
-          which,
-          evs.filter((e) => e.date.startsWith(monthStr)),
-        );
+        renderApptList(which, evs.filter(e => e.date.startsWith(monthStr)));
       }
 
       function renderApptList(which, evs) {
@@ -4273,31 +4440,19 @@
       }
 
       function renderDeptCalendar(dept) {
-        if (!canAccessDeptCalendar(dept)) {
-          showSection('my-calendar');
-          return;
-        }
+        if (!canAccessDeptCalendar(dept)) { showSection('my-calendar'); return; }
+        const calId = 'dept-' + dept;
+        const viewMode = _calView[calId] || 'month';
         const date = deptCalMonth[dept];
         const titleEl = document.getElementById("dept-" + dept + "-cal-title");
         const cellsEl = document.getElementById("dept-" + dept + "-cal-cells");
         if (!titleEl || !cellsEl) return;
 
-        titleEl.textContent = mthName(date);
-        const year = date.getFullYear(), month = date.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        let dow = new Date(year, month, 1).getDay();
-        dow = dow === 0 ? 6 : dow - 1;
-        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
-
+        const isAdmin = currentUser.role === "admin";
         const deptUsers = USERS.filter(u => u.departamento === dept && u.active);
         const deptUserIds = deptUsers.map(u => u.id);
 
-        let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && deptUserIds.includes(e.assignedTo));
-        if (currentUser.role !== "admin") {
-          evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
-        }
-
-        // NUEVO: renderizar leyenda de empleados del departamento
+        // Leyenda de empleados
         const legendEl = document.getElementById("dept-" + dept + "-legend");
         if (legendEl) {
           if (deptUsers.length) {
@@ -4306,85 +4461,103 @@
                 const col = getUserColor(u);
                 return `<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text)">
                   <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${col.bg};border:2px solid ${col.border};flex-shrink:0"></span>
-                  ${safeHtml(u.name)}
-                </div>`;
-              }).join("") +
-            '</div>';
+                  ${safeHtml(u.name)}</div>`;
+              }).join("") + '</div>';
             legendEl.style.display = "";
-          } else {
-            legendEl.style.display = "none";
-          }
+          } else { legendEl.style.display = "none"; }
         }
+
+        // HTML de evento para dept (colores por empleado)
+        const deptEvHtml = (ev) => {
+          const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+          if (shouldMask)
+            return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
+          const emp = USERS.find(u => u.id === ev.assignedTo);
+          const col = getUserColor(emp);
+          const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
+          return `<div class="cell-event${ev.private?' private-event':''}"
+            style="background:${col.bg};color:${col.text};border-left-color:${col.border}"
+            onclick="showEventDetail(${ev.id},event)"
+          >${ev.private?'🔒 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
+        };
+
+        // Render de la lista inferior
+        const renderList = (evs) => {
+          const listEl = document.getElementById("dept-" + dept + "-appt-list");
+          if (!listEl) return;
+          const sorted = evs.slice().sort((a,b) => a.date===b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date));
+          if (!sorted.length) {
+            listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hay citas en este período</div>';
+            return;
+          }
+          listEl.innerHTML = sorted.map(ev => {
+            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+            if (shouldMask) {
+              const dur = ev.timeEnd ? calcDuration(ev.time, ev.timeEnd) : '';
+              return `<div class="appt-item blocked">
+                <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd||'—'}</span>${dur?`<span class="appt-duration-badge" style="display:inline-block;margin-top:3px">${dur}</span>`:''}<span style="font-size:10px;color:var(--text-muted);margin-top:2px;display:block">${ev.date}</span></div>
+                <div class="appt-info"><div class="appt-client" style="color:var(--text-muted)">🔒 Franja reservada</div><div class="appt-meta">${ev.time}${ev.timeEnd?' – '+ev.timeEnd:''}</div></div>
+              </div>`;
+            }
+            const emp = USERS.find(u => u.id === ev.assignedTo);
+            const canEdit = isAdmin || ev.assignedTo === currentUser.id || ev.ownerId === currentUser.id;
+            const privBtn = isAdmin ? `<button class="btn-icon" title="${ev.private?'Hacer pública':'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private?'🔓':'🔒'}</button>` : '';
+            return `<div class="appt-item">
+              <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd||'—'}</span><span>${ev.date}</span></div>
+              <div class="appt-info">
+                <div class="appt-client">${safeHtml(ev.client)}${ev.private?' <span class="private-badge">🔒 Privado</span>':''}</div>
+                <div class="appt-meta">${safeHtml(ev.service)}${emp?' &middot; <strong>'+safeHtml(emp.name)+'</strong>':''}${ev.timeEnd?' &middot; <span class="appt-duration-badge">'+calcDuration(ev.time,ev.timeEnd)+'</span>':''}</div>
+              </div>
+              <div class="action-btns">${canEdit?`${privBtn}<button class="btn-icon" onclick="editEventFromList(${ev.id},event)">Editar</button><button class="btn-icon red" onclick="deleteEventFromList(${ev.id},event)">Eliminar</button>`:''}</div>
+            </div>`;
+          }).join("");
+        };
+
+        // ── VISTA SEMANA ──────────────────────────────────
+        if (viewMode === 'week') {
+          _initWeek(calId);
+          const mon = _calWeek[calId];
+          const sun = new Date(mon.getTime() + 6*86400000);
+          const startStr = _dsOf(mon), endStr = _dsOf(sun);
+          const evs = EVENTS.filter(e => e.date >= startStr && e.date <= endStr && deptUserIds.includes(e.assignedTo));
+          const evsFiltered = isAdmin ? evs : evs.filter(e => !e.private || e.assignedTo === currentUser.id);
+          titleEl.textContent = _weekTitle(mon);
+          cellsEl.className = 'cal-cells week-view';
+          cellsEl.innerHTML = _renderWeekGrid(calId, evsFiltered, 'dept-'+dept,
+            dayEvs => dayEvs.slice(0,4).map(ev => deptEvHtml(ev)).join(''));
+          renderList(evsFiltered);
+          return;
+        }
+
+        // ── VISTA MES ─────────────────────────────────────
+        cellsEl.className = 'cal-cells';
+        titleEl.textContent = mthName(date);
+        const year = date.getFullYear(), month = date.getMonth();
+        const daysInMonth = new Date(year, month+1, 0).getDate();
+        let dow = new Date(year, month, 1).getDay();
+        dow = dow === 0 ? 6 : dow - 1;
+        const monthStr = `${year}-${String(month+1).padStart(2,"0")}`;
+
+        let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && deptUserIds.includes(e.assignedTo));
+        if (!isAdmin) evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
 
         const today = todayStr();
         let html = "";
         for (let i = 0; i < dow; i++) html += '<div class="cal-cell empty"></div>';
         for (let day = 1; day <= daysInMonth; day++) {
-          const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const ds = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
           const isToday = ds === today;
           const dayEvs = evs.filter(e => e.date === ds);
-          const evHTML = dayEvs.slice(0, 3).map((ev) => {
-            const shouldMask = ev.private && currentUser.role !== 'admin' && ev.assignedTo !== currentUser.id;
-            if (shouldMask) {
-              return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}</div>`;
-            }
-            // NUEVO: color basado en el empleado asignado
-            const emp = USERS.find(u => u.id === ev.assignedTo);
-            const col = getUserColor(emp);
-            const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
-            return `<div class="cell-event${ev.private ? ' private-event' : ''}"
-              style="background:${col.bg};color:${col.text};border-left-color:${col.border}"
-              onclick="showEventDetail(${ev.id},event)"
-            >${ev.private ? '🔒 ' : ''}${timeRange} ${safeHtml(ev.client)}</div>`;
-          }).join("");
-          html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'dept-${dept}')">
+          const evHTML = dayEvs.slice(0,3).map(ev => deptEvHtml(ev)).join("");
+          html += `<div class="cal-cell${isToday?" today":""}" onclick="calCellClick('${ds}',event,'dept-${dept}')">
             <div class="cell-num">${day}</div>${evHTML}
-            ${dayEvs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length - 3} más</div>` : ""}
+            ${dayEvs.length>3?`<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length-3} más</div>`:""}
           </div>`;
         }
         const totalCells = dow + daysInMonth;
         for (let i = totalCells; i < 42; i++) html += '<div class="cal-cell empty"></div>';
         cellsEl.innerHTML = html;
-
-        const listEl = document.getElementById("dept-" + dept + "-appt-list");
-        if (!listEl) return;
-        const sorted = evs.slice().sort((a, b) => a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date));
-        if (!sorted.length) {
-          listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hay citas este mes en el departamento</div>';
-          return;
-        }
-        const isAdmin = currentUser.role === "admin";
-        listEl.innerHTML = sorted.map(ev => {
-          const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
-          if (shouldMask) {
-            const dur = ev.timeEnd ? calcDuration(ev.time, ev.timeEnd) : '';
-            return `<div class="appt-item blocked">
-              <div class="appt-time-col">
-                <strong>${ev.time}</strong>
-                <span class="appt-time-end">&#8594; ${ev.timeEnd || '—'}</span>
-                ${dur ? `<span class="appt-duration-badge" style="display:inline-block;margin-top:3px">${dur}</span>` : ''}
-                <span style="font-size:10px;color:var(--text-muted);margin-top:2px;display:block">${ev.date}</span>
-              </div>
-              <div class="appt-info">
-                <div class="appt-client" style="color:var(--text-muted)">🔒 Franja reservada</div>
-                <div class="appt-meta">${ev.time}${ev.timeEnd ? ' – ' + ev.timeEnd : ''}</div>
-              </div>
-            </div>`;
-          }
-          const emp = USERS.find(u => u.id === ev.assignedTo);
-          const canEdit = isAdmin || ev.assignedTo === currentUser.id || ev.ownerId === currentUser.id;
-          const privBtn = isAdmin ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>` : '';
-          return `<div class="appt-item">
-            <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd || '—'}</span><span>${ev.date}</span></div>
-            <div class="appt-info">
-              <div class="appt-client">${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privado</span>' : ''}</div>
-              <div class="appt-meta">${safeHtml(ev.service)}${emp ? ' &middot; <strong>' + safeHtml(emp.name) + '</strong>' : ''}${ev.timeEnd ? ' &middot; <span class="appt-duration-badge">' + calcDuration(ev.time, ev.timeEnd) + '</span>' : ''}</div>
-            </div>
-            <div class="action-btns">
-              ${canEdit ? `${privBtn}<button class="btn-icon" onclick="editEventFromList(${ev.id},event)">Editar</button><button class="btn-icon red" onclick="deleteEventFromList(${ev.id},event)">Eliminar</button>` : ''}
-            </div>
-          </div>`;
-        }).join("");
+        renderList(evs);
       }
 
       // ══════════════════════════════════════════
@@ -4403,9 +4576,11 @@
 
       function renderAdminViewCalendar() {
         const isAdmin = currentUser.role === "admin";
+        const calId = 'admin-view';
+        const viewMode = _calView[calId] || 'month';
         const date = adminViewCalMonth;
 
-        // NUEVO: poblar el select de filtro con todos los admins activos
+        // Poblar select de filtro
         const adminUsers = USERS.filter(u => u.role === 'admin' && u.active);
         const filterSel = document.getElementById("admin-view-filter");
         if (filterSel) {
@@ -4414,14 +4589,11 @@
             adminUsers.map(u => `<option value="${u.id}"${String(u.id) === currentVal ? ' selected' : ''}>${safeHtml(u.name)}</option>`).join('');
         }
 
-        // Determinar qué admins mostrar
         const filterVal = filterSel ? filterSel.value : "all";
-        const shownAdmins = filterVal === "all"
-          ? adminUsers
-          : adminUsers.filter(u => String(u.id) === filterVal);
+        const shownAdmins = filterVal === "all" ? adminUsers : adminUsers.filter(u => String(u.id) === filterVal);
         const shownAdminIds = shownAdmins.map(u => u.id);
 
-        // NUEVO: leyenda de admins mostrados
+        // Leyenda
         const legendEl = document.getElementById("admin-view-legend");
         if (legendEl) {
           if (shownAdmins.length > 1) {
@@ -4430,25 +4602,16 @@
                 const col = getUserColor(u);
                 return `<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text)">
                   <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${col.bg};border:2px solid ${col.border};flex-shrink:0"></span>
-                  ${safeHtml(u.name)}
-                </div>`;
-              }).join("") +
-            '</div>';
+                  ${safeHtml(u.name)}</div>`;
+              }).join("") + '</div>';
             legendEl.style.display = "";
-          } else {
-            legendEl.style.display = "none";
-          }
+          } else { legendEl.style.display = "none"; }
         }
 
-        // Actualizar subtítulo y banner
         const subEl = document.getElementById("admin-view-cal-sub");
         const bannerEl = document.getElementById("admin-cal-info-banner");
         const btnAdd = document.getElementById("btn-add-admin-appt");
-        if (subEl) {
-          subEl.textContent = shownAdmins.length === 1
-            ? "Citas de " + shownAdmins[0].name
-            : "Citas de todos los administradores";
-        }
+        if (subEl) subEl.textContent = shownAdmins.length === 1 ? "Citas de " + shownAdmins[0].name : "Citas de todos los administradores";
         if (bannerEl) bannerEl.style.display = isAdmin ? "none" : "flex";
         if (btnAdd) btnAdd.textContent = isAdmin ? "+ Nueva cita" : "+ Solicitar cita";
 
@@ -4456,53 +4619,62 @@
         const cellsEl = document.getElementById("admin-view-cal-cells");
         if (!titleEl || !cellsEl) return;
 
+        // HTML de evento admin
+        const adminEvHtml = (ev) => {
+          const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+          if (shouldMask)
+            return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
+          const emp = USERS.find(u => u.id === ev.assignedTo);
+          const col = getUserColor(emp);
+          const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
+          return `<div class="cell-event${ev.private?' private-event':''}"
+            style="background:${col.bg};color:${col.text};border-left-color:${col.border}"
+            onclick="showEventDetail(${ev.id},event)"
+          >${ev.private?'🔒 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
+        };
+
+        // ── VISTA SEMANA ──────────────────────────────────
+        if (viewMode === 'week') {
+          _initWeek(calId);
+          const mon = _calWeek[calId];
+          const sun = new Date(mon.getTime() + 6*86400000);
+          const startStr = _dsOf(mon), endStr = _dsOf(sun);
+          const evs = EVENTS.filter(e => e.date >= startStr && e.date <= endStr && shownAdminIds.includes(e.assignedTo));
+          titleEl.textContent = _weekTitle(mon);
+          cellsEl.className = 'cal-cells week-view';
+          cellsEl.innerHTML = _renderWeekGrid(calId, evs, 'admin-view',
+            dayEvs => dayEvs.slice(0,4).map(ev => adminEvHtml(ev)).join(''));
+          renderAdminViewApptList(evs, shownAdmins);
+          return;
+        }
+
+        // ── VISTA MES ─────────────────────────────────────
+        cellsEl.className = 'cal-cells';
         titleEl.textContent = mthName(date);
         const year = date.getFullYear(), month = date.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const daysInMonth = new Date(year, month+1, 0).getDate();
         let dow = new Date(year, month, 1).getDay();
         dow = dow === 0 ? 6 : dow - 1;
-        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+        const monthStr = `${year}-${String(month+1).padStart(2,"0")}`;
 
-        // Filtrar eventos de los admins seleccionados
-        let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && shownAdminIds.includes(e.assignedTo));
-        // Empleados ven todas las citas (privadas incluidas) pero las que no son suyas se enmascaran
-        // No se filtra aquí: el enmascaramiento ocurre al renderizar cada evento
+        const evs = EVENTS.filter(e => e.date.startsWith(monthStr) && shownAdminIds.includes(e.assignedTo));
 
         const today = todayStr();
         let html = "";
         for (let i = 0; i < dow; i++) html += '<div class="cal-cell empty"></div>';
-
         for (let day = 1; day <= daysInMonth; day++) {
-          const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const ds = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
           const isToday = ds === today;
           const dayEvs = evs.filter(e => e.date === ds);
-
-          const evHTML = dayEvs.slice(0, 3).map((ev) => {
-            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
-            if (shouldMask) {
-              return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}</div>`;
-            }
-            // NUEVO: color del admin asignado
-            const emp = USERS.find(u => u.id === ev.assignedTo);
-            const col = getUserColor(emp);
-            const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
-            return `<div class="cell-event${ev.private ? ' private-event' : ''}"
-              style="background:${col.bg};color:${col.text};border-left-color:${col.border}"
-              onclick="showEventDetail(${ev.id},event)"
-            >${ev.private ? '🔒 ' : ''}${timeRange} ${safeHtml(ev.client)}</div>`;
-          }).join("");
-
-          html += `<div class="cal-cell${isToday ? " today" : ""}" onclick="calCellClick('${ds}',event,'admin-view')">
+          const evHTML = dayEvs.slice(0,3).map(ev => adminEvHtml(ev)).join("");
+          html += `<div class="cal-cell${isToday?" today":""}" onclick="calCellClick('${ds}',event,'admin-view')">
             <div class="cell-num">${day}</div>${evHTML}
-            ${dayEvs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length - 3} más</div>` : ""}
+            ${dayEvs.length>3?`<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length-3} más</div>`:""}
           </div>`;
         }
-
         const totalCells = dow + daysInMonth;
         for (let i = totalCells; i < 42; i++) html += '<div class="cal-cell empty"></div>';
         cellsEl.innerHTML = html;
-
-        // Renderizar lista de citas
         renderAdminViewApptList(evs, shownAdmins);
       }
 
