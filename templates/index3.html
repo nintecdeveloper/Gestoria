@@ -3635,7 +3635,7 @@
               const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
               if (shouldMask) {
                 // Mostrar bloque de horario ocupado sin revelar detalles
-                return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
+                return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}</div>`;
               }
               // NUEVO: mostrar rango "09:00-10:00" si hay hora fin
               const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
@@ -4146,7 +4146,7 @@
           const evHTML = dayEvs.slice(0, 3).map((ev) => {
             const shouldMask = ev.private && currentUser.role !== 'admin' && ev.assignedTo !== currentUser.id;
             if (shouldMask) {
-              return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
+              return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}</div>`;
             }
             // NUEVO: color basado en el empleado asignado
             const emp = USERS.find(u => u.id === ev.assignedTo);
@@ -4295,7 +4295,7 @@
           const evHTML = dayEvs.slice(0, 3).map((ev) => {
             const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
             if (shouldMask) {
-              return `<div class="cell-event blocked-private" title="Horario no disponible" onclick="event.stopPropagation()">🔒 ${ev.time} Hora bloqueada</div>`;
+              return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd ? '–'+ev.timeEnd : ''}</div>`;
             }
             // NUEVO: color del admin asignado
             const emp = USERS.find(u => u.id === ev.assignedTo);
@@ -4530,6 +4530,8 @@
         if (aevDate) aevDate.addEventListener("change", checkAdminSlot);
         if (aevTime) aevTime.addEventListener("change", checkAdminSlot);
         if (aevTimeEnd) aevTimeEnd.addEventListener("change", checkAdminSlot);
+        const aevAdminId = document.getElementById("aev-admin-id");
+        if (aevAdminId) aevAdminId.addEventListener("change", checkAdminSlot);
 
         // Validación en tiempo real para el modal principal de cita
         const evTime = document.getElementById("ev-time");
@@ -4557,6 +4559,8 @@
         if (evTimeEnd) evTimeEnd.addEventListener("change", checkMainSlot);
         const evDate = document.getElementById("ev-date");
         if (evDate) evDate.addEventListener("change", checkMainSlot);
+        const evEmployee = document.getElementById("ev-employee");
+        if (evEmployee) evEmployee.addEventListener("change", checkMainSlot);
       });
 
       // ══════════════════════════════════════════
