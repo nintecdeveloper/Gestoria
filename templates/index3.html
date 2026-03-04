@@ -777,7 +777,7 @@
       }
       .cal-cell.week-cell.today .week-day-num { color: var(--accent); }
 
-      /* ── VISTA DÍA ─────────────────────────────── */
+      /* ── VISTA DÍA con horas ─────────────────────────── */
       .cal-cells.day-view {
         display: block;
         height: auto;
@@ -793,7 +793,7 @@
         gap: 10px;
         padding: 14px 0 16px;
         border-bottom: 1px solid var(--border);
-        margin-bottom: 14px;
+        margin-bottom: 0;
       }
       .day-view-weekday {
         font-size: 13px;
@@ -810,18 +810,69 @@
         line-height: 1;
       }
       .day-view-date.today-date { color: var(--accent); }
-      .day-view-empty {
-        padding: 32px 0;
-        text-align: center;
-        color: var(--text-muted);
-        font-size: 13px;
+
+      /* Hourly grid */
+      .day-hours-grid {
+        display: flex;
+        flex-direction: column;
+        border-left: 2px solid var(--border);
+        margin-left: 52px;
+        margin-top: 8px;
       }
+      .day-hour-row {
+        display: flex;
+        min-height: 52px;
+        border-bottom: 1px solid var(--bg2);
+        position: relative;
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      .day-hour-row:hover { background: var(--bg); }
+      .day-hour-row.current-hour { background: rgba(44,74,62,0.04); }
+      .day-hour-label {
+        position: absolute;
+        left: -56px;
+        top: -9px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        width: 46px;
+        text-align: right;
+        pointer-events: none;
+        user-select: none;
+      }
+      .day-hour-content {
+        flex: 1;
+        padding: 4px 10px 4px 12px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .day-hour-now-line {
+        position: absolute;
+        left: 0; right: 0;
+        height: 2px;
+        background: var(--danger);
+        border-radius: 2px;
+        z-index: 2;
+        pointer-events: none;
+      }
+      .day-hour-now-line::before {
+        content: '';
+        position: absolute;
+        left: -4px; top: -4px;
+        width: 10px; height: 10px;
+        background: var(--danger);
+        border-radius: 50%;
+      }
+
+      /* Events in day hour view */
       .day-event-row {
         display: flex;
         align-items: flex-start;
         gap: 14px;
-        padding: 10px 0;
-        border-bottom: 1px solid var(--border);
+        padding: 6px 0;
         cursor: pointer;
         transition: background 0.12s;
         border-radius: 6px;
@@ -859,17 +910,95 @@
         color: var(--text-muted);
         margin-top: 2px;
       }
-      .day-event-private {
+      .day-view-empty {
+        padding: 32px 0;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+
+      /* ── WHATSAPP REMINDER ─────────────────────────── */
+      .wa-reminder-wrap {
+        position: relative;
+        display: inline-block;
+      }
+      .btn-wa {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        font-size: 11px;
-        color: #888;
-        background: #f0ede8;
-        border-radius: 4px;
-        padding: 1px 6px;
-        margin-top: 2px;
+        gap: 8px;
+        padding: 10px 16px;
+        border: 1.5px solid #25D366;
+        border-radius: var(--radius);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        background: #fff;
+        color: #128C7E;
+        transition: all 0.2s;
       }
+      .btn-wa:hover {
+        background: #e8fdf2;
+        border-color: #128C7E;
+      }
+      .btn-wa .wa-icon {
+        font-size: 16px;
+      }
+      .wa-dropdown {
+        display: none;
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 0;
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        min-width: 210px;
+        z-index: 50;
+        overflow: hidden;
+      }
+      .wa-dropdown.open { display: block; }
+      .wa-dropdown-title {
+        padding: 10px 14px 6px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border);
+      }
+      .wa-dropdown-opt {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background 0.12s;
+        border-bottom: 1px solid var(--bg2);
+      }
+      .wa-dropdown-opt:last-child { border-bottom: none; }
+      .wa-dropdown-opt:hover { background: var(--bg2); }
+      .wa-dropdown-opt .wa-opt-icon { font-size: 15px; }
+      .wa-dropdown-opt.selected {
+        background: #e8fdf2;
+        color: #128C7E;
+        font-weight: 600;
+      }
+      .wa-reminder-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        background: #e8fdf2;
+        border: 1px solid #25D366;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #128C7E;
+        margin-top: 6px;
+      }
+        
 
       /* ══════════════════════════════════════════════════
          NUEVO: Estilo para citas privatizadas en el calendario
@@ -2963,6 +3092,36 @@
         <div class="form-err" id="ev-err">
           Rellena los campos obligatorios (*).
         </div>
+
+        <!-- WhatsApp Reminder -->
+        <div style="margin-top:16px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">Recordatorio WhatsApp</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div class="wa-reminder-wrap">
+              <button class="btn-wa" type="button" onclick="toggleWaDropdown('ev-wa-dropdown')">
+                <span class="wa-icon">💬</span> Enviar recordatorio
+                <span style="font-size:10px;margin-left:2px">▲</span>
+              </button>
+              <div class="wa-dropdown" id="ev-wa-dropdown">
+                <div class="wa-dropdown-title">Enviar recordatorio</div>
+                <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', '1h', '1 hora antes', this)">
+                  <span class="wa-opt-icon">⏰</span> 1 hora antes
+                </div>
+                <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', '1d', '1 día antes', this)">
+                  <span class="wa-opt-icon">📅</span> 1 día antes
+                </div>
+                <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', '1w', '1 semana antes', this)">
+                  <span class="wa-opt-icon">🗓️</span> 1 semana antes
+                </div>
+              </div>
+            </div>
+            <div id="ev-wa-badge" style="display:none" class="wa-reminder-badge">
+              💬 Recordatorio: <span id="ev-wa-badge-text"></span>
+              <button onclick="clearWaReminder('ev')" style="background:none;border:none;cursor:pointer;color:#128C7E;font-size:14px;padding:0;line-height:1" title="Quitar recordatorio">&times;</button>
+            </div>
+          </div>
+        </div>
+
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal('event-modal')">
             Cancelar
@@ -3183,6 +3342,36 @@
           ⚠️ <strong>Horario bloqueado:</strong> Ya existe una cita en este horario. Por favor, elige otra hora.
         </div>
         <div class="form-err" id="aev-err">Rellena los campos obligatorios (*).</div>
+
+        <!-- WhatsApp Reminder -->
+        <div style="margin-top:4px;margin-bottom:8px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">Recordatorio WhatsApp</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div class="wa-reminder-wrap">
+              <button class="btn-wa" type="button" onclick="toggleWaDropdown('aev-wa-dropdown')">
+                <span class="wa-icon">💬</span> Enviar recordatorio
+                <span style="font-size:10px;margin-left:2px">▲</span>
+              </button>
+              <div class="wa-dropdown" id="aev-wa-dropdown">
+                <div class="wa-dropdown-title">Enviar recordatorio</div>
+                <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1h', '1 hora antes', this)">
+                  <span class="wa-opt-icon">⏰</span> 1 hora antes
+                </div>
+                <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1d', '1 día antes', this)">
+                  <span class="wa-opt-icon">📅</span> 1 día antes
+                </div>
+                <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1w', '1 semana antes', this)">
+                  <span class="wa-opt-icon">🗓️</span> 1 semana antes
+                </div>
+              </div>
+            </div>
+            <div id="aev-wa-badge" style="display:none" class="wa-reminder-badge">
+              💬 Recordatorio: <span id="aev-wa-badge-text"></span>
+              <button onclick="clearWaReminder('aev')" style="background:none;border:none;cursor:pointer;color:#128C7E;font-size:14px;padding:0;line-height:1" title="Quitar recordatorio">&times;</button>
+            </div>
+          </div>
+        </div>
+
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal('admin-event-modal')">Cancelar</button>
           <button class="btn btn-primary" id="aev-save-btn" onclick="saveAdminCalEvent()">Confirmar cita</button>
@@ -4022,7 +4211,7 @@
         return html;
       }
 
-      // Renderizar vista de UN día — devuelve HTML para el contenedor
+      // Renderizar vista de UN día — devuelve HTML con horas del día
       function _renderDayView(calId, evs, clickWhich, evDetailFn) {
         _initDay(calId);
         const d = _calDay[calId];
@@ -4033,19 +4222,38 @@
         const weekday = d.toLocaleDateString('es-ES', {weekday:'long'});
         const dateStr = d.toLocaleDateString('es-ES', {day:'numeric', month:'long', year:'numeric'});
 
-        let evHtml = '';
-        if (!dayEvs.length) {
-          evHtml = `<div class="day-view-empty">Sin citas para este día</div>`;
-        } else {
-          evHtml = dayEvs.map(ev => evDetailFn(ev)).join('');
+        // Build hourly grid from 07:00 to 21:00
+        const HOURS_START = 7, HOURS_END = 21;
+        const nowH = isToday ? new Date().getHours() : -1;
+        const nowMin = isToday ? new Date().getMinutes() : 0;
+
+        let hoursHtml = '';
+        for (let h = HOURS_START; h <= HOURS_END; h++) {
+          const hStr = String(h).padStart(2,'0') + ':00';
+          const isCurrentHour = (h === nowH);
+          // Events starting in this hour
+          const hEvs = dayEvs.filter(ev => {
+            const evH = parseInt(ev.time.split(':')[0]);
+            return evH === h;
+          });
+          const evRows = hEvs.map(ev => evDetailFn(ev)).join('');
+          hoursHtml += `
+            <div class="day-hour-row${isCurrentHour ? ' current-hour' : ''}" onclick="calCellClick('${ds}',event,'${clickWhich}')">
+              <div class="day-hour-label">${hStr}</div>
+              <div class="day-hour-content">
+                ${evRows || (isCurrentHour ? `<div class="day-hour-now-line" style="top:${Math.round((nowMin/60)*100)}%"></div>` : '')}
+                ${isCurrentHour && evRows ? `<div class="day-hour-now-line" style="top:${Math.round((nowMin/60)*100)}%"></div>` : ''}
+              </div>
+            </div>`;
         }
 
         return `<div class="day-view-container">
           <div class="day-view-header">
             <span class="day-view-weekday">${weekday}</span>
             <span class="day-view-date${isToday?' today-date':''}">${dateStr}</span>
+            ${isToday ? '<span class="tag tag-green" style="font-size:11px;padding:2px 8px">Hoy</span>' : ''}
           </div>
-          ${evHtml}
+          <div class="day-hours-grid">${hoursHtml}</div>
         </div>`;
       }
 
@@ -5986,11 +6194,60 @@
       //  MODAL UTILS (sin cambios)
       // ══════════════════════════════════════════
 
+      // ══════════════════════════════════════════
+      //  WHATSAPP REMINDER (UI only, no real sending)
+      // ══════════════════════════════════════════
+
+      const _waReminders = {}; // prefix -> selected value
+
+      function toggleWaDropdown(dropdownId) {
+        // Close any other open dropdowns
+        document.querySelectorAll('.wa-dropdown.open').forEach(d => {
+          if (d.id !== dropdownId) d.classList.remove('open');
+        });
+        document.getElementById(dropdownId).classList.toggle('open');
+      }
+
+      function selectWaReminder(prefix, value, label, optEl) {
+        // Mark selected
+        const dropdown = optEl.closest('.wa-dropdown');
+        dropdown.querySelectorAll('.wa-dropdown-opt').forEach(o => o.classList.remove('selected'));
+        optEl.classList.add('selected');
+        dropdown.classList.remove('open');
+
+        _waReminders[prefix] = value;
+        const badge = document.getElementById(prefix + '-wa-badge');
+        const badgeText = document.getElementById(prefix + '-wa-badge-text');
+        if (badge && badgeText) {
+          badgeText.textContent = label;
+          badge.style.display = 'inline-flex';
+        }
+      }
+
+      function clearWaReminder(prefix) {
+        _waReminders[prefix] = null;
+        const badge = document.getElementById(prefix + '-wa-badge');
+        if (badge) badge.style.display = 'none';
+        // Clear selection style
+        const dropdown = document.getElementById(prefix + '-wa-dropdown');
+        if (dropdown) dropdown.querySelectorAll('.wa-dropdown-opt').forEach(o => o.classList.remove('selected'));
+      }
+
+      // Close dropdowns when clicking outside
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.wa-reminder-wrap')) {
+          document.querySelectorAll('.wa-dropdown.open').forEach(d => d.classList.remove('open'));
+        }
+      });
+
       function openModal(id) {
         document.getElementById(id).classList.add("open");
       }
       function closeModal(id) {
         document.getElementById(id).classList.remove("open");
+        // Clear WA state when closing event modals
+        if (id === 'event-modal') clearWaReminder('ev');
+        if (id === 'admin-event-modal') clearWaReminder('aev');
       }
 
       document.querySelectorAll(".modal-overlay").forEach((o) => {
