@@ -777,6 +777,100 @@
       }
       .cal-cell.week-cell.today .week-day-num { color: var(--accent); }
 
+      /* ── VISTA DÍA ─────────────────────────────── */
+      .cal-cells.day-view {
+        display: block;
+        height: auto;
+        min-height: unset;
+        max-height: unset;
+      }
+      .day-view-container {
+        padding: 0 22px 18px;
+      }
+      .day-view-header {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        padding: 14px 0 16px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 14px;
+      }
+      .day-view-weekday {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+      .day-view-date {
+        font-family: 'Cormorant Garamond', serif;
+        font-size: 30px;
+        font-weight: 500;
+        color: var(--text);
+        line-height: 1;
+      }
+      .day-view-date.today-date { color: var(--accent); }
+      .day-view-empty {
+        padding: 32px 0;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+      .day-event-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        transition: background 0.12s;
+        border-radius: 6px;
+        padding-left: 6px;
+      }
+      .day-event-row:hover { background: var(--bg2); }
+      .day-event-time {
+        min-width: 82px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-muted);
+        padding-top: 2px;
+        white-space: nowrap;
+      }
+      .day-event-bar {
+        width: 3px;
+        min-width: 3px;
+        border-radius: 3px;
+        align-self: stretch;
+        min-height: 36px;
+        background: var(--accent);
+        flex-shrink: 0;
+      }
+      .day-event-body { flex: 1; min-width: 0; }
+      .day-event-client {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .day-event-service {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+      .day-event-private {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: #888;
+        background: #f0ede8;
+        border-radius: 4px;
+        padding: 1px 6px;
+        margin-top: 2px;
+      }
+
       /* ══════════════════════════════════════════════════
          NUEVO: Estilo para citas privatizadas en el calendario
          (visible para no-admin como bloque bloqueado)
@@ -2312,6 +2406,7 @@
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="my-btn-month" onclick="setCalView('my','month')">Mes</button>
                   <button class="cal-view-btn" id="my-btn-week" onclick="setCalView('my','week')">Semana</button>
+                  <button class="cal-view-btn" id="my-btn-day" onclick="setCalView('my','day')">Día</button>
                 </div>
               </div>
               <div class="cal-grid">
@@ -2360,6 +2455,7 @@
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="global-btn-month" onclick="setCalView('global','month')">Mes</button>
                   <button class="cal-view-btn" id="global-btn-week" onclick="setCalView('global','week')">Semana</button>
+                  <button class="cal-view-btn" id="global-btn-day" onclick="setCalView('global','day')">Día</button>
                 </div>
               </div>
               <div class="cal-grid">
@@ -2425,6 +2521,7 @@
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="admin-view-btn-month" onclick="setCalView('admin-view','month')">Mes</button>
                   <button class="cal-view-btn" id="admin-view-btn-week" onclick="setCalView('admin-view','week')">Semana</button>
+                  <button class="cal-view-btn" id="admin-view-btn-day" onclick="setCalView('admin-view','day')">Día</button>
                 </div>
               </div>
               <div class="cal-grid">
@@ -2463,6 +2560,7 @@
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="dept-laboral-btn-month" onclick="setCalView('dept-laboral','month')">Mes</button>
                   <button class="cal-view-btn" id="dept-laboral-btn-week" onclick="setCalView('dept-laboral','week')">Semana</button>
+                  <button class="cal-view-btn" id="dept-laboral-btn-day" onclick="setCalView('dept-laboral','day')">Día</button>
                 </div>
               </div>
               <div class="cal-grid">
@@ -2495,6 +2593,7 @@
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="dept-fiscal-btn-month" onclick="setCalView('dept-fiscal','month')">Mes</button>
                   <button class="cal-view-btn" id="dept-fiscal-btn-week" onclick="setCalView('dept-fiscal','week')">Semana</button>
+                  <button class="cal-view-btn" id="dept-fiscal-btn-day" onclick="setCalView('dept-fiscal','day')">Día</button>
                 </div>
               </div>
               <div class="cal-grid">
@@ -2527,6 +2626,7 @@
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="dept-mercantil-btn-month" onclick="setCalView('dept-mercantil','month')">Mes</button>
                   <button class="cal-view-btn" id="dept-mercantil-btn-week" onclick="setCalView('dept-mercantil','week')">Semana</button>
+                  <button class="cal-view-btn" id="dept-mercantil-btn-day" onclick="setCalView('dept-mercantil','day')">Día</button>
                 </div>
               </div>
               <div class="cal-grid">
@@ -3809,6 +3909,7 @@
         'dept-laboral': 'month', 'dept-fiscal': 'month', 'dept-mercantil': 'month'
       };
       const _calWeek = {}; // lunes de la semana activa por calId
+      const _calDay  = {}; // día activo (Date) por calId
 
       function _monday(date) {
         const d = new Date(date); d.setHours(0,0,0,0);
@@ -3819,6 +3920,9 @@
       function _initWeek(calId) {
         if (!_calWeek[calId]) _calWeek[calId] = _monday(new Date());
       }
+      function _initDay(calId) {
+        if (!_calDay[calId]) { const d = new Date(); d.setHours(0,0,0,0); _calDay[calId] = d; }
+      }
       function _weekTitle(mon) {
         const sun = new Date(mon.getTime() + 6*86400000);
         const f = (d, yr) => d.toLocaleDateString('es-ES', {day:'numeric', month:'short', ...(yr?{year:'numeric'}:{})});
@@ -3826,16 +3930,19 @@
           ? mon.getDate() + ' – ' + f(sun, true)
           : f(mon, false) + ' – ' + f(sun, true);
       }
+      function _dayTitle(d) {
+        return d.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+      }
       function _dsOf(d) {
         return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
       }
 
-      // Actualizar botones Mes/Semana
+      // Actualizar botones Mes/Semana/Día
       function _syncViewBtns(calId, view) {
-        const mb = document.getElementById(calId+'-btn-month');
-        const wb = document.getElementById(calId+'-btn-week');
-        if (mb) mb.classList.toggle('active', view==='month');
-        if (wb) wb.classList.toggle('active', view==='week');
+        ['month','week','day'].forEach(v => {
+          const b = document.getElementById(calId+'-btn-'+v);
+          if (b) b.classList.toggle('active', v === view);
+        });
       }
 
       // Cambiar vista
@@ -3855,24 +3962,39 @@
 
       // Navegación unificada (respeta vista activa)
       function calNav(dir, which) {
-        if (_calView[which] === 'week') {
+        const v = _calView[which];
+        if (v === 'week') {
           _initWeek(which);
           _calWeek[which] = new Date(_calWeek[which].getTime() + dir*7*86400000);
+          renderCalendar(which);
+        } else if (v === 'day') {
+          _initDay(which);
+          _calDay[which] = new Date(_calDay[which].getTime() + dir*86400000);
           renderCalendar(which);
         } else { changeMonth(dir, which); }
       }
       function calNavDept(dir, dept) {
         const calId = 'dept-' + dept;
-        if (_calView[calId] === 'week') {
+        const v = _calView[calId];
+        if (v === 'week') {
           _initWeek(calId);
           _calWeek[calId] = new Date(_calWeek[calId].getTime() + dir*7*86400000);
+          renderDeptCalendar(dept);
+        } else if (v === 'day') {
+          _initDay(calId);
+          _calDay[calId] = new Date(_calDay[calId].getTime() + dir*86400000);
           renderDeptCalendar(dept);
         } else { changeDeptMonth(dir, dept); }
       }
       function calNavAdminView(dir) {
-        if (_calView['admin-view'] === 'week') {
+        const v = _calView['admin-view'];
+        if (v === 'week') {
           _initWeek('admin-view');
           _calWeek['admin-view'] = new Date(_calWeek['admin-view'].getTime() + dir*7*86400000);
+          renderAdminViewCalendar();
+        } else if (v === 'day') {
+          _initDay('admin-view');
+          _calDay['admin-view'] = new Date(_calDay['admin-view'].getTime() + dir*86400000);
           renderAdminViewCalendar();
         } else { changeAdminViewMonth(dir); }
       }
@@ -3898,6 +4020,33 @@
           </div>`;
         }
         return html;
+      }
+
+      // Renderizar vista de UN día — devuelve HTML para el contenedor
+      function _renderDayView(calId, evs, clickWhich, evDetailFn) {
+        _initDay(calId);
+        const d = _calDay[calId];
+        const ds = _dsOf(d);
+        const today = todayStr();
+        const isToday = ds === today;
+        const dayEvs = evs.filter(e => e.date === ds).sort((a,b) => a.time.localeCompare(b.time));
+        const weekday = d.toLocaleDateString('es-ES', {weekday:'long'});
+        const dateStr = d.toLocaleDateString('es-ES', {day:'numeric', month:'long', year:'numeric'});
+
+        let evHtml = '';
+        if (!dayEvs.length) {
+          evHtml = `<div class="day-view-empty">Sin citas para este día</div>`;
+        } else {
+          evHtml = dayEvs.map(ev => evDetailFn(ev)).join('');
+        }
+
+        return `<div class="day-view-container">
+          <div class="day-view-header">
+            <span class="day-view-weekday">${weekday}</span>
+            <span class="day-view-date${isToday?' today-date':''}">${dateStr}</span>
+          </div>
+          ${evHtml}
+        </div>`;
       }
 
       function changeMonth(dir, which) {
@@ -3966,6 +4115,36 @@
           calCellsEl.innerHTML = _renderWeekGrid(calId, evs, which,
             dayEvs => dayEvs.slice(0,4).map((ev,i) => evHtml(ev,i)).join(''));
           renderApptList(which, evs);
+          return;
+        }
+
+        // ── VISTA DÍA ─────────────────────────────────────
+        if (viewMode === 'day') {
+          _initDay(calId);
+          const dayDate = _calDay[calId];
+          const ds = _dsOf(dayDate);
+          const allEvs = filterEvs(EVENTS.filter(e => e.date === ds));
+          titleEl.textContent = _dayTitle(dayDate);
+          calCellsEl.className = 'cal-cells day-view';
+          calCellsEl.innerHTML = _renderDayView(calId, allEvs, which, (ev) => {
+            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+            if (shouldMask) {
+              return `<div class="day-event-row" style="cursor:default">
+                <div class="day-event-time">${ev.time}${ev.timeEnd?'<br>→ '+ev.timeEnd:''}</div>
+                <div class="day-event-bar" style="background:#bbb"></div>
+                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloqueada</div></div>
+              </div>`;
+            }
+            return `<div class="day-event-row" onclick="showEventDetail(${ev.id},event)">
+              <div class="day-event-time">${ev.time}${ev.timeEnd?'<br><span style="font-weight:400">→ '+ev.timeEnd+'</span>':''}</div>
+              <div class="day-event-bar"></div>
+              <div class="day-event-body">
+                <div class="day-event-client">${ev.private?'🔒 ':''}${safeHtml(ev.client)}</div>
+                <div class="day-event-service">${safeHtml(ev.service||'')}${ev.timeEnd?' · '+calcDuration(ev.time,ev.timeEnd):''}</div>
+              </div>
+            </div>`;
+          });
+          renderApptList(which, allEvs);
           return;
         }
 
@@ -4529,6 +4708,39 @@
           return;
         }
 
+        // ── VISTA DÍA ─────────────────────────────────────
+        if (viewMode === 'day') {
+          _initDay(calId);
+          const dayDate = _calDay[calId];
+          const ds = _dsOf(dayDate);
+          let evs = EVENTS.filter(e => e.date === ds && deptUserIds.includes(e.assignedTo));
+          if (!isAdmin) evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
+          titleEl.textContent = _dayTitle(dayDate);
+          cellsEl.className = 'cal-cells day-view';
+          cellsEl.innerHTML = _renderDayView(calId, evs, 'dept-'+dept, (ev) => {
+            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+            if (shouldMask) {
+              return `<div class="day-event-row" style="cursor:default">
+                <div class="day-event-time">${ev.time}${ev.timeEnd?'<br>→ '+ev.timeEnd:''}</div>
+                <div class="day-event-bar" style="background:#bbb"></div>
+                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloqueada</div></div>
+              </div>`;
+            }
+            const emp = USERS.find(u => u.id === ev.assignedTo);
+            const col = getUserColor(emp);
+            return `<div class="day-event-row" onclick="showEventDetail(${ev.id},event)">
+              <div class="day-event-time">${ev.time}${ev.timeEnd?'<br><span style="font-weight:400">→ '+ev.timeEnd+'</span>':''}</div>
+              <div class="day-event-bar" style="background:${col.border}"></div>
+              <div class="day-event-body">
+                <div class="day-event-client">${ev.private?'🔒 ':''}${safeHtml(ev.client)}</div>
+                <div class="day-event-service">${safeHtml(ev.service||'')}${emp?' · '+safeHtml(emp.name):''}${ev.timeEnd?' · '+calcDuration(ev.time,ev.timeEnd):''}</div>
+              </div>
+            </div>`;
+          });
+          renderList(evs);
+          return;
+        }
+
         // ── VISTA MES ─────────────────────────────────────
         cellsEl.className = 'cal-cells';
         titleEl.textContent = mthName(date);
@@ -4644,6 +4856,39 @@
           cellsEl.className = 'cal-cells week-view';
           cellsEl.innerHTML = _renderWeekGrid(calId, evs, 'admin-view',
             dayEvs => dayEvs.slice(0,4).map(ev => adminEvHtml(ev)).join(''));
+          renderAdminViewApptList(evs, shownAdmins);
+          return;
+        }
+
+        // ── VISTA DÍA ─────────────────────────────────────
+        if (viewMode === 'day') {
+          _initDay(calId);
+          const dayDate = _calDay[calId];
+          const ds = _dsOf(dayDate);
+          const evs = EVENTS.filter(e => e.date === ds && shownAdminIds.includes(e.assignedTo));
+          titleEl.textContent = _dayTitle(dayDate);
+          cellsEl.className = 'cal-cells day-view';
+          cellsEl.innerHTML = _renderDayView(calId, evs, 'admin-view', (ev) => {
+            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+            if (shouldMask) {
+              return `<div class="day-event-row" style="cursor:default">
+                <div class="day-event-time">${ev.time}${ev.timeEnd?'<br>→ '+ev.timeEnd:''}</div>
+                <div class="day-event-bar" style="background:#bbb"></div>
+                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloqueada</div></div>
+              </div>`;
+            }
+            const emp = USERS.find(u => u.id === ev.assignedTo);
+            const col = getUserColor(emp);
+            const multiAdmin = shownAdmins.length > 1;
+            return `<div class="day-event-row" onclick="showEventDetail(${ev.id},event)">
+              <div class="day-event-time">${ev.time}${ev.timeEnd?'<br><span style="font-weight:400">→ '+ev.timeEnd+'</span>':''}</div>
+              <div class="day-event-bar" style="background:${col.border}"></div>
+              <div class="day-event-body">
+                <div class="day-event-client">${ev.private?'🔒 ':''}${safeHtml(ev.client)}</div>
+                <div class="day-event-service">${safeHtml(ev.service||'')}${emp&&multiAdmin?' · '+safeHtml(emp.name):''}${ev.timeEnd?' · '+calcDuration(ev.time,ev.timeEnd):''}</div>
+              </div>
+            </div>`;
+          });
           renderAdminViewApptList(evs, shownAdmins);
           return;
         }
