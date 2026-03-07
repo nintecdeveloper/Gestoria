@@ -1118,6 +1118,94 @@
         gap: 6px;
         margin-top: 8px;
       }
+
+      /* ═══════════════════════════════════════════════════════ */
+      /* ESTILOS RECORDATORIO PERSONAL */
+      /* ═══════════════════════════════════════════════════════ */
+      .pr-reminder-wrap {
+        position: relative;
+        display: inline-block;
+      }
+      .btn-pr {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border: 1.5px solid var(--accent2);
+        border-radius: var(--radius);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        background: #fff;
+        color: var(--accent2);
+        transition: all 0.2s;
+      }
+      .btn-pr:hover {
+        background: #fef6f0;
+        border-color: var(--accent2);
+      }
+      .btn-pr .pr-icon {
+        font-size: 16px;
+      }
+      .pr-dropdown {
+        display: none;
+        position: fixed;
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+        min-width: 220px;
+        z-index: 9999;
+        overflow: hidden;
+      }
+      .pr-dropdown.open { display: block; }
+      .pr-dropdown-title {
+        padding: 10px 14px 6px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border);
+      }
+      .pr-dropdown-opt {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background 0.12s;
+        border-bottom: 1px solid var(--bg2);
+      }
+      .pr-dropdown-opt:last-child { border-bottom: none; }
+      .pr-dropdown-opt:hover { background: var(--bg2); }
+      .pr-dropdown-opt .pr-opt-icon { font-size: 15px; }
+      .pr-dropdown-opt.selected {
+        background: #fef6f0;
+        color: var(--accent2);
+        font-weight: 600;
+      }
+      .pr-reminder-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        background: #fef6f0;
+        border: 1px solid var(--accent2);
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--accent2);
+        margin-top: 4px;
+      }
+      .pr-badges-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
       .wa-dropdown-opt.selected {
         background: #e8fdf2;
         color: #128C7E;
@@ -1342,6 +1430,63 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      /* CLIENTES LIST */
+      .clients-list {
+        background: var(--surface);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .client-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--bg2);
+        transition: background 0.15s;
+      }
+      .client-item:last-child {
+        border-bottom: none;
+      }
+      .client-item:hover {
+        background: var(--bg);
+      }
+      .client-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--accent2);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 600;
+        flex-shrink: 0;
+      }
+      .client-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .client-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text);
+      }
+      .client-contact {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+      .client-meta {
+        display: flex;
+        gap: 12px;
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 4px;
       }
 
       /* APPOINTMENTS LIST */
@@ -2459,6 +2604,8 @@
         }
       }
     </style>
+    <!-- XLSX Library para importar Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
   </head>
   <body>
     <!-- LOGIN -->
@@ -2574,6 +2721,13 @@
             onclick="showSection('services')"
           >
             <span class="icon">&#9671;</span> Servicios
+          </div>
+          <div
+            class="nav-item"
+            data-sec="clients"
+            onclick="showSection('clients')"
+          >
+            <span class="icon">👥</span> Clientes
           </div>
           <div class="nav-section-title">Comunicación</div>
           <div
@@ -3010,6 +3164,32 @@
             <div class="srv-list" id="services-list"></div>
           </div>
 
+          <!-- CLIENTES -->
+          <div class="section" id="section-clients">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Clientes</h2>
+                <p>Gestiona tu cartera de clientes</p>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button
+                  class="btn btn-outline btn-sm"
+                  onclick="openClientsImportModal()"
+                  title="Importar clientes desde Excel"
+                >
+                  📥 Importar Excel
+                </button>
+                <button
+                  class="btn btn-primary btn-sm"
+                  onclick="openClientModal()"
+                >
+                  + Nuevo cliente
+                </button>
+              </div>
+            </div>
+            <div class="clients-list" id="clients-list"></div>
+          </div>
+
           <!-- CHAT GENERAL -->
           <div class="section" id="section-general-chat">
             <div class="sec-hdr">
@@ -3231,16 +3411,18 @@
           Rellena los campos obligatorios (*).
         </div>
 
-        <!-- WhatsApp Reminder -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- WhatsApp Reminder (Para el CLIENTE) -->
+        <!-- ════════════════════════════════════════════════════════════ -->
         <div style="margin-top:16px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
-          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">Recordatorio WhatsApp</div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">💬 Recordatorio WhatsApp</div>
           <div class="wa-reminder-wrap">
             <button class="btn-wa" type="button" onclick="toggleWaDropdown('ev-wa-dropdown')">
               <span class="wa-icon">💬</span> Añadir recordatorio
               <span style="font-size:10px;margin-left:2px">▼</span>
             </button>
             <div class="wa-dropdown" id="ev-wa-dropdown">
-              <div class="wa-dropdown-title">Cuándo enviar</div>
+              <div class="wa-dropdown-title">Cuándo enviar al cliente</div>
               <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', 'now', 'Ahora mismo', this)">
                 <span class="wa-opt-icon">⚡</span> Ahora mismo
               </div>
@@ -3256,6 +3438,44 @@
             </div>
           </div>
           <div id="ev-wa-badges" class="wa-badges-container"></div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- Personal Reminder (Para TI - el usuario) -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <div style="margin-top:16px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">🔔 Recordatorio Personal</div>
+          <div class="pr-reminder-wrap">
+            <button class="btn-pr" type="button" onclick="togglePrDropdown('ev-pr-dropdown')">
+              <span class="pr-icon">🔔</span> Añadir recordatorio
+              <span style="font-size:10px;margin-left:2px">▼</span>
+            </button>
+            <div class="pr-dropdown" id="ev-pr-dropdown">
+              <div class="pr-dropdown-title">Cuándo recordarme</div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', 'now', 'Ahora mismo', this)">
+                <span class="pr-opt-icon">⚡</span> Ahora mismo
+              </div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '15m', '15 minutos antes', this)">
+                <span class="pr-opt-icon">⏰</span> 15 minutos antes
+              </div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '30m', '30 minutos antes', this)">
+                <span class="pr-opt-icon">⏰</span> 30 minutos antes
+              </div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '1h', '1 hora antes', this)">
+                <span class="pr-opt-icon">⏰</span> 1 hora antes
+              </div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '2h', '2 horas antes', this)">
+                <span class="pr-opt-icon">⏰</span> 2 horas antes
+              </div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '1d', '1 día antes', this)">
+                <span class="pr-opt-icon">📅</span> 1 día antes
+              </div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '1w', '1 semana antes', this)">
+                <span class="pr-opt-icon">🗓️</span> 1 semana antes
+              </div>
+            </div>
+          </div>
+          <div id="ev-pr-badges" class="pr-badges-container"></div>
         </div>
 
         <div class="modal-actions">
@@ -3426,6 +3646,135 @@
       </div>
     </div>
 
+    <!-- MODAL: GESTIÓN DE CLIENTES -->
+    <div class="modal-overlay" id="client-modal">
+      <div class="modal" style="width: 500px">
+        <button class="modal-close" onclick="closeModal('client-modal')">
+          &times;
+        </button>
+        <div class="modal-title" id="client-modal-title">Nuevo cliente</div>
+        <div class="modal-sub">
+          Completa los datos del cliente
+        </div>
+        <div class="form-group">
+          <label>Nombre / Empresa *</label>
+          <input
+            type="text"
+            id="client-name"
+            placeholder="Ej: Juan García López"
+          />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input
+            type="email"
+            id="client-email"
+            placeholder="Ej: juan@ejemplo.com"
+          />
+        </div>
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input
+            type="tel"
+            id="client-phone"
+            placeholder="Ej: +34 666 123 456"
+          />
+        </div>
+        <div class="form-group">
+          <label>Dirección</label>
+          <input
+            type="text"
+            id="client-address"
+            placeholder="Dirección completa"
+          />
+        </div>
+        <div class="form-group">
+          <label>Ciudad</label>
+          <input
+            type="text"
+            id="client-city"
+            placeholder="Ej: Barcelona"
+          />
+        </div>
+        <div class="form-group">
+          <label>CIF/NIF</label>
+          <input
+            type="text"
+            id="client-cif"
+            placeholder="Ej: A12345678"
+          />
+        </div>
+        <div class="form-group">
+          <label>Notas</label>
+          <textarea
+            id="client-notes"
+            rows="3"
+            placeholder="Información adicional sobre el cliente..."
+          ></textarea>
+        </div>
+        <div class="form-err" id="client-err">
+          El nombre del cliente es obligatorio.
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal('client-modal')">
+            Cancelar
+          </button>
+          <button
+            class="btn btn-primary"
+            id="client-save-btn"
+            onclick="saveClient()"
+          >
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: IMPORTAR CLIENTES DESDE EXCEL -->
+    <div class="modal-overlay" id="import-clients-modal">
+      <div class="modal" style="width: 500px">
+        <button class="modal-close" onclick="closeModal('import-clients-modal')">
+          &times;
+        </button>
+        <div class="modal-title">Importar Clientes</div>
+        <div class="modal-sub">
+          Carga un archivo Excel con tus clientes
+        </div>
+        <div style="padding:20px;background:var(--bg2);border-radius:var(--radius);border:2px dashed var(--border);text-align:center;cursor:pointer;" onclick="document.getElementById('excel-file-input').click()">
+          <div style="font-size:24px;margin-bottom:8px">📄</div>
+          <div style="font-weight:500;color:var(--text)">Selecciona un archivo Excel</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">o arrastra aquí (XLS, XLSX, CSV)</div>
+        </div>
+        <input
+          type="file"
+          id="excel-file-input"
+          accept=".xlsx,.xls,.csv"
+          style="display:none"
+          onchange="handleExcelFileSelect(event)"
+        />
+        <div id="import-preview" style="margin-top:16px;display:none">
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">Vista previa (primeras filas):</div>
+          <div id="import-preview-content" style="max-height:200px;overflow-y:auto;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px"></div>
+        </div>
+        <div class="form-err" id="import-err" style="display:none">
+          Error al procesar el archivo
+        </div>
+        <div class="modal-actions" style="margin-top:20px">
+          <button class="btn btn-ghost" onclick="closeModal('import-clients-modal')">
+            Cancelar
+          </button>
+          <button
+            class="btn btn-primary"
+            id="import-clients-btn"
+            onclick="importClientsFromExcel()"
+            disabled
+          >
+            Importar
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ══════════════════════════════════════════════════
          NUEVO MODAL: Solicitar/crear cita en calendario del admin
          Modal independiente para no interferir con #event-modal existente.
@@ -3479,17 +3828,19 @@
         </div>
         <div class="form-err" id="aev-err">Rellena los campos obligatorios (*).</div>
 
-        <!-- WhatsApp Reminder -->
-        <div style="margin-top:4px;margin-bottom:8px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
-          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">Recordatorio WhatsApp</div>
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- WhatsApp Reminder (Para el CLIENTE) -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <div style="margin-top:12px;margin-bottom:8px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">💬 Recordatorio WhatsApp</div>
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
             <div class="wa-reminder-wrap">
               <button class="btn-wa" type="button" onclick="toggleWaDropdown('aev-wa-dropdown')">
-                <span class="wa-icon">💬</span> Enviar recordatorio
-                <span style="font-size:10px;margin-left:2px">▲</span>
+                <span class="wa-icon">💬</span> Añadir recordatorio
+                <span style="font-size:10px;margin-left:2px">▼</span>
               </button>
               <div class="wa-dropdown" id="aev-wa-dropdown">
-                <div class="wa-dropdown-title">Enviar recordatorio</div>
+                <div class="wa-dropdown-title">Cuándo enviar al cliente</div>
                 <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1h', '1 hora antes', this)">
                   <span class="wa-opt-icon">⏰</span> 1 hora antes
                 </div>
@@ -3506,6 +3857,41 @@
               <button onclick="clearWaReminder('aev')" style="background:none;border:none;cursor:pointer;color:#128C7E;font-size:14px;padding:0;line-height:1" title="Quitar recordatorio">&times;</button>
             </div>
           </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- Personal Reminder (Para TI - el usuario/admin) -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <div style="margin-top:8px;margin-bottom:8px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">🔔 Recordatorio Personal</div>
+          <div class="pr-reminder-wrap">
+            <button class="btn-pr" type="button" onclick="togglePrDropdown('aev-pr-dropdown')">
+              <span class="pr-icon">🔔</span> Añadir recordatorio
+              <span style="font-size:10px;margin-left:2px">▼</span>
+            </button>
+            <div class="pr-dropdown" id="aev-pr-dropdown">
+              <div class="pr-dropdown-title">Cuándo recordarme</div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '15m', '15 minutos antes', this)">
+                <span class="pr-opt-icon">⏰</span> 15 minutos antes
+              </div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '30m', '30 minutos antes', this)">
+                <span class="pr-opt-icon">⏰</span> 30 minutos antes
+              </div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '1h', '1 hora antes', this)">
+                <span class="pr-opt-icon">⏰</span> 1 hora antes
+              </div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '2h', '2 horas antes', this)">
+                <span class="pr-opt-icon">⏰</span> 2 horas antes
+              </div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '1d', '1 día antes', this)">
+                <span class="pr-opt-icon">📅</span> 1 día antes
+              </div>
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '1w', '1 semana antes', this)">
+                <span class="pr-opt-icon">🗓️</span> 1 semana antes
+              </div>
+            </div>
+          </div>
+          <div id="aev-pr-badges" class="pr-badges-container"></div>
         </div>
 
         <div class="modal-actions">
@@ -3622,6 +4008,31 @@
           name: "Asesoramiento Jurídico",
           desc: "Apoyo legal en contratos mercantiles y disputas empresariales.",
         },
+      ];
+
+      let CLIENTS = [
+        {
+          id: 201,
+          name: "Carlos Martínez López",
+          email: "carlos.martinez@ejemplo.com",
+          phone: "+34 666 123 456",
+          address: "Calle Principal 123",
+          city: "Barcelona",
+          cif: "12345678X",
+          notes: "Cliente preferente, activo desde 2021",
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 202,
+          name: "Empresa ABC SL",
+          email: "info@empresaabc.com",
+          phone: "+34 932 654 321",
+          address: "Avenida Diagonal 500",
+          city: "Barcelona",
+          cif: "A87654321",
+          notes: "Servicios contables mensuales",
+          createdAt: new Date().toISOString()
+        }
       ];
 
       let EVENTS = [
@@ -3764,6 +4175,7 @@
       let nextEventId = 100;
       let nextUserId = 100;
       let nextServiceId = 100;
+      let nextClientId = 200;
       let currentUser = null;
       let myCalMonth = new Date();
       let globalCalMonth = new Date();
@@ -4106,6 +4518,7 @@
         if (name === "admin-calendars") renderPermissionsPanel();
         if (name === "users") renderUsers();
         if (name === "services") renderServices();
+        if (name === "clients") renderClients();
         if (name === "general-chat") openGeneralChat();
         if (name === "messages") renderMessages();
       }
@@ -4815,6 +5228,13 @@
         if (pvChk) pvChk.checked = false;
         fillServiceSelect();
         fillEmployeeSelect(currentUser.id);
+        
+        // Limpiar recordatorios al abrir el modal para nueva cita
+        _prReminders['ev'] = {};
+        _renderPrBadges('ev');
+        _waReminders['ev'] = {};
+        _renderWaBadges('ev');
+        
         openModal("event-modal");
       }
 
@@ -4842,6 +5262,30 @@
         fillServiceSelect();
         document.getElementById("ev-service").value = ev.service;
         fillEmployeeSelect(ev.assignedTo);
+        
+        // Cargar recordatorio personal si existe
+        if (ev.prReminder) {
+          _prReminders['ev'] = {
+            timing: ev.prReminder.timing,
+            label: ev.prReminder.label
+          };
+          _renderPrBadges('ev');
+        } else {
+          _prReminders['ev'] = {};
+          _renderPrBadges('ev');
+        }
+        
+        // Cargar recordatorio WhatsApp si existe
+        if (ev.waReminder) {
+          _waReminders['ev'] = {
+            [ev.waReminder.timing]: ev.waReminder.label
+          };
+          _renderWaBadges('ev');
+        } else {
+          _waReminders['ev'] = {};
+          _renderWaBadges('ev');
+        }
+        
         openModal("event-modal");
       }
 
@@ -4887,6 +5331,10 @@
           return;
         }
 
+        // Obtener estado de recordatorios
+        const prState = _prReminders['ev'] || {};
+        const waState = _waReminders['ev'] || {};
+
         if (editingEvId !== null) {
           const ev = EVENTS.find((e) => e.id === editingEvId);
           if (ev) {
@@ -4897,9 +5345,31 @@
             ev.service = service;
             ev.notes = notes;
             if (isAdmin) { ev.assignedTo = assignedTo; ev.private = isPrivate; }
+            
+            // Guardar recordatorio personal al editar
+            if (prState.timing) {
+              ev.prReminder = {
+                timing: prState.timing,
+                label: prState.label
+              };
+              requestNotificationPermission();
+              scheduleReminder(ev, prState.timing);
+            } else {
+              delete ev.prReminder;
+            }
+            
+            // Guardar recordatorio WhatsApp al editar
+            if (waState.timing) {
+              ev.waReminder = {
+                timing: waState.timing,
+                label: waState.label
+              };
+            } else {
+              delete ev.waReminder;
+            }
           }
         } else {
-          EVENTS.push({
+          const eventObj = {
             id: nextEventId++,
             ownerId: currentUser.id,
             assignedTo,
@@ -4910,7 +5380,29 @@
             service,
             notes,
             private: isPrivate,
-          });
+          };
+          
+          // Agregar recordatorio personal si está configurado
+          if (prState.timing) {
+            eventObj.prReminder = {
+              timing: prState.timing,
+              label: prState.label
+            };
+            
+            // Programar notificación
+            requestNotificationPermission();
+            scheduleReminder(eventObj, prState.timing);
+          }
+          
+          // Agregar recordatorio WhatsApp si está configurado
+          if (waState.timing) {
+            eventObj.waReminder = {
+              timing: waState.timing,
+              label: waState.label
+            };
+          }
+          
+          EVENTS.push(eventObj);
         }
         closeModal("event-modal");
         refreshCals();
@@ -5359,6 +5851,12 @@
         document.getElementById("aev-err").style.display = "none";
         document.getElementById("aev-blocked-warning").style.display = "none";
 
+        // Limpiar recordatorios al abrir el modal para nueva cita
+        _prReminders['aev'] = {};
+        _renderPrBadges('aev');
+        _waReminders['aev'] = {};
+        _renderWaBadges('aev');
+
         // NUEVO: si hay múltiples admins, llenar select de admin objetivo
         fillAdminTargetSelect();
         fillAdminEventServiceSelect();
@@ -5438,7 +5936,11 @@
 
         document.getElementById("aev-blocked-warning").style.display = "none";
 
-        EVENTS.push({
+        // Obtener estado de recordatorios
+        const prState = _prReminders['aev'] || {};
+        const waState = _waReminders['aev'] || {};
+
+        const eventObj = {
           id: nextEventId++,
           ownerId: currentUser.id,
           assignedTo: targetAdmin.id,
@@ -5449,7 +5951,27 @@
           service,
           notes,
           private: false,
-        });
+        };
+
+        // Agregar recordatorio personal si está configurado
+        if (prState.timing) {
+          eventObj.prReminder = {
+            timing: prState.timing,
+            label: prState.label
+          };
+          requestNotificationPermission();
+          scheduleReminder(eventObj, prState.timing);
+        }
+
+        // Agregar recordatorio WhatsApp si está configurado
+        if (waState.timing) {
+          eventObj.waReminder = {
+            timing: waState.timing,
+            label: waState.label
+          };
+        }
+
+        EVENTS.push(eventObj);
 
         closeModal("admin-event-modal");
         refreshCals();
@@ -5850,6 +6372,228 @@
       }
 
       // ══════════════════════════════════════════
+      //  CLIENTES
+      // ══════════════════════════════════════════
+
+      let editingClientId = null;
+      let pendingClientsToImport = [];
+
+      function renderClients() {
+        if (!CLIENTS.length) {
+          document.getElementById("clients-list").innerHTML =
+            '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No hay clientes registrados. <button class="btn btn-sm btn-primary" onclick="openClientModal()" style="margin-top:10px">Añadir el primer cliente</button></div>';
+          return;
+        }
+        document.getElementById("clients-list").innerHTML = CLIENTS.map((c) => `
+  <div class="client-item">
+    <div class="client-avatar">${initials(c.name)}</div>
+    <div class="client-info">
+      <div class="client-name">${safeHtml(c.name)}</div>
+      <div class="client-contact">${safeHtml(c.email || c.phone || 'Sin contacto')}</div>
+      <div class="client-meta">
+        ${c.cif ? `<span>📋 ${safeHtml(c.cif)}</span>` : ''}
+        ${c.city ? `<span>📍 ${safeHtml(c.city)}</span>` : ''}
+        ${c.phone ? `<span>☎️ ${safeHtml(c.phone)}</span>` : ''}
+      </div>
+    </div>
+    <div class="action-btns">
+      <button class="btn-icon" title="Editar" onclick="editClient(${c.id})">Editar</button>
+      <button class="btn-icon red" title="Eliminar" onclick="deleteClient(${c.id})">Eliminar</button>
+    </div>
+  </div>
+        `).join("");
+      }
+
+      function openClientModal() {
+        editingClientId = null;
+        document.getElementById("client-modal-title").textContent = "Nuevo cliente";
+        document.getElementById("client-save-btn").textContent = "Guardar";
+        document.getElementById("client-name").value = "";
+        document.getElementById("client-email").value = "";
+        document.getElementById("client-phone").value = "";
+        document.getElementById("client-address").value = "";
+        document.getElementById("client-city").value = "";
+        document.getElementById("client-cif").value = "";
+        document.getElementById("client-notes").value = "";
+        document.getElementById("client-err").style.display = "none";
+        openModal("client-modal");
+      }
+
+      function editClient(id) {
+        const c = CLIENTS.find((x) => x.id === id);
+        if (!c) return;
+        editingClientId = id;
+        document.getElementById("client-modal-title").textContent = "Editar cliente";
+        document.getElementById("client-save-btn").textContent = "Guardar cambios";
+        document.getElementById("client-name").value = c.name;
+        document.getElementById("client-email").value = c.email || "";
+        document.getElementById("client-phone").value = c.phone || "";
+        document.getElementById("client-address").value = c.address || "";
+        document.getElementById("client-city").value = c.city || "";
+        document.getElementById("client-cif").value = c.cif || "";
+        document.getElementById("client-notes").value = c.notes || "";
+        document.getElementById("client-err").style.display = "none";
+        openModal("client-modal");
+      }
+
+      function saveClient() {
+        const name = document.getElementById("client-name").value.trim();
+        const email = document.getElementById("client-email").value.trim();
+        const phone = document.getElementById("client-phone").value.trim();
+        const address = document.getElementById("client-address").value.trim();
+        const city = document.getElementById("client-city").value.trim();
+        const cif = document.getElementById("client-cif").value.trim();
+        const notes = document.getElementById("client-notes").value.trim();
+        const errEl = document.getElementById("client-err");
+
+        if (!name) {
+          errEl.style.display = "";
+          return;
+        }
+        errEl.style.display = "none";
+
+        if (editingClientId !== null) {
+          const c = CLIENTS.find((x) => x.id === editingClientId);
+          if (c) {
+            c.name = name;
+            c.email = email;
+            c.phone = phone;
+            c.address = address;
+            c.city = city;
+            c.cif = cif;
+            c.notes = notes;
+          }
+        } else {
+          CLIENTS.push({
+            id: nextClientId++,
+            name,
+            email,
+            phone,
+            address,
+            city,
+            cif,
+            notes,
+            createdAt: new Date().toISOString()
+          });
+        }
+        closeModal("client-modal");
+        renderClients();
+      }
+
+      function deleteClient(id) {
+        if (!confirm("¿Eliminar este cliente?")) return;
+        CLIENTS = CLIENTS.filter((c) => c.id !== id);
+        renderClients();
+      }
+
+      // ─── IMPORTACIÓN DE EXCEL ─────────────────────────
+      function openClientsImportModal() {
+        pendingClientsToImport = [];
+        document.getElementById("import-preview").style.display = "none";
+        document.getElementById("import-err").style.display = "none";
+        document.getElementById("import-clients-btn").disabled = true;
+        document.getElementById("excel-file-input").value = "";
+        openModal("import-clients-modal");
+      }
+
+      function handleExcelFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data = e.target.result;
+            const workbook = XLSX.read(data, { type: "binary" });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet);
+
+            if (!json.length) {
+              showImportError("El archivo está vacío");
+              return;
+            }
+
+            pendingClientsToImport = json.map((row, idx) => ({
+              name: row['Nombre'] || row['nombre'] || row['Name'] || row['name'] || `Cliente ${idx + 1}`,
+              email: row['Email'] || row['email'] || row['E-mail'] || row['e-mail'] || "",
+              phone: row['Teléfono'] || row['telefono'] || row['Phone'] || row['phone'] || "",
+              address: row['Dirección'] || row['direccion'] || row['Address'] || row['address'] || "",
+              city: row['Ciudad'] || row['ciudad'] || row['City'] || row['city'] || "",
+              cif: row['CIF'] || row['NIF'] || row['cif'] || row['nif'] || "",
+              notes: row['Notas'] || row['notas'] || row['Notes'] || row['notes'] || ""
+            }));
+
+            showImportPreview(pendingClientsToImport.slice(0, 5));
+            document.getElementById("import-clients-btn").disabled = false;
+          } catch (err) {
+            showImportError("Error al procesar el archivo: " + err.message);
+          }
+        };
+        reader.readAsBinaryString(file);
+      }
+
+      function showImportPreview(clients) {
+        const preview = document.getElementById("import-preview");
+        let html = '<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr>';
+        
+        const headers = ['nombre', 'email', 'teléfono', 'ciudad'];
+        headers.forEach(h => {
+          html += `<th style="padding:4px;border:1px solid var(--border);text-align:left;background:var(--bg2);font-weight:600">${h}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        clients.forEach(c => {
+          html += '<tr>';
+          html += `<td style="padding:4px;border:1px solid var(--border)">${safeHtml(c.name)}</td>`;
+          html += `<td style="padding:4px;border:1px solid var(--border)">${safeHtml(c.email)}</td>`;
+          html += `<td style="padding:4px;border:1px solid var(--border)">${safeHtml(c.phone)}</td>`;
+          html += `<td style="padding:4px;border:1px solid var(--border)">${safeHtml(c.city)}</td>`;
+          html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        document.getElementById("import-preview-content").innerHTML = html;
+        preview.style.display = "block";
+
+        const moreCount = pendingClientsToImport.length - 5;
+        if (moreCount > 0) {
+          document.getElementById("import-preview-content").innerHTML += 
+            `<div style="margin-top:8px;color:var(--text-muted);font-size:11px">... y ${moreCount} cliente(s) más</div>`;
+        }
+      }
+
+      function showImportError(msg) {
+        document.getElementById("import-err").textContent = msg;
+        document.getElementById("import-err").style.display = "block";
+        document.getElementById("import-preview").style.display = "none";
+        document.getElementById("import-clients-btn").disabled = true;
+      }
+
+      function importClientsFromExcel() {
+        if (!pendingClientsToImport.length) return;
+
+        pendingClientsToImport.forEach(clientData => {
+          CLIENTS.push({
+            id: nextClientId++,
+            name: clientData.name,
+            email: clientData.email,
+            phone: clientData.phone,
+            address: clientData.address,
+            city: clientData.city,
+            cif: clientData.cif,
+            notes: clientData.notes,
+            createdAt: new Date().toISOString()
+          });
+        });
+
+        pendingClientsToImport = [];
+        closeModal("import-clients-modal");
+        renderClients();
+        alert(`✅ ${CLIENTS.length} cliente(s) importado(s) correctamente`);
+      }
+
+      // ══════════════════════════════════════════
       //  CHAT GENERAL (sin cambios)
       // ══════════════════════════════════════════
 
@@ -6037,12 +6781,8 @@
         renderGeneralChat();
       }
 
-      // ══════════════════════════════════════════
-      //  NUEVO: Adjuntos en mensajería privada
-      // ══════════════════════════════════════════
-
       /** Array temporal de adjuntos pendientes de enviar */
-      let msgPendingAttachments = []; // [{name, size, dataUrl, type}]
+      let msgPendingAttachments = []; 
 
       /** Extensiones ejecutables que NO se permiten */
       const MSG_BLOCKED_EXTS = ["exe","bat","cmd","sh","ps1","msi","scr","jar","vbs","js","ts","py","rb","php","com","pif"];
@@ -6053,8 +6793,6 @@
       function msgTriggerFileInput() {
         const inp = document.getElementById("msg-file-input");
         if (!inp) return;
-        // iOS Safari requires a direct user gesture to trigger file input
-        // Ensure the input is visible enough for the click to register
         inp.style.position = "fixed";
         inp.style.top = "-9999px";
         inp.style.left = "-9999px";
@@ -6433,13 +7171,177 @@
         // Clear WA state when closing event modals
         if (id === 'event-modal') clearWaReminder('ev');
         if (id === 'admin-event-modal') clearWaReminder('aev');
+        // Clear PR state when closing event modals
+        if (id === 'event-modal') clearPrReminder('ev');
+        if (id === 'admin-event-modal') clearPrReminder('aev');
       }
+
+      // ══════════════════════════════════════════
+      //  RECORDATORIO PERSONAL (con notificaciones)
+      // ══════════════════════════════════════════
+
+      const _prReminders = {}; // prefix -> { timing: value, label: text }
+      
+      function togglePrDropdown(dropdownId) {
+        document.querySelectorAll('.pr-dropdown.open').forEach(d => {
+          if (d.id !== dropdownId) d.classList.remove('open');
+        });
+        const dropdown = document.getElementById(dropdownId);
+        const isOpen = dropdown.classList.contains('open');
+        if (isOpen) { dropdown.classList.remove('open'); return; }
+        const btn = dropdown.previousElementSibling;
+        const rect = btn.getBoundingClientRect();
+        const dropH = 250;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        if (spaceBelow >= dropH) {
+          dropdown.style.top = (rect.bottom + 4) + 'px';
+          dropdown.style.bottom = 'auto';
+        } else {
+          dropdown.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+          dropdown.style.top = 'auto';
+        }
+        dropdown.style.left = rect.left + 'px';
+        dropdown.classList.add('open');
+      }
+
+      function selectPrReminder(prefix, value, label, optEl) {
+        if (!_prReminders[prefix]) _prReminders[prefix] = {};
+        const already = _prReminders[prefix].timing;
+        if (already === value) {
+          // Toggle off if same selected
+          delete _prReminders[prefix].timing;
+          delete _prReminders[prefix].label;
+          optEl.classList.remove('selected');
+        } else {
+          _prReminders[prefix].timing = value;
+          _prReminders[prefix].label = label;
+          // Unselect previous
+          const dropdown = document.getElementById(prefix + '-pr-dropdown');
+          if (dropdown) {
+            dropdown.querySelectorAll('.pr-dropdown-opt').forEach(o => o.classList.remove('selected'));
+          }
+          optEl.classList.add('selected');
+        }
+        _renderPrBadges(prefix);
+      }
+
+      function _renderPrBadges(prefix) {
+        const container = document.getElementById(prefix + '-pr-badges');
+        if (!container) return;
+        container.innerHTML = '';
+        const state = _prReminders[prefix] || {};
+        if (state.timing && state.label) {
+          const badge = document.createElement('span');
+          badge.className = 'pr-reminder-badge';
+          const txt = document.createTextNode('🔔 ' + state.label + ' ');
+          badge.appendChild(txt);
+          const btn = document.createElement('button');
+          btn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--accent2);font-size:14px;padding:0 0 0 4px;line-height:1';
+          btn.title = 'Quitar';
+          btn.textContent = '×';
+          btn.dataset.prefix = prefix;
+          btn.addEventListener('click', function() {
+            removePrReminder(this.dataset.prefix);
+          });
+          badge.appendChild(btn);
+          container.appendChild(badge);
+        }
+      }
+
+      function removePrReminder(prefix) {
+        if (_prReminders[prefix]) {
+          delete _prReminders[prefix].timing;
+          delete _prReminders[prefix].label;
+        }
+        // Uncheck in dropdown
+        const dropdown = document.getElementById(prefix + '-pr-dropdown');
+        if (dropdown) {
+          dropdown.querySelectorAll('.pr-dropdown-opt').forEach(o => o.classList.remove('selected'));
+        }
+        _renderPrBadges(prefix);
+      }
+
+      function clearPrReminder(prefix) {
+        _prReminders[prefix] = {};
+        _renderPrBadges(prefix);
+        const dropdown = document.getElementById(prefix + '-pr-dropdown');
+        if (dropdown) dropdown.querySelectorAll('.pr-dropdown-opt').forEach(o => o.classList.remove('selected'));
+      }
+
+      // Notificaciones del navegador
+      function requestNotificationPermission() {
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+      }
+
+      function sendNotification(title, options = {}) {
+        if (!('Notification' in window)) {
+          console.log('Notificaciones no soportadas en este navegador');
+          return;
+        }
+        if (Notification.permission === 'granted') {
+          new Notification(title, {
+            icon: '🔔',
+            ...options
+          });
+        }
+      }
+
+      function scheduleReminder(eventData, reminderTiming) {
+        if (!reminderTiming) return;
+
+        // Convertir timing a milisegundos
+        const timingMap = {
+          'now': 0,
+          '15m': 15 * 60 * 1000,
+          '30m': 30 * 60 * 1000,
+          '1h': 60 * 60 * 1000,
+          '2h': 2 * 60 * 60 * 1000,
+          '1d': 24 * 60 * 60 * 1000,
+          '1w': 7 * 24 * 60 * 60 * 1000
+        };
+
+        const delay = timingMap[reminderTiming] || 0;
+        const eventDateTime = new Date(eventData.date + 'T' + eventData.time).getTime();
+        const reminderTime = eventDateTime - delay;
+        const now = new Date().getTime();
+
+        if (reminderTime <= now) {
+          // Si ya pasó, notificar inmediatamente
+          sendNotification(
+            '📌 Recordatorio de cita',
+            {
+              body: `${eventData.client} - ${eventData.service}`
+            }
+          );
+        } else {
+          // Programar para después
+          const timeUntilReminder = reminderTime - now;
+          setTimeout(() => {
+            sendNotification(
+              '📌 Recordatorio de cita',
+              {
+                body: `${eventData.client} - ${eventData.service}`
+              }
+            );
+          }, timeUntilReminder);
+        }
+      }
+
+      // Cerrar dropdowns cuando clickeas fuera
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.pr-reminder-wrap')) {
+          document.querySelectorAll('.pr-dropdown.open').forEach(d => d.classList.remove('open'));
+        }
+      });
 
       document.querySelectorAll(".modal-overlay").forEach((o) => {
         o.addEventListener("click", (e) => {
           if (e.target === o) o.classList.remove("open");
         });
       });
+      
       
     </script>
   </body>
