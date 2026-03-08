@@ -210,6 +210,125 @@
         .login-body    { padding: 22px 20px 26px; }
       }
 
+      /* ── CLIENT AUTOCOMPLETE ─────────────────────────── */
+      .client-autocomplete-wrap {
+        position: relative;
+      }
+      .client-autocomplete-wrap input {
+        width: 100%;
+      }
+      .client-suggestions {
+        position: absolute;
+        top: calc(100% + 3px);
+        left: 0;
+        right: 0;
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        z-index: 9999;
+        max-height: 220px;
+        overflow-y: auto;
+        display: none;
+      }
+      .client-suggestions.open {
+        display: block;
+      }
+      .client-suggestion-item {
+        padding: 9px 13px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid var(--bg2);
+        transition: background 0.12s;
+      }
+      .client-suggestion-item:last-child {
+        border-bottom: none;
+      }
+      .client-suggestion-item:hover, .client-suggestion-item.highlighted {
+        background: var(--bg2);
+      }
+      .client-suggestion-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--accent-light);
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 600;
+        flex-shrink: 0;
+      }
+      .client-suggestion-info {
+        min-width: 0;
+      }
+      .client-suggestion-name {
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .client-suggestion-meta {
+        font-size: 11px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .client-suggestion-phone {
+        margin-left: auto;
+        font-size: 11px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .client-phone-linked {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        color: var(--success);
+        background: #d4f0e4;
+        border-radius: 4px;
+        padding: 2px 7px;
+        margin-top: 5px;
+      }
+
+      /* ── WA CONFIG BANNER ────────────────────────────── */
+      .wa-config-banner {
+        background: #fff8e1;
+        border: 1px solid #ffe082;
+        border-radius: var(--radius);
+        padding: 10px 14px;
+        font-size: 12px;
+        color: #7a5c00;
+        margin-top: 8px;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .wa-config-banner strong {
+        display: block;
+        margin-bottom: 3px;
+        font-size: 12.5px;
+      }
+      .wa-phone-detected {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11.5px;
+        color: #128C7E;
+        background: #e8f5e9;
+        border-radius: 4px;
+        padding: 3px 8px;
+        margin-top: 6px;
+        border: 1px solid #b2dfdb;
+      }
+
       /* FORMS */
       .form-group {
         margin-bottom: 18px;
@@ -3187,6 +3306,20 @@
                 </button>
               </div>
             </div>
+            <!-- BUSCADOR DE CLIENTES -->
+            <div style="padding:0 0 16px 0;display:flex;gap:8px">
+              <div style="flex:1;position:relative">
+                <input 
+                  type="text" 
+                  id="clients-search"
+                  placeholder="🔍 Buscar cliente por nombre, email, CIF o ciudad..."
+                  style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;background:var(--surface);color:var(--text)"
+                  oninput="filterClients(this.value)"
+                  autocomplete="off"
+                />
+                <div id="clients-search-clear" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;display:none;font-size:18px;opacity:0.6;transition:opacity 0.2s" onclick="clearClientsSearch()" title="Limpiar búsqueda">✕</div>
+              </div>
+            </div>
             <div class="clients-list" id="clients-list"></div>
           </div>
 
@@ -3381,8 +3514,17 @@
           </div>
         </div>
         <div class="form-group">
-          <label for="ev-client">Cliente *</label
-          ><input type="text" id="ev-client" placeholder="Nombre del cliente" />
+          <label for="ev-client">Cliente *</label>
+          <div class="client-autocomplete-wrap">
+            <input type="text" id="ev-client" placeholder="Escribe para buscar cliente..." autocomplete="off"
+              oninput="clientSuggest('ev-client','ev-client-suggestions','ev-client-phone')"
+              onkeydown="clientSuggestKey(event,'ev-client-suggestions','ev-client','ev-client-phone')"
+              onfocus="clientSuggest('ev-client','ev-client-suggestions','ev-client-phone')"
+            />
+            <div class="client-suggestions" id="ev-client-suggestions"></div>
+          </div>
+          <input type="hidden" id="ev-client-phone" value="" />
+          <div id="ev-client-phone-display"></div>
         </div>
         <div class="form-group">
           <label>Tipo de servicio</label>
@@ -3438,6 +3580,7 @@
             </div>
           </div>
           <div id="ev-wa-badges" class="wa-badges-container"></div>
+          <div id="ev-wa-phone-info" style="margin-top:6px"></div>
         </div>
 
         <!-- ════════════════════════════════════════════════════════════ -->
@@ -3812,7 +3955,16 @@
         </div>
         <div class="form-group">
           <label>Cliente / Motivo *</label>
-          <input type="text" id="aev-client" placeholder="Tu nombre o motivo de la cita" />
+          <div class="client-autocomplete-wrap">
+            <input type="text" id="aev-client" placeholder="Escribe para buscar cliente..." autocomplete="off"
+              oninput="clientSuggest('aev-client','aev-client-suggestions','aev-client-phone')"
+              onkeydown="clientSuggestKey(event,'aev-client-suggestions','aev-client','aev-client-phone')"
+              onfocus="clientSuggest('aev-client','aev-client-suggestions','aev-client-phone')"
+            />
+            <div class="client-suggestions" id="aev-client-suggestions"></div>
+          </div>
+          <input type="hidden" id="aev-client-phone" value="" />
+          <div id="aev-client-phone-display"></div>
         </div>
         <div class="form-group">
           <label>Tipo de servicio</label>
@@ -4183,9 +4335,43 @@
       let editingEvId = null;
       let editingUserId = null;
       let editingSrvId = null;
+      let editingClientId = null;
+      let clientsSearchFilter = '';  // Filtro de búsqueda para clientes
       let pendingIsGlobal = false;
       let currentDetailId = null;
       let gchatUnreadCount = 0;
+
+      // ══════════════════════════════════════════
+      //  CONFIGURACIÓN WHATSAPP (Twilio + APScheduler)
+      //  El envío real lo gestiona el servidor (app.py).
+      //  No hay nada que tocar aquí: todo se configura en Render
+      //  mediante variables de entorno (ver comentarios en app.py).
+      // ══════════════════════════════════════════
+      let WA_CONFIG = {
+        serverReady:    null,  // true = Twilio + Scheduler listos (envío 100% automático)
+        twilioReady:    null,  // true = solo Twilio listo (envío inmediato 'now' funciona)
+        schedulerReady: null,  // true = APScheduler listo (programación futura funciona)
+      };
+
+      /**
+       * Comprueba si el servidor tiene Twilio + APScheduler configurados.
+       * Se llama una vez al arrancar la app.
+       */
+      async function checkWaStatus() {
+        try {
+          const res  = await fetch('/api/whatsapp/status');
+          const data = await res.json();
+          WA_CONFIG.twilioReady    = data.twilio_ready    === true;
+          WA_CONFIG.schedulerReady = data.scheduler_ready === true;
+          WA_CONFIG.serverReady    = data.fully_ready     === true;
+        } catch(e) {
+          WA_CONFIG.twilioReady    = false;
+          WA_CONFIG.schedulerReady = false;
+          WA_CONFIG.serverReady    = false;
+        }
+      }
+      // Comprobar estado al cargar
+      checkWaStatus();
 
       // ══════════════════════════════════════════
       //  UTILS
@@ -5222,6 +5408,13 @@
         document.getElementById("ev-client").value = "";
         document.getElementById("ev-notes").value = "";
         document.getElementById("ev-err").style.display = "none";
+        // Reset client phone fields
+        const evClientPhoneEl = document.getElementById("ev-client-phone");
+        if (evClientPhoneEl) evClientPhoneEl.value = "";
+        const evClientPhoneDisp = document.getElementById("ev-client-phone-display");
+        if (evClientPhoneDisp) evClientPhoneDisp.innerHTML = "";
+        const evClientSugg = document.getElementById("ev-client-suggestions");
+        if (evClientSugg) evClientSugg.classList.remove("open");
         const pvGroup = document.getElementById("ev-private-group");
         if (pvGroup) pvGroup.style.display = currentUser.role === "admin" ? "flex" : "none";
         const pvChk = document.getElementById("ev-private");
@@ -5255,6 +5448,10 @@
         document.getElementById("ev-client").value = ev.client;
         document.getElementById("ev-notes").value = ev.notes || "";
         document.getElementById("ev-err").style.display = "none";
+        // Restore client phone for WA
+        const evCPEl = document.getElementById("ev-client-phone");
+        if (evCPEl) evCPEl.value = ev.clientPhone || lookupClientPhone(ev.client) || "";
+        updateClientPhoneDisplay('ev-client-phone', 'ev-client-phone-display', 'ev-wa-phone-info');
         const pvGroup = document.getElementById("ev-private-group");
         if (pvGroup) pvGroup.style.display = currentUser.role === "admin" ? "flex" : "none";
         const pvChk = document.getElementById("ev-private");
@@ -5334,6 +5531,14 @@
         // Obtener estado de recordatorios
         const prState = _prReminders['ev'] || {};
         const waState = _waReminders['ev'] || {};
+        // Extraer primer timing WA seleccionado (estructura: { timing: label, ... })
+        const waTimings = Object.keys(waState);
+        const waFirstTiming = waTimings.length ? waTimings[0] : null;
+        const waFirstLabel = waFirstTiming ? waState[waFirstTiming] : null;
+
+        // Obtener teléfono del cliente (desde hidden field o búsqueda en CLIENTS)
+        const evClientPhone = (document.getElementById("ev-client-phone") || {}).value || "";
+        const clientPhoneForWa = evClientPhone || lookupClientPhone(client);
 
         if (editingEvId !== null) {
           const ev = EVENTS.find((e) => e.id === editingEvId);
@@ -5344,6 +5549,7 @@
             ev.client = client;
             ev.service = service;
             ev.notes = notes;
+            ev.clientPhone = clientPhoneForWa || ev.clientPhone || null;
             if (isAdmin) { ev.assignedTo = assignedTo; ev.private = isPrivate; }
             
             // Guardar recordatorio personal al editar
@@ -5359,11 +5565,9 @@
             }
             
             // Guardar recordatorio WhatsApp al editar
-            if (waState.timing) {
-              ev.waReminder = {
-                timing: waState.timing,
-                label: waState.label
-              };
+            if (waFirstTiming) {
+              ev.waReminder = { timing: waFirstTiming, label: waFirstLabel };
+              scheduleWaReminder(ev, waFirstTiming);
             } else {
               delete ev.waReminder;
             }
@@ -5380,6 +5584,7 @@
             service,
             notes,
             private: isPrivate,
+            clientPhone: clientPhoneForWa || null,
           };
           
           // Agregar recordatorio personal si está configurado
@@ -5395,11 +5600,9 @@
           }
           
           // Agregar recordatorio WhatsApp si está configurado
-          if (waState.timing) {
-            eventObj.waReminder = {
-              timing: waState.timing,
-              label: waState.label
-            };
+          if (waFirstTiming) {
+            eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
+            scheduleWaReminder(eventObj, waFirstTiming);
           }
           
           EVENTS.push(eventObj);
@@ -5850,6 +6053,13 @@
         document.getElementById("aev-notes").value = "";
         document.getElementById("aev-err").style.display = "none";
         document.getElementById("aev-blocked-warning").style.display = "none";
+        // Reset client phone fields
+        const aevClientPhoneEl = document.getElementById("aev-client-phone");
+        if (aevClientPhoneEl) aevClientPhoneEl.value = "";
+        const aevClientPhoneDisp = document.getElementById("aev-client-phone-display");
+        if (aevClientPhoneDisp) aevClientPhoneDisp.innerHTML = "";
+        const aevClientSugg = document.getElementById("aev-client-suggestions");
+        if (aevClientSugg) aevClientSugg.classList.remove("open");
 
         // Limpiar recordatorios al abrir el modal para nueva cita
         _prReminders['aev'] = {};
@@ -5939,6 +6149,14 @@
         // Obtener estado de recordatorios
         const prState = _prReminders['aev'] || {};
         const waState = _waReminders['aev'] || {};
+        // Extraer primer timing WA seleccionado (estructura: { timing: label, ... })
+        const waTimings = Object.keys(waState);
+        const waFirstTiming = waTimings.length ? waTimings[0] : null;
+        const waFirstLabel = waFirstTiming ? waState[waFirstTiming] : null;
+
+        // Obtener teléfono del cliente
+        const aevClientPhone = (document.getElementById("aev-client-phone") || {}).value || "";
+        const clientPhoneForWa = aevClientPhone || lookupClientPhone(client);
 
         const eventObj = {
           id: nextEventId++,
@@ -5951,6 +6169,7 @@
           service,
           notes,
           private: false,
+          clientPhone: clientPhoneForWa || null,
         };
 
         // Agregar recordatorio personal si está configurado
@@ -5964,11 +6183,9 @@
         }
 
         // Agregar recordatorio WhatsApp si está configurado
-        if (waState.timing) {
-          eventObj.waReminder = {
-            timing: waState.timing,
-            label: waState.label
-          };
+        if (waFirstTiming) {
+          eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
+          scheduleWaReminder(eventObj, waFirstTiming);
         }
 
         EVENTS.push(eventObj);
@@ -6375,7 +6592,6 @@
       //  CLIENTES
       // ══════════════════════════════════════════
 
-      let editingClientId = null;
       let pendingClientsToImport = [];
 
       function renderClients() {
@@ -6384,7 +6600,29 @@
             '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No hay clientes registrados. <button class="btn btn-sm btn-primary" onclick="openClientModal()" style="margin-top:10px">Añadir el primer cliente</button></div>';
           return;
         }
-        document.getElementById("clients-list").innerHTML = CLIENTS.map((c) => `
+
+        // Aplicar filtro de búsqueda
+        const filterQuery = clientsSearchFilter.toLowerCase().trim();
+        const filteredClients = filterQuery 
+          ? CLIENTS.filter(c => 
+              c.name.toLowerCase().includes(filterQuery) ||
+              (c.email && c.email.toLowerCase().includes(filterQuery)) ||
+              (c.phone && c.phone.toLowerCase().includes(filterQuery)) ||
+              (c.city && c.city.toLowerCase().includes(filterQuery)) ||
+              (c.cif && c.cif.toLowerCase().includes(filterQuery)) ||
+              (c.address && c.address.toLowerCase().includes(filterQuery))
+            )
+          : CLIENTS;
+
+        // Mostrar mensaje si no hay resultados de búsqueda
+        if (filterQuery && !filteredClients.length) {
+          document.getElementById("clients-list").innerHTML =
+            '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">📭 No hay clientes que coincidan con "<strong>' + safeHtml(clientsSearchFilter) + '</strong>"</div>';
+          return;
+        }
+
+        // Renderizar clientes
+        document.getElementById("clients-list").innerHTML = filteredClients.map((c) => `
   <div class="client-item">
     <div class="client-avatar">${initials(c.name)}</div>
     <div class="client-info">
@@ -6402,6 +6640,31 @@
     </div>
   </div>
         `).join("");
+      }
+
+      /**
+       * Filtra la lista de clientes según el texto de búsqueda (estilo Google)
+       */
+      function filterClients(query) {
+        clientsSearchFilter = query;
+        const clearBtn = document.getElementById('clients-search-clear');
+        if (clearBtn) {
+          clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+        }
+        renderClients();
+      }
+
+      /**
+       * Limpia el filtro de búsqueda de clientes
+       */
+      function clearClientsSearch() {
+        document.getElementById('clients-search').value = '';
+        clientsSearchFilter = '';
+        const clearBtn = document.getElementById('clients-search-clear');
+        if (clearBtn) {
+          clearBtn.style.display = 'none';
+        }
+        renderClients();
       }
 
       function openClientModal() {
@@ -7328,6 +7591,333 @@
           }, timeUntilReminder);
         }
       }
+
+      // ══════════════════════════════════════════
+      //  WHATSAPP: RECORDATORIO AUTOMÁTICO
+      // ══════════════════════════════════════════
+
+      /**
+       * Busca el teléfono de un cliente por su nombre en CLIENTS.
+       * Devuelve string de teléfono o null.
+       */
+      function lookupClientPhone(clientName) {
+        if (!clientName) return null;
+        const name = clientName.trim().toLowerCase();
+        const match = CLIENTS.find(c => c.name.trim().toLowerCase() === name);
+        return (match && match.phone) ? match.phone : null;
+      }
+
+      /**
+       * Formatea un número de teléfono para wa.me (elimina espacios y +).
+       */
+      function formatPhoneForWa(phone) {
+        if (!phone) return null;
+        return phone.replace(/[\s\-().]/g, '');
+      }
+
+      /**
+       * Construye el texto del recordatorio WhatsApp.
+       */
+      function buildWaMessage(eventData) {
+        const dateStr = eventData.date
+          ? new Date(eventData.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' })
+          : eventData.date;
+        return (
+          `Hola ${eventData.client}, le recordamos su cita en Rodonvergés Associats el ${dateStr} a las ${eventData.time}` +
+          (eventData.service ? ` (${eventData.service})` : '') +
+          `. ¡Le esperamos!`
+        );
+      }
+
+      /**
+       * Envía el WhatsApp llamando al servidor (Twilio).
+       * Si Twilio no está listo, cae al modo manual (wa.me).
+       */
+      async function fireWaReminder(eventData) {
+        const clientPhone = eventData.clientPhone || lookupClientPhone(eventData.client);
+        const phoneFormatted = formatPhoneForWa(clientPhone);
+        const message = buildWaMessage(eventData);
+
+        // ── Modo automático: envío via servidor Twilio ──────
+        if (WA_CONFIG.twilioReady && phoneFormatted) {
+          try {
+            const res = await fetch('/api/whatsapp/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ to: phoneFormatted, message })
+            });
+            const data = await res.json();
+            if (data.ok) {
+              console.log(`✅ WhatsApp enviado automáticamente a ${phoneFormatted}`);
+              // Notificación visual discreta (no intrusiva)
+              _showWaToast(`✅ WhatsApp enviado a ${eventData.client}`);
+              return;
+            } else {
+              console.warn('⚠️ Twilio respondió con error:', data.error);
+              // Si falla Twilio, caer al modo manual
+            }
+          } catch(e) {
+            console.warn('⚠️ Error llamando al servidor WhatsApp:', e);
+            // Si falla la llamada, caer al modo manual
+          }
+        }
+
+        // ── Modo manual: abrir wa.me (fallback) ─────────────
+        // Se usa cuando: Twilio no está configurado aún,
+        // el cliente no tiene teléfono, o hay un error del servidor.
+        if (phoneFormatted) {
+          window.open(`https://wa.me/${phoneFormatted}?text=${encodeURIComponent(message)}`, '_blank');
+        } else {
+          // Sin teléfono: ofrecer copiar el mensaje
+          if (confirm(`📱 Recordatorio WhatsApp para "${eventData.client}"\n\nNo hay teléfono registrado.\n\n¿Copiar el mensaje al portapapeles?\n\n"${message}"`)) {
+            try { navigator.clipboard.writeText(message); } catch(e) {}
+          }
+        }
+      }
+
+      /**
+       * Muestra un toast no intrusivo cuando se envía un WhatsApp automático.
+       */
+      function _showWaToast(msg) {
+        let t = document.getElementById('_wa-toast');
+        if (!t) {
+          t = document.createElement('div');
+          t.id = '_wa-toast';
+          t.style.cssText = [
+            'position:fixed','bottom:24px','right:24px','z-index:99999',
+            'background:#128C7E','color:#fff','padding:10px 18px',
+            'border-radius:8px','font-size:13px','font-weight:500',
+            'box-shadow:0 4px 16px rgba(0,0,0,0.18)',
+            'transition:opacity 0.4s','opacity:0','pointer-events:none'
+          ].join(';');
+          document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.style.opacity = '1';
+        clearTimeout(t._to);
+        t._to = setTimeout(() => { t.style.opacity = '0'; }, 3500);
+      }
+
+      /**
+       * Programa el envío de un recordatorio por WhatsApp al cliente.
+       *
+       * LÓGICA DE DECISIÓN:
+       *
+       * Timing 'now'  → envío inmediato via /api/whatsapp/send (Twilio directo)
+       * Timing futuro → programación en el servidor via /api/whatsapp/schedule
+       *                 (APScheduler lo ejecuta aunque el navegador esté cerrado)
+       *
+       * Fallback automático:
+       *   Si el servidor no está listo (Twilio o Scheduler sin configurar),
+       *   cae al modo manual (wa.me) para no perder el recordatorio.
+       */
+      function scheduleWaReminder(eventData, reminderTiming) {
+        if (!reminderTiming) return;
+
+        const timingMap = {
+          'now': 0,
+          '1h':  60 * 60 * 1000,
+          '1d':  24 * 60 * 60 * 1000,
+          '1w':  7 * 24 * 60 * 60 * 1000
+        };
+
+        const delay         = timingMap[reminderTiming] ?? 0;
+        const eventDateTime = new Date(eventData.date + 'T' + eventData.time).getTime();
+        const sendAtMs      = eventDateTime - delay;
+        const sendAtDate    = new Date(sendAtMs);
+        const timeUntil     = sendAtMs - Date.now();
+
+        const clientPhone  = eventData.clientPhone || lookupClientPhone(eventData.client);
+        const phoneClean   = formatPhoneForWa(clientPhone);
+        const message      = buildWaMessage(eventData);
+
+        // ── Timing 'now': envío inmediato ────────────────────
+        if (reminderTiming === 'now' || timeUntil <= 0) {
+          fireWaReminder(eventData);
+          return;
+        }
+
+        // ── Timing futuro: programar en el servidor ──────────
+        if (WA_CONFIG.schedulerReady && WA_CONFIG.twilioReady && phoneClean) {
+          // ID único del job: combinación de ID de evento + timing
+          const jobId = `wa_ev${eventData.id || Date.now()}_${reminderTiming}`;
+
+          // Formato ISO sin milisegundos para el servidor
+          const sendAtISO = sendAtDate.toISOString().split('.')[0];
+
+          fetch('/api/whatsapp/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to:      phoneClean,
+              message: message,
+              send_at: sendAtISO,
+              job_id:  jobId
+            })
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              const mins = Math.round(timeUntil / 60000);
+              console.log(`📅 [Servidor] WA para "${eventData.client}" programado en ${mins} min · job: ${jobId}`);
+              _showWaToast(`📅 Recordatorio WhatsApp programado para ${eventData.client}`);
+            } else {
+              console.warn('⚠️ Servidor no pudo programar el job:', data.error);
+              // Fallback: setTimeout en el navegador
+              _scheduleWaFallback(eventData, timeUntil);
+            }
+          })
+          .catch(err => {
+            console.warn('⚠️ Error llamando a /api/whatsapp/schedule:', err);
+            _scheduleWaFallback(eventData, timeUntil);
+          });
+
+        } else {
+          // Servidor no listo: usar fallback de navegador
+          _scheduleWaFallback(eventData, timeUntil);
+        }
+      }
+
+      /**
+       * Fallback: programa el envío con setTimeout en el navegador.
+       * Solo se usa si el servidor no está configurado.
+       * AVISO: se pierde si se cierra la pestaña.
+       */
+      function _scheduleWaFallback(eventData, timeUntil) {
+        const mins = Math.round(timeUntil / 60000);
+        console.warn(`⚠️ [Fallback] WA programado en navegador (${mins} min). Se perderá si se cierra la pestaña.`);
+        setTimeout(() => fireWaReminder(eventData), timeUntil);
+      }
+
+      // ══════════════════════════════════════════
+      //  AUTOCOMPLETE DE CLIENTES EN CITAS
+      // ══════════════════════════════════════════
+
+      /**
+       * Actualiza el indicador de teléfono vinculado debajo del campo cliente.
+       */
+      function updateClientPhoneDisplay(phoneInputId, displayId, waInfoId) {
+        const phone = (document.getElementById(phoneInputId) || {}).value || "";
+        const dispEl = document.getElementById(displayId);
+        const waInfoEl = document.getElementById(waInfoId);
+        if (dispEl) {
+          dispEl.innerHTML = phone
+            ? `<div class="client-phone-linked">📞 ${safeHtml(phone)} — teléfono vinculado para WhatsApp</div>`
+            : "";
+        }
+        if (waInfoEl) {
+          waInfoEl.innerHTML = phone
+            ? `<div class="wa-phone-detected">✅ WhatsApp se enviará a: ${safeHtml(phone)}</div>`
+            : `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">⚠️ No hay teléfono registrado para este cliente. Regístralo en la sección Clientes.</div>`;
+        }
+      }
+
+      /**
+       * Muestra sugerencias de clientes al escribir en el campo de cita.
+       */
+      function clientSuggest(inputId, listId, phoneInputId) {
+        const input = document.getElementById(inputId);
+        const list = document.getElementById(listId);
+        const phoneInput = document.getElementById(phoneInputId);
+        if (!input || !list) return;
+
+        const query = input.value.trim().toLowerCase();
+        const displayId = phoneInputId.replace('-phone', '-phone-display');
+        const waInfoId = inputId === 'ev-client' ? 'ev-wa-phone-info' : null;
+
+        // Si el campo fue limpiado manualmente, quitar el teléfono
+        if (!query) {
+          if (phoneInput) phoneInput.value = "";
+          list.classList.remove("open");
+          list.innerHTML = "";
+          updateClientPhoneDisplay(phoneInputId, displayId, waInfoId);
+          return;
+        }
+
+        // Buscar en: nombre, CIF, email, teléfono y ciudad
+        const matches = CLIENTS.filter(c =>
+          c.name.toLowerCase().includes(query) ||
+          (c.cif && c.cif.toLowerCase().includes(query)) ||
+          (c.email && c.email.toLowerCase().includes(query)) ||
+          (c.phone && c.phone.toLowerCase().includes(query)) ||
+          (c.city && c.city.toLowerCase().includes(query))
+        ).slice(0, 10);
+
+        if (!matches.length) {
+          list.classList.remove("open");
+          list.innerHTML = "";
+          return;
+        }
+
+        list.innerHTML = matches.map((c, i) => `
+          <div class="client-suggestion-item" data-idx="${i}"
+            onmousedown="selectClientSuggestion('${inputId}','${listId}','${phoneInputId}',${c.id})"
+          >
+            <div class="client-suggestion-avatar">${initials(c.name)}</div>
+            <div class="client-suggestion-info">
+              <div class="client-suggestion-name">${safeHtml(c.name)}</div>
+              <div class="client-suggestion-meta">${safeHtml(c.cif || c.email || c.city || '')}</div>
+            </div>
+            ${c.phone ? `<div class="client-suggestion-phone">📞 ${safeHtml(c.phone)}</div>` : '<div class="client-suggestion-phone" style="color:var(--text-muted);opacity:0.5">sin tel.</div>'}
+          </div>
+        `).join("");
+        list.classList.add("open");
+      }
+
+      /**
+       * Selecciona un cliente de la lista de sugerencias.
+       */
+      function selectClientSuggestion(inputId, listId, phoneInputId, clientId) {
+        const c = CLIENTS.find(x => x.id === clientId);
+        if (!c) return;
+        const input = document.getElementById(inputId);
+        const list = document.getElementById(listId);
+        const phoneInput = document.getElementById(phoneInputId);
+        if (input) input.value = c.name;
+        if (phoneInput) phoneInput.value = c.phone || "";
+        if (list) { list.classList.remove("open"); list.innerHTML = ""; }
+        const displayId = phoneInputId.replace('-phone', '-phone-display');
+        const waInfoId = inputId === 'ev-client' ? 'ev-wa-phone-info' : null;
+        updateClientPhoneDisplay(phoneInputId, displayId, waInfoId);
+      }
+
+      /**
+       * Navegación por teclado en el dropdown de clientes.
+       */
+      function clientSuggestKey(event, listId, inputId, phoneInputId) {
+        const list = document.getElementById(listId);
+        if (!list || !list.classList.contains("open")) return;
+        const items = list.querySelectorAll(".client-suggestion-item");
+        let highlighted = list.querySelector(".client-suggestion-item.highlighted");
+        let idx = highlighted ? parseInt(highlighted.dataset.idx) : -1;
+
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          idx = Math.min(idx + 1, items.length - 1);
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          idx = Math.max(idx - 1, 0);
+        } else if (event.key === "Enter" && highlighted) {
+          event.preventDefault();
+          highlighted.dispatchEvent(new MouseEvent("mousedown"));
+          return;
+        } else if (event.key === "Escape") {
+          list.classList.remove("open");
+          return;
+        } else {
+          return;
+        }
+
+        items.forEach(it => it.classList.remove("highlighted"));
+        if (items[idx]) items[idx].classList.add("highlighted");
+      }
+
+      // Cerrar sugerencias al hacer click fuera
+      document.addEventListener("click", function(e) {
+        if (!e.target.closest(".client-autocomplete-wrap")) {
+          document.querySelectorAll(".client-suggestions.open").forEach(d => d.classList.remove("open"));
+        }
+      });
 
       // Cerrar dropdowns cuando clickeas fuera
       document.addEventListener('click', function(e) {
