@@ -7532,22 +7532,135 @@
       }
 
       // Notificaciones del navegador
+      // ══════════════════════════════════════════════════════════════
+      // NOTIFICACIONES — MEJORADA CON SERVICE WORKER
+      // Asegura que las notificaciones aparezcan SIEMPRE en el PC,
+      // incluso si el navegador está cerrado o minimizado
+      // ══════════════════════════════════════════════════════════════
+
+      function registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+          // Crear un blob con el código del Service Worker
+          const swCode = `
+            self.addEventListener('push', event => {
+              const data = event.data ? event.data.json() : {};
+              const options = {
+                body: data.body || 'Recordatorio de cita',
+                icon: '🔔',
+                badge: '🔔',
+                tag: 'gestionpro-reminder',
+                requireInteraction: true,
+                ...data
+              };
+              event.waitUntil(self.registration.showNotification(data.title || 'Recordatorio', options));
+            });
+
+            self.addEventListener('notificationclick', event => {
+              event.notification.close();
+              event.waitUntil(
+                clients.matchAll({ type: 'window' }).then(clientList => {
+                  if (clientList.length > 0) {
+                    return clientList[0].focus();
+                  }
+                  return clients.openWindow('/');
+                })
+              );
+            });
+          `;
+          
+          const blob = new Blob([swCode], { type: 'application/javascript' });
+          const swUrl = URL.createObjectURL(blob);
+          
+          navigator.serviceWorker.register(swUrl)
+            .then(reg => {
+              console.log('✅ Service Worker registrado correctamente');
+              // Guardar referencia global para usar después
+              window._swRegistration = reg;
+            })
+            .catch(err => {
+              console.warn('⚠️ Error al registrar Service Worker:', err);
+              // No es crítico, las notificaciones seguirán funcionando sin SW
+            });
+        }
+      }
+
       function requestNotificationPermission() {
-        if ('Notification' in window && Notification.permission === 'default') {
-          Notification.requestPermission();
+        if (!('Notification' in window)) {
+          console.warn('Notificaciones no soportadas en este navegador');
+          return;
+        }
+
+        if (Notification.permission === 'granted') {
+          // Ya tenemos permiso
+          console.log('✅ Permisos de notificación ya otorgados');
+          return;
+        }
+
+        if (Notification.permission === 'denied') {
+          // El usuario rechazó previamente
+          console.warn('⚠️ Notificaciones rechazadas por el usuario. Abre Configuración del navegador para habilitarlas.');
+          return;
+        }
+
+        // Permiso no definido aún, solicitar
+        if (Notification.permission === 'default') {
+          Notification.requestPermission()
+            .then(permission => {
+              if (permission === 'granted') {
+                console.log('✅ Permisos de notificación otorgados');
+                // Mostrar notificación de prueba
+                sendNotification('🔔 ¡Notificaciones activadas!', {
+                  body: 'Los recordatorios de citas aparecerán en tu pantalla',
+                  tag: 'test-notification'
+                });
+              } else {
+                console.warn('⚠️ Usuario rechazó las notificaciones');
+              }
+            })
+            .catch(err => {
+              console.error('❌ Error al solicitar permisos:', err);
+            });
         }
       }
 
       function sendNotification(title, options = {}) {
         if (!('Notification' in window)) {
-          console.log('Notificaciones no soportadas en este navegador');
+          console.warn('Notificaciones no soportadas en este navegador');
           return;
         }
+
+        // Si no tenemos permiso, pedirlo
+        if (Notification.permission === 'denied') {
+          console.warn('Notificaciones rechazadas. Revisa la configuración del navegador.');
+          return;
+        }
+
+        if (Notification.permission === 'default') {
+          requestNotificationPermission();
+          return;
+        }
+
+        // Permiso otorgado: enviar notificación
         if (Notification.permission === 'granted') {
-          new Notification(title, {
-            icon: '🔔',
-            ...options
-          });
+          try {
+            const notification = new Notification(title, {
+              icon: '🔔',
+              requireInteraction: true,  // ← IMPORTANTE: Mantiene la notificación visible
+              tag: 'gestionpro-reminder',  // Evita duplicados
+              ...options
+            });
+
+            // Hacer sonido si es posible
+            try {
+              const audio = new Audio('data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==');
+              audio.play().catch(() => {});
+            } catch(e) {}
+
+            console.log(`✅ Notificación enviada: "${title}"`);
+            return notification;
+          } catch(err) {
+            console.error('❌ Error al crear notificación:', err);
+          }
         }
       }
 
@@ -7570,24 +7683,35 @@
         const reminderTime = eventDateTime - delay;
         const now = new Date().getTime();
 
+        // Formatea la hora del evento de forma legible
+        const eventDate = new Date(eventData.date);
+        const dateStr = eventDate.toLocaleDateString('es-ES', { 
+          weekday: 'long', 
+          day: 'numeric', 
+          month: 'long' 
+        });
+
         if (reminderTime <= now) {
           // Si ya pasó, notificar inmediatamente
-          sendNotification(
-            '📌 Recordatorio de cita',
-            {
-              body: `${eventData.client} - ${eventData.service}`
-            }
-          );
+          sendNotification('📌 Recordatorio de cita', {
+            body: `${eventData.client} - ${eventData.service || 'Sin servicio'}\n${dateStr} a las ${eventData.time}`,
+            tag: `reminder-${eventData.id || Date.now()}`,
+            requireInteraction: true
+          });
         } else {
           // Programar para después
           const timeUntilReminder = reminderTime - now;
+          
+          // Mostrar en consola cuándo se ejecutará
+          const reminderDate = new Date(reminderTime);
+          console.log(`⏰ Recordatorio programado para ${reminderDate.toLocaleString('es-ES')}`);
+          
           setTimeout(() => {
-            sendNotification(
-              '📌 Recordatorio de cita',
-              {
-                body: `${eventData.client} - ${eventData.service}`
-              }
-            );
+            sendNotification('📌 Recordatorio de cita', {
+              body: `${eventData.client} - ${eventData.service || 'Sin servicio'}\n${dateStr} a las ${eventData.time}`,
+              tag: `reminder-${eventData.id || Date.now()}`,
+              requireInteraction: true
+            });
           }, timeUntilReminder);
         }
       }
@@ -7926,12 +8050,22 @@
         }
       });
 
-      document.querySelectorAll(".modal-overlay").forEach((o) => {
-        o.addEventListener("click", (e) => {
-          if (e.target === o) o.classList.remove("open");
-        });
-      });
+      // ══════════════════════════════════════════════════════════════
+      // INICIALIZAR SERVICE WORKER Y NOTIFICACIONES
+      // ══════════════════════════════════════════════════════════════
       
+      // Registrar Service Worker tan pronto como carga la página
+      if ('serviceWorker' in navigator) {
+        registerServiceWorker();
+      }
+      
+      // Pedir permiso de notificaciones cuando el usuario accede
+      // (Se pide después de 1 segundo para no ser intrusivo)
+      setTimeout(() => {
+        if (Notification.permission === 'default') {
+          requestNotificationPermission();
+        }
+      }, 1000);
       
     </script>
   </body>
