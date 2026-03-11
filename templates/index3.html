@@ -2725,9 +2725,12 @@
     </style>
     <!-- XLSX Library para importar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script>window._xlsxReady = typeof XLSX !== 'undefined';</script>
-    <!-- Socket.IO para mensajería en tiempo real -->
+    <!-- Socket.IO mensajería en tiempo real -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+      // Fallback: si XLSX no cargó del CDN, usar parser CSV mínimo propio
+      window._xlsxReady = typeof XLSX !== 'undefined';
+    </script>
   </head>
   <body>
     <!-- LOGIN -->
@@ -4581,7 +4584,7 @@
       }
 
       function doLogout() {
-        if (window._socket) { window._socket.disconnect(); window._socket = null; }
+        if (window._socket) { try { window._socket.disconnect(); } catch(e){} window._socket = null; }
         currentUser = null;
         activeConvId = null;
         editingEvId = null;
@@ -7099,17 +7102,13 @@
         inp.value = "";
         gchatPendingAttachments = [];
         gchatRenderChips();
-        // Enviar al servidor vía Socket.IO — el servidor hará broadcast a todos
         if (window._socket && window._socket.connected) {
           window._socket.emit('gchat_send', {
-            userId: currentUser.id,
-            text,
-            time: nowTime(),
-            date: todayStr(),
-            attachments,
+            userId: currentUser.id, text,
+            time: nowTime(), date: todayStr(), attachments
           });
         } else {
-          // Fallback local si no hay conexión
+          // Sin conexión: local fallback
           GENERAL_CHAT.push({ id: nextGchatId++, userId: currentUser.id, text, time: nowTime(), date: todayStr(), attachments });
           renderGeneralChat();
         }
@@ -7296,12 +7295,9 @@
         document.getElementById("chat-name").textContent = other.name;
         msgPendingAttachments = [];
         msgRenderChips();
-        // Pedir historial al servidor (reemplaza datos locales)
+        // Pedir historial actualizado al servidor
         if (window._socket && window._socket.connected) {
-          window._socket.emit('request_private_history', {
-            userId: currentUser.id,
-            otherId: otherId
-          });
+          window._socket.emit('request_private_history', { userId: currentUser.id, otherId });
         }
         renderMsgs(otherId);
         if (isMobile()) {
@@ -7388,17 +7384,11 @@
         inp.value = "";
         msgPendingAttachments = [];
         msgRenderChips();
-        // Enviar al servidor vía Socket.IO
         if (window._socket && window._socket.connected) {
           window._socket.emit('private_send', {
-            fromId: currentUser.id,
-            toId:   activeConvId,
-            text,
-            time,
-            attachments,
+            fromId: currentUser.id, toId: activeConvId, text, time, attachments
           });
         } else {
-          // Fallback local si no hay conexión
           convData(activeConvId).push({ mine: true, text, time, read: true, attachments });
           renderMsgs(activeConvId);
           buildMsgList(document.getElementById("msg-search-inp").value);
@@ -8128,144 +8118,6 @@
         }
       });
 
-
-      // ══════════════════════════════════════════════════════════════
-      // SOCKET.IO — MENSAJERÍA EN TIEMPO REAL
-      // ══════════════════════════════════════════════════════════════
-
-      window._socket = null;
-
-      function initSocketIO() {
-        if (window._socket && window._socket.connected) return;
-
-        const socket = io({ transports: ['websocket', 'polling'], reconnection: true, reconnectionDelay: 1000 });
-        window._socket = socket;
-
-        // ── Conexión establecida ─────────────────────────────────
-        socket.on('connect', () => {
-          console.log('[Socket] Conectado:', socket.id);
-          // Autenticar con el userId real de la app
-          socket.emit('authenticate', { userId: currentUser.id, username: currentUser.name });
-        });
-
-        socket.on('connect_error', (err) => {
-          console.warn('[Socket] Error de conexión:', err.message);
-        });
-
-        socket.on('disconnect', (reason) => {
-          console.warn('[Socket] Desconectado:', reason);
-        });
-
-        // ── Chat General: historial inicial ──────────────────────
-        socket.on('gchat_history', (data) => {
-          GENERAL_CHAT.length = 0;
-          (data.messages || []).forEach(m => GENERAL_CHAT.push(m));
-          nextGchatId = GENERAL_CHAT.length ? Math.max(...GENERAL_CHAT.map(m => m.id)) + 1 : 100;
-          // Actualizar si la sección está visible
-          const sec = document.getElementById('section-general-chat');
-          if (sec && sec.classList.contains('active')) renderGeneralChat();
-        });
-
-        // ── Chat General: nuevo mensaje en tiempo real ───────────
-        socket.on('gchat_message', (msg) => {
-          // Evitar duplicados (el mensaje ya podría estar si vine del mismo cliente)
-          if (!GENERAL_CHAT.find(m => m.id === msg.id)) {
-            GENERAL_CHAT.push(msg);
-          }
-          const sec = document.getElementById('section-general-chat');
-          if (sec && sec.classList.contains('active')) {
-            renderGeneralChat();
-          } else if (msg.userId !== currentUser.id) {
-            // Notificar badge si no estamos viendo el chat general
-            gchatUnreadCount++;
-            updateBadge();
-            showChatNotification(msg);
-          }
-        });
-
-        // ── Mensajería privada: historial ────────────────────────
-        socket.on('private_history', (data) => {
-          const otherId = data.otherId;
-          const key = convKey(currentUser.id, otherId);
-          CONVS[key] = (data.messages || []).map(m => ({
-            mine:        m.fromId === currentUser.id,
-            fromId:      m.fromId,
-            text:        m.text,
-            time:        m.time,
-            read:        m.fromId === currentUser.id,
-            attachments: m.attachments || [],
-          }));
-          if (activeConvId === otherId) renderMsgs(otherId);
-          buildMsgList(document.getElementById('msg-search-inp').value);
-        });
-
-        // ── Mensajería privada: nuevo mensaje en tiempo real ─────
-        socket.on('private_message', (msg) => {
-          const otherId = msg.fromId === currentUser.id ? msg.toId : msg.fromId;
-          const key = convKey(currentUser.id, otherId);
-          if (!CONVS[key]) CONVS[key] = [];
-
-          // Evitar duplicados
-          const isAlreadyAdded = CONVS[key].some(
-            m => m._serverId === msg.id
-          );
-          if (!isAlreadyAdded) {
-            CONVS[key].push({
-              _serverId:   msg.id,
-              mine:        msg.fromId === currentUser.id,
-              fromId:      msg.fromId,
-              text:        msg.text,
-              time:        msg.time,
-              read:        msg.fromId === currentUser.id || activeConvId === otherId,
-              attachments: msg.attachments || [],
-            });
-          }
-
-          if (activeConvId === otherId) {
-            // Marcar como leído y renderizar
-            CONVS[key].forEach(m => { if (!m.mine) m.read = true; });
-            renderMsgs(otherId);
-          } else if (msg.fromId !== currentUser.id) {
-            // Notificar si no estamos en esa conversación
-            updateBadge();
-            showPrivateNotification(msg);
-          }
-          buildMsgList(document.getElementById('msg-search-inp').value);
-          updateBadge();
-        });
-      }
-
-      // ── Notificación visual de mensaje nuevo ──────────────────
-      function showChatNotification(msg) {
-        const sender = USERS.find(u => u.id === msg.userId);
-        const name = sender ? sender.name.split(' ')[0] : 'Alguien';
-        const preview = msg.text ? msg.text.slice(0, 40) : '📎 Archivo adjunto';
-        showToastNotif(`💬 ${name}: ${preview}`);
-      }
-
-      function showPrivateNotification(msg) {
-        const sender = USERS.find(u => u.id === msg.fromId);
-        const name = sender ? sender.name.split(' ')[0] : 'Alguien';
-        const preview = msg.text ? msg.text.slice(0, 40) : '📎 Archivo adjunto';
-        showToastNotif(`🔒 ${name}: ${preview}`);
-      }
-
-      // Toast de notificación ligero
-      function showToastNotif(text) {
-        let toast = document.getElementById('_msg_toast');
-        if (!toast) {
-          toast = document.createElement('div');
-          toast.id = '_msg_toast';
-          toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:var(--accent);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:9999;max-width:280px;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:opacity 0.3s;cursor:pointer;';
-          toast.onclick = () => { toast.style.opacity = '0'; };
-          document.body.appendChild(toast);
-        }
-        toast.textContent = text;
-        toast.style.opacity = '1';
-        clearTimeout(toast._timer);
-        toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 4000);
-      }
-
       // ══════════════════════════════════════════════════════════════
       // INICIALIZAR SERVICE WORKER Y NOTIFICACIONES
       // ══════════════════════════════════════════════════════════════
@@ -8283,6 +8135,140 @@
         }
       }, 1000);
       
+
+      // ═══════════════════════════════════════════════════════════
+      // SOCKET.IO — MENSAJERÍA EN TIEMPO REAL
+      // ═══════════════════════════════════════════════════════════
+      window._socket = null;
+
+      function initSocketIO() {
+        // Evitar doble conexión
+        if (window._socket && window._socket.connected) return;
+
+        const socket = io({
+          transports: ['websocket', 'polling'],
+          reconnection: true,
+          reconnectionDelay: 1500,
+          reconnectionAttempts: 10
+        });
+        window._socket = socket;
+
+        // Conectado → autenticar con userId real
+        socket.on('connect', () => {
+          console.log('[Socket] Conectado ✓ sid=', socket.id);
+          socket.emit('authenticate', {
+            userId: currentUser.id,
+            username: currentUser.name
+          });
+        });
+
+        socket.on('connect_error', (err) => {
+          console.warn('[Socket] Error:', err.message);
+        });
+
+        // ── CHAT GENERAL: recibir historial inicial ──────────────
+        socket.on('gchat_history', (data) => {
+          GENERAL_CHAT.length = 0;
+          (data.messages || []).forEach(m => GENERAL_CHAT.push(m));
+          nextGchatId = GENERAL_CHAT.length
+            ? Math.max(...GENERAL_CHAT.map(m => m.id)) + 1
+            : 100;
+          const sec = document.getElementById('section-general-chat');
+          if (sec && sec.classList.contains('active')) renderGeneralChat();
+        });
+
+        // ── CHAT GENERAL: nuevo mensaje en tiempo real ───────────
+        socket.on('gchat_message', (msg) => {
+          // Evitar duplicado si el servidor nos lo devuelve y ya lo añadimos localmente
+          if (GENERAL_CHAT.find(m => m.id === msg.id)) return;
+          GENERAL_CHAT.push(msg);
+          const sec = document.getElementById('section-general-chat');
+          if (sec && sec.classList.contains('active')) {
+            renderGeneralChat();
+          } else if (msg.userId !== currentUser.id) {
+            gchatUnreadCount++;
+            updateBadge();
+            _showMsgToast('💬 ' + _userName(msg.userId) + ': ' + (msg.text || '📎').slice(0, 50));
+          }
+        });
+
+        // ── PRIVADOS: historial de una conversación ──────────────
+        socket.on('private_history', (data) => {
+          const otherId = Number(data.otherId);
+          const key = convKey(currentUser.id, otherId);
+          CONVS[key] = (data.messages || []).map(m => ({
+            _sid:        m.id,
+            mine:        Number(m.fromId) === currentUser.id,
+            text:        m.text,
+            time:        m.time,
+            read:        Number(m.fromId) === currentUser.id,
+            attachments: m.attachments || []
+          }));
+          if (activeConvId === otherId) renderMsgs(otherId);
+          buildMsgList(document.getElementById('msg-search-inp').value);
+          updateBadge();
+        });
+
+        // ── PRIVADOS: nuevo mensaje en tiempo real ───────────────
+        socket.on('private_message', (msg) => {
+          const fromId  = Number(msg.fromId);
+          const toId    = Number(msg.toId);
+          const otherId = fromId === currentUser.id ? toId : fromId;
+          const key     = convKey(currentUser.id, otherId);
+          if (!CONVS[key]) CONVS[key] = [];
+
+          // Evitar duplicado
+          if (CONVS[key].find(m => m._sid === msg.id)) return;
+
+          const isMe = fromId === currentUser.id;
+          CONVS[key].push({
+            _sid:        msg.id,
+            mine:        isMe,
+            text:        msg.text,
+            time:        msg.time,
+            read:        isMe || activeConvId === otherId,
+            attachments: msg.attachments || []
+          });
+
+          if (activeConvId === otherId) {
+            CONVS[key].forEach(m => { if (!m.mine) m.read = true; });
+            renderMsgs(otherId);
+          } else if (!isMe) {
+            updateBadge();
+            _showMsgToast('🔒 ' + _userName(fromId) + ': ' + (msg.text || '📎').slice(0, 50));
+          }
+          buildMsgList(document.getElementById('msg-search-inp').value);
+          updateBadge();
+        });
+      }
+
+      function _userName(userId) {
+        const u = USERS.find(x => x.id === userId);
+        return u ? u.name.split(' ')[0] : 'Alguien';
+      }
+
+      function _showMsgToast(text) {
+        let t = document.getElementById('_rt');
+        if (!t) {
+          t = document.createElement('div');
+          t.id = '_rt';
+          t.style.cssText = [
+            'position:fixed', 'bottom:20px', 'right:20px',
+            'background:var(--accent)', 'color:#fff',
+            'padding:10px 16px', 'border-radius:8px',
+            'font-size:13px', 'z-index:9999', 'max-width:300px',
+            'box-shadow:0 4px 16px rgba(0,0,0,.25)',
+            'transition:opacity .3s', 'cursor:pointer', 'line-height:1.4'
+          ].join(';');
+          t.onclick = () => { t.style.opacity = '0'; };
+          document.body.appendChild(t);
+        }
+        t.textContent = text;
+        t.style.opacity = '1';
+        clearTimeout(t._t);
+        t._t = setTimeout(() => { t.style.opacity = '0'; }, 4500);
+      }
+
     </script>
   </body>
 </html>

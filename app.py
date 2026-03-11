@@ -203,20 +203,23 @@ def gestionpro():
     return render_template('index3.html')
 
 # ═══════════════════════════════════════════════════════════════
-# ALMACENAMIENTO EN MEMORIA — MENSAJERÍA EN TIEMPO REAL
+# ALMACENAMIENTO EN MEMORIA — MENSAJERÍA
+# Los mensajes persisten mientras el servidor esté activo.
 # ═══════════════════════════════════════════════════════════════
-# Chat general: historial compartido por todos los usuarios
+
+# Chat general: historial compartido
 general_chat_messages = []
 general_chat_counter  = 100
 
-# Mensajes privados: { "uid_a-uid_b": [ {id, fromId, toId, ...} ] }
+# Mensajes privados: { "uid_a-uid_b": [{id, fromId, toId, text, time, attachments}] }
 private_messages = {}
 
-# Mapa sid → userId  (para saber qué usuario cierra sesión)
+# Mapeo sid → userId para gestionar desconexiones
 sid_to_userid = {}
 
 
 def _conv_key(a, b):
+    """Clave única y ordenada para una conversación entre dos usuarios."""
     return "-".join(str(x) for x in sorted([int(a), int(b)]))
 
 def _now_time():
@@ -232,25 +235,28 @@ def _today_str():
 
 @socketio.on('connect')
 def handle_connect(auth=None):
-    logger.info(f"🔗 [Socket] Conexión nueva: {request.sid}")
+    logger.info(f"🔗 [Socket] Nueva conexión: {request.sid}")
     emit('connect_ack', {'sid': request.sid})
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
     uid = sid_to_userid.pop(request.sid, None)
+    connected_users.pop(request.sid, None)
     if uid:
         leave_room(f"user_{uid}")
         leave_room("general")
-    connected_users.pop(request.sid, None)
-    logger.info(f"❌ [Socket] Desconectado sid={request.sid} uid={uid}")
+        logger.info(f"❌ [Socket] uid={uid} desconectado")
 
 
 @socketio.on('authenticate')
 def handle_authenticate(data):
     """
-    Llamado por el cliente tras conectar.
-    Registra el userId real (no el sid), entra en salas y envía historial.
+    El cliente envía su userId real (numérico) justo al conectar.
+    Esto mete al usuario en:
+      - sala personal "user_{userId}"  → mensajes privados
+      - sala "general"                 → chat grupal
+    Y le devuelve el historial del chat general.
     """
     user_id  = data.get('userId')
     username = data.get('username', '')
@@ -262,17 +268,15 @@ def handle_authenticate(data):
 
     join_room(f"user_{user_id}")
     join_room("general")
-    logger.info(f"✅ [Socket] Autenticado userId={user_id} ({username})")
+    logger.info(f"✅ [Socket] Autenticado: userId={user_id} ({username})")
 
-    # Enviar historial del chat general al recién conectado
+    # Enviar historial completo del chat general
     emit('gchat_history', {'messages': general_chat_messages})
 
 
-# ── CHAT GENERAL ─────────────────────────────────────────────────────────────
-
 @socketio.on('gchat_send')
 def handle_gchat_send(data):
-    """Recibe un mensaje del chat general y lo broadcast a TODOS en la sala."""
+    """Guarda el mensaje y hace broadcast a TODOS en la sala general."""
     global general_chat_counter
     msg = {
         'id':          general_chat_counter,
@@ -284,16 +288,15 @@ def handle_gchat_send(data):
     }
     general_chat_counter += 1
     general_chat_messages.append(msg)
-    logger.info(f"💬 [GChat] userId={msg['userId']}: {msg['text'][:60]}")
-    # Emitir a TODOS en la sala 'general' (incluido el propio emisor)
+    logger.info(f"💬 [GChat] uid={msg['userId']}: {str(msg['text'])[:60]}")
+    # room='general' incluye al propio emisor
     socketio.emit('gchat_message', msg, room='general')
 
 
-# ── MENSAJERÍA PRIVADA ────────────────────────────────────────────────────────
-
 @socketio.on('private_send')
 def handle_private_send(data):
-    """Recibe un mensaje privado y lo entrega al emisor y al receptor."""
+    """Guarda el mensaje privado y lo entrega a emisor y receptor."""
+    import uuid as _uuid
     from_id = data.get('fromId')
     to_id   = data.get('toId')
     if not from_id or not to_id:
@@ -302,7 +305,6 @@ def handle_private_send(data):
     key = _conv_key(from_id, to_id)
     private_messages.setdefault(key, [])
 
-    import uuid as _uuid
     msg = {
         'id':          str(_uuid.uuid4()),
         'fromId':      int(from_id),
@@ -312,16 +314,16 @@ def handle_private_send(data):
         'attachments': data.get('attachments', []),
     }
     private_messages[key].append(msg)
-    logger.info(f"🔒 [Private] {from_id}→{to_id}: {msg['text'][:60]}")
+    logger.info(f"🔒 [Private] {from_id}→{to_id}: {str(msg['text'])[:60]}")
 
-    # Entregar a ambas salas (emisor Y receptor)
+    # Entregar a la sala del emisor Y a la sala del receptor
     socketio.emit('private_message', msg, room=f"user_{from_id}")
     socketio.emit('private_message', msg, room=f"user_{to_id}")
 
 
 @socketio.on('request_private_history')
 def handle_private_history(data):
-    """Devuelve el historial de la conversación entre dos usuarios."""
+    """Devuelve el historial entre dos usuarios al solicitante."""
     a = data.get('userId')
     b = data.get('otherId')
     if not a or not b:
@@ -329,8 +331,6 @@ def handle_private_history(data):
     key  = _conv_key(a, b)
     msgs = private_messages.get(key, [])
     emit('private_history', {'otherId': int(b), 'messages': msgs})
-
-
 
 # ═══════════════════════════════════════════════════════════════
 # API WHATSAPP — ENVÍO AUTOMÁTICO VÍA META
