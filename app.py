@@ -1,6 +1,6 @@
 import os
 import json
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
 import requests
@@ -49,7 +49,7 @@ META_PHONE_NUMBER_ID = os.environ.get('META_PHONE_NUMBER_ID', None)
 META_ACCESS_TOKEN = os.environ.get('META_ACCESS_TOKEN', None)
 META_BUSINESS_ACCOUNT_ID = os.environ.get('META_BUSINESS_ACCOUNT_ID', None)
 META_API_VERSION = "v18.0"
-META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/messages"
+META_API_URL = f"https://graph.facebook.com/{META_API_VERSION}/{{phone_id}}/messages"
 
 # ═══════════════════════════════════════════════════════════════
 # LOGGING
@@ -160,9 +160,8 @@ def send_whatsapp_job(to_phone: str, message: str):
 # ═══════════════════════════════════════════════════════════════
 # INICIALIZAR FLASK Y SOCKETIO
 # ═══════════════════════════════════════════════════════════════
-app = Flask(__name__, template_folder='.', static_folder='static')
-app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
-app.config['DEBUG'] = False if app.config['ENV'] == 'production' else True
+app = Flask(__name__)
+app.config['DEBUG'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 
 # Configurar SocketIO
@@ -290,7 +289,6 @@ def handle_gchat_send(data):
 @socketio.on('private_send')
 def handle_private_send(data):
     """Guarda el mensaje privado y lo entrega a emisor y receptor."""
-    import uuid as _uuid
     from_id = data.get('fromId')
     to_id   = data.get('toId')
     if not from_id or not to_id:
@@ -300,7 +298,7 @@ def handle_private_send(data):
     private_messages.setdefault(key, [])
 
     msg = {
-        'id':          str(_uuid.uuid4()),
+        'id':          str(uuid.uuid4()),
         'fromId':      int(from_id),
         'toId':        int(to_id),
         'text':        data.get('text', ''),
@@ -530,7 +528,7 @@ def api_status():
         'app': 'GestióPro',
         'version': '3.0',
         'timestamp': datetime.now().isoformat(),
-        'environment': app.config['ENV'],
+        'environment': os.environ.get('FLASK_ENV', 'production'),
         'meta_ready': bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN),
         'scheduler_ready': SCHEDULER_AVAILABLE and scheduler is not None,
         'websocket_ready': True,
