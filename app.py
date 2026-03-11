@@ -1,13 +1,13 @@
 import os
 import json
 
-# ── Eventlet monkey-patch DEBE ir antes de todo lo demás ──────────────────
+# ── Gevent monkey-patch DEBE ir antes de todo lo demás ───────────────────
 try:
-    import eventlet
-    eventlet.monkey_patch()
-    EVENTLET_OK = True
+    from gevent import monkey
+    monkey.patch_all()
+    GEVENT_OK = True
 except ImportError:
-    EVENTLET_OK = False
+    GEVENT_OK = False
 
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -176,7 +176,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-produ
 
 # Configurar SocketIO
 # eventlet es necesario para WebSockets reales bajo gunicorn
-_async_mode = 'eventlet' if EVENTLET_OK else 'threading'
+_async_mode = 'gevent' if GEVENT_OK else 'threading'
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
