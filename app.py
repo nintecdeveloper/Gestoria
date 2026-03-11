@@ -1,6 +1,15 @@
 import os
 import json
-from flask import Flask, render_template, jsonify, request
+
+# ── Eventlet monkey-patch DEBE ir antes de todo lo demás ──────────────────
+try:
+    import eventlet
+    eventlet.monkey_patch()
+    EVENTLET_OK = True
+except ImportError:
+    EVENTLET_OK = False
+
+from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
 import requests
@@ -160,18 +169,23 @@ def send_whatsapp_job(to_phone: str, message: str):
 # ═══════════════════════════════════════════════════════════════
 # INICIALIZAR FLASK Y SOCKETIO
 # ═══════════════════════════════════════════════════════════════
-app = Flask(__name__, template_folder='templates')
+app = Flask(__name__, template_folder='.', static_folder='static')
 app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
 app.config['DEBUG'] = False if app.config['ENV'] == 'production' else True
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 
-# Configurar SocketIO con soporte para Render
+# Configurar SocketIO
+# eventlet es necesario para WebSockets reales bajo gunicorn
+_async_mode = 'eventlet' if EVENTLET_OK else 'threading'
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
     ping_timeout=60,
     ping_interval=25,
-    async_mode='threading'
+    async_mode=_async_mode,
+    logger=False,
+    engineio_logger=False,
+    max_http_buffer_size=20 * 1024 * 1024,  # 20MB para adjuntos
 )
 
 # Almacenar usuarios conectados en tiempo real
@@ -183,24 +197,14 @@ active_chats = {}
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/')
-def home():
-    """Ruta principal - Servir GestióPro"""
-    return render_template('index3.html')
-
 @app.route('/app')
-def dashboard():
-    """Ruta alternativa del dashboard"""
-    return render_template('index3.html')
-
 @app.route('/index')
-def index_alt():
-    """Ruta alternativa - index"""
-    return render_template('index3.html')
-
 @app.route('/gestionpro')
-def gestionpro():
-    """Ruta de la aplicación GestióPro"""
-    return render_template('index3.html')
+def home():
+    """Servir la aplicación"""
+    # Busca index3.html en el mismo directorio que app.py
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return send_from_directory(base_dir, 'index3.html')
 
 # ═══════════════════════════════════════════════════════════════
 # ALMACENAMIENTO EN MEMORIA — MENSAJERÍA
@@ -559,7 +563,8 @@ def api_health():
 @app.errorhandler(404)
 def not_found(error):
     """Manejar errores 404 - Servir la app en lugar de error"""
-    return render_template('index3.html'), 200
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return send_from_directory(base_dir, 'index3.html'), 200
 
 @app.errorhandler(500)
 def server_error(error):

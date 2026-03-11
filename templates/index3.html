@@ -2725,8 +2725,8 @@
     </style>
     <!-- XLSX Library para importar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Socket.IO mensajería en tiempo real -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- Socket.IO — cargado desde el servidor para garantizar compatibilidad de protocolo -->
+    <script src="/socket.io/socket.io.js"></script>
     <script>
       // Fallback: si XLSX no cargó del CDN, usar parser CSV mínimo propio
       window._xlsxReady = typeof XLSX !== 'undefined';
@@ -8145,17 +8145,21 @@
         // Evitar doble conexión
         if (window._socket && window._socket.connected) return;
 
-        const socket = io({
+        // Conectar al mismo servidor que sirve la página
+        // path debe coincidir con la configuración de flask-socketio
+        const socket = io(window.location.origin, {
+          path: '/socket.io',
           transports: ['websocket', 'polling'],
           reconnection: true,
-          reconnectionDelay: 1500,
-          reconnectionAttempts: 10
+          reconnectionDelay: 1000,
+          reconnectionAttempts: Infinity,
+          timeout: 20000,
         });
         window._socket = socket;
 
         // Conectado → autenticar con userId real
         socket.on('connect', () => {
-          console.log('[Socket] Conectado ✓ sid=', socket.id);
+          console.log('[Socket] ✅ Conectado sid=', socket.id, 'transport=', socket.io.engine.transport.name);
           socket.emit('authenticate', {
             userId: currentUser.id,
             username: currentUser.name
@@ -8163,7 +8167,13 @@
         });
 
         socket.on('connect_error', (err) => {
-          console.warn('[Socket] Error:', err.message);
+          console.error('[Socket] ❌ Error conexión:', err.message, err);
+        });
+
+        socket.on('reconnect', (attempt) => {
+          console.log('[Socket] 🔄 Reconectado en intento', attempt);
+          // Re-autenticar tras reconexión
+          socket.emit('authenticate', { userId: currentUser.id, username: currentUser.name });
         });
 
         // ── CHAT GENERAL: recibir historial inicial ──────────────
