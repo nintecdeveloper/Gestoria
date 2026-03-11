@@ -203,115 +203,134 @@ def gestionpro():
     return render_template('index3.html')
 
 # ═══════════════════════════════════════════════════════════════
+# ALMACENAMIENTO EN MEMORIA — MENSAJERÍA EN TIEMPO REAL
+# ═══════════════════════════════════════════════════════════════
+# Chat general: historial compartido por todos los usuarios
+general_chat_messages = []
+general_chat_counter  = 100
+
+# Mensajes privados: { "uid_a-uid_b": [ {id, fromId, toId, ...} ] }
+private_messages = {}
+
+# Mapa sid → userId  (para saber qué usuario cierra sesión)
+sid_to_userid = {}
+
+
+def _conv_key(a, b):
+    return "-".join(str(x) for x in sorted([int(a), int(b)]))
+
+def _now_time():
+    return datetime.now().strftime("%H:%M")
+
+def _today_str():
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+# ═══════════════════════════════════════════════════════════════
 # WEBSOCKET EVENTS — MENSAJERÍA EN TIEMPO REAL
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('connect')
-def handle_connect(auth):
-    """Usuario se conecta al socket"""
-    user_id = request.sid
-    logger.info(f"🔗 [Socket] Usuario conectado: {user_id}")
-    emit('connect_response', {
-        'data': 'Conectado al servidor',
-        'user_id': user_id
-    })
+def handle_connect(auth=None):
+    logger.info(f"🔗 [Socket] Conexión nueva: {request.sid}")
+    emit('connect_ack', {'sid': request.sid})
+
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Usuario se desconecta del socket"""
-    user_id = request.sid
-    if user_id in connected_users:
-        del connected_users[user_id]
-    logger.info(f"❌ [Socket] Usuario desconectado: {user_id}")
+    uid = sid_to_userid.pop(request.sid, None)
+    if uid:
+        leave_room(f"user_{uid}")
+        leave_room("general")
+    connected_users.pop(request.sid, None)
+    logger.info(f"❌ [Socket] Desconectado sid={request.sid} uid={uid}")
 
-@socketio.on('user_login')
-def handle_user_login(data):
-    """Registra un usuario como conectado"""
-    user_id = request.sid
-    username = data.get('username', f'User_{user_id[:8]}')
-    connected_users[user_id] = {
-        'username': username,
-        'sid': user_id,
-        'connected_at': datetime.now().isoformat()
-    }
-    logger.info(f"✅ [Chat] {username} conectado")
-    
-    # Notificar a todos que hay un nuevo usuario online
-    socketio.emit('user_status_update', {
-        'user_id': user_id,
-        'username': username,
-        'status': 'online',
-        'online_users': len(connected_users)
-    }, broadcast=True)
 
-@socketio.on('send_message')
-def handle_message(data):
-    """Recibe un mensaje y lo retransmite a usuarios específicos"""
-    sender_id = request.sid
-    sender_username = data.get('sender_username', 'Usuario')
-    recipient_id = data.get('recipient_id')  # ID del socket del usuario destino
-    message_text = data.get('message', '')
-    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
-    
-    if not message_text.strip():
+@socketio.on('authenticate')
+def handle_authenticate(data):
+    """
+    Llamado por el cliente tras conectar.
+    Registra el userId real (no el sid), entra en salas y envía historial.
+    """
+    user_id  = data.get('userId')
+    username = data.get('username', '')
+    if not user_id:
         return
-    
-    # Crear objeto de mensaje
-    message_obj = {
-        'id': message_id,
-        'sender_id': sender_id,
-        'sender_username': sender_username,
-        'recipient_id': recipient_id,
-        'text': message_text,
-        'timestamp': datetime.now().isoformat(),
-        'read': False
+
+    sid_to_userid[request.sid] = user_id
+    connected_users[request.sid] = {'userId': user_id, 'username': username}
+
+    join_room(f"user_{user_id}")
+    join_room("general")
+    logger.info(f"✅ [Socket] Autenticado userId={user_id} ({username})")
+
+    # Enviar historial del chat general al recién conectado
+    emit('gchat_history', {'messages': general_chat_messages})
+
+
+# ── CHAT GENERAL ─────────────────────────────────────────────────────────────
+
+@socketio.on('gchat_send')
+def handle_gchat_send(data):
+    """Recibe un mensaje del chat general y lo broadcast a TODOS en la sala."""
+    global general_chat_counter
+    msg = {
+        'id':          general_chat_counter,
+        'userId':      data.get('userId'),
+        'text':        data.get('text', ''),
+        'time':        data.get('time', _now_time()),
+        'date':        data.get('date', _today_str()),
+        'attachments': data.get('attachments', []),
     }
-    
-    logger.info(f"💬 [Chat] {sender_username} → {recipient_id[:8]}: {message_text[:50]}")
-    
-    # Enviar al destinatario si está conectado
-    if recipient_id and recipient_id in connected_users:
-        socketio.emit('receive_message', message_obj, room=recipient_id)
-    
-    # Confirmar al remitente que se envió
-    socketio.emit('message_sent', {
-        'message_id': message_id,
-        'status': 'delivered',
-        'timestamp': datetime.now().isoformat()
-    }, room=sender_id)
+    general_chat_counter += 1
+    general_chat_messages.append(msg)
+    logger.info(f"💬 [GChat] userId={msg['userId']}: {msg['text'][:60]}")
+    # Emitir a TODOS en la sala 'general' (incluido el propio emisor)
+    socketio.emit('gchat_message', msg, room='general')
 
-@socketio.on('typing')
-def handle_typing(data):
-    """Notifica que alguien está escribiendo"""
-    sender_id = request.sid
-    recipient_id = data.get('recipient_id')
-    sender_username = data.get('sender_username', 'Usuario')
-    
-    if recipient_id and recipient_id in connected_users:
-        socketio.emit('user_typing', {
-            'sender_id': sender_id,
-            'sender_username': sender_username
-        }, room=recipient_id)
 
-@socketio.on('stop_typing')
-def handle_stop_typing(data):
-    """Notifica que dejó de escribir"""
-    sender_id = request.sid
-    recipient_id = data.get('recipient_id')
-    
-    if recipient_id and recipient_id in connected_users:
-        socketio.emit('user_stop_typing', {
-            'sender_id': sender_id
-        }, room=recipient_id)
+# ── MENSAJERÍA PRIVADA ────────────────────────────────────────────────────────
 
-@socketio.on('get_online_users')
-def handle_get_online_users():
-    """Retorna lista de usuarios online"""
-    online_list = list(connected_users.values())
-    socketio.emit('online_users_list', {
-        'users': online_list,
-        'count': len(online_list)
-    })
+@socketio.on('private_send')
+def handle_private_send(data):
+    """Recibe un mensaje privado y lo entrega al emisor y al receptor."""
+    from_id = data.get('fromId')
+    to_id   = data.get('toId')
+    if not from_id or not to_id:
+        return
+
+    key = _conv_key(from_id, to_id)
+    private_messages.setdefault(key, [])
+
+    import uuid as _uuid
+    msg = {
+        'id':          str(_uuid.uuid4()),
+        'fromId':      int(from_id),
+        'toId':        int(to_id),
+        'text':        data.get('text', ''),
+        'time':        data.get('time', _now_time()),
+        'attachments': data.get('attachments', []),
+    }
+    private_messages[key].append(msg)
+    logger.info(f"🔒 [Private] {from_id}→{to_id}: {msg['text'][:60]}")
+
+    # Entregar a ambas salas (emisor Y receptor)
+    socketio.emit('private_message', msg, room=f"user_{from_id}")
+    socketio.emit('private_message', msg, room=f"user_{to_id}")
+
+
+@socketio.on('request_private_history')
+def handle_private_history(data):
+    """Devuelve el historial de la conversación entre dos usuarios."""
+    a = data.get('userId')
+    b = data.get('otherId')
+    if not a or not b:
+        return
+    key  = _conv_key(a, b)
+    msgs = private_messages.get(key, [])
+    emit('private_history', {'otherId': int(b), 'messages': msgs})
+
+
 
 # ═══════════════════════════════════════════════════════════════
 # API WHATSAPP — ENVÍO AUTOMÁTICO VÍA META
