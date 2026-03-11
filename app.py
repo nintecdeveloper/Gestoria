@@ -1,17 +1,22 @@
 import os
-import requests
 import json
-import io
-from flask import Flask, render_template, jsonify, request, send_file
+from flask import Flask, render_template, jsonify, request
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
-from werkzeug.utils import secure_filename
-import psycopg2
-from psycopg2.extras import RealDictCursor
-import pandas as pd
-import openpyxl
+import requests
+import logging
 
 # ═══════════════════════════════════════════════════════════════
-# CONFIGURACIÓN WHATSAPP META API
+# META WHATSAPP API — IMPORTACIÓN CONDICIONAL
+# Ahora usamos Meta Cloud API en lugar de Twilio
+# ═══════════════════════════════════════════════════════════════
+META_AVAILABLE = True
+REQUESTS_AVAILABLE = True
+
+# ═══════════════════════════════════════════════════════════════
+# APSCHEDULER — IMPORTACIÓN CONDICIONAL
+# Programa el envío de WhatsApp desde el servidor, independiente
+# de si el navegador está abierto o cerrado.
 # ═══════════════════════════════════════════════════════════════
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
@@ -22,176 +27,156 @@ except ImportError:
     SCHEDULER_AVAILABLE = False
     print("⚠️  [Scheduler] APScheduler no instalado. pip install apscheduler para activarlo.")
 
+# ═══════════════════════════════════════════════════════════════
+# CONFIGURACIÓN META WHATSAPP API
+# ─────────────────────────────────────────────────────────────
+# PASOS PARA ACTIVAR (cuando tengas las credenciales de Meta):
+#
+#   1. Ve a https://developers.facebook.com/
+#   2. Crea un proyecto y selecciona "WhatsApp"
+#   3. En la sección "Getting Started", obtén:
+#        · Phone Number ID (de tu número de negocio)
+#        · Access Token (con permisos whatsapp_business_messaging)
+#        · Business Account ID
+#   4. En Render, ve a tu servicio → Environment → Add Environment Variable
+#        · META_PHONE_NUMBER_ID = 1234567890123456789
+#        · META_ACCESS_TOKEN = EAAxxxxxxxxxxxxxxxxxxxxxxxx
+#        · META_BUSINESS_ACCOUNT_ID = xxxxxxxxxx
+#   5. El código está adaptado para usar estas variables
+#
+# ─────────────────────────────────────────────────────────────
 META_PHONE_NUMBER_ID = os.environ.get('META_PHONE_NUMBER_ID', None)
 META_ACCESS_TOKEN = os.environ.get('META_ACCESS_TOKEN', None)
-META_API_BASE_URL = "https://graph.instagram.com/v18.0"
+META_BUSINESS_ACCOUNT_ID = os.environ.get('META_BUSINESS_ACCOUNT_ID', None)
+META_API_VERSION = "v18.0"
+META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/messages"
 
 # ═══════════════════════════════════════════════════════════════
-# CONFIGURACIÓN BASE DE DATOS POSTGRESQL
+# LOGGING
 # ═══════════════════════════════════════════════════════════════
-DATABASE_URL = os.environ.get('DATABASE_URL', None)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def get_db_connection():
+def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
     """
-    Obtiene una conexión a la BD PostgreSQL.
-    Maneja la URL de conexión de Render que usa postgresql:// 
+    Envía un mensaje de WhatsApp via Meta Cloud API.
+    
+    Args:
+        to_phone: Número de teléfono destino (ej: +34612345678)
+        message: Contenido del mensaje
+        message_type: Tipo de mensaje ('text', 'template', etc.)
+    
+    Returns:
+        dict: {'ok': True/False, 'message_id': '...', 'error': '...'}
     """
-    try:
-        if not DATABASE_URL:
-            print("⚠️  DATABASE_URL no configurada")
-            return None
-        
-        # Render usa postgres:// pero psycopg2 necesita postgresql://
-        db_url = DATABASE_URL.replace('postgres://', 'postgresql://')
-        conn = psycopg2.connect(db_url)
-        return conn
-    except psycopg2.Error as e:
-        print(f"❌ Error conectando a BD: {e}")
-        return None
-
-def init_db():
-    """
-    Inicializa la base de datos si no existe.
-    Crea todas las tablas necesarias.
-    """
-    conn = get_db_connection()
-    if not conn:
-        print("❌ No se pudo conectar a la BD")
-        return False
+    if not META_PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
+        return {
+            'ok': False,
+            'error': 'Credenciales Meta no configuradas en variables de entorno.',
+            'configured': False
+        }
+    
+    # Normalizar número
+    phone = to_phone.strip()
+    if not phone.startswith('+'):
+        phone = '+34' + phone.lstrip('0')
+    
+    # Preparar payload según tipo de mensaje
+    if message_type == "text":
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": phone.replace('+', ''),  # Meta API requiere sin el +
+            "type": "text",
+            "text": {
+                "preview_url": False,
+                "body": message
+            }
+        }
+    else:
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": phone.replace('+', ''),
+            "type": "template",
+            "template": {
+                "name": message_type,
+                "language": {
+                    "code": "es_ES"
+                }
+            }
+        }
+    
+    headers = {
+        "Authorization": f"Bearer {META_ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    url = META_API_URL.format(phone_id=META_PHONE_NUMBER_ID)
     
     try:
-        cur = conn.cursor()
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response.raise_for_status()
         
-        # Tabla de usuarios
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(100) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                name VARCHAR(200) NOT NULL,
-                email VARCHAR(200),
-                phone VARCHAR(20),
-                role VARCHAR(50),
-                departamento VARCHAR(100),
-                color VARCHAR(20),
-                active BOOLEAN DEFAULT true,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+        result = response.json()
+        logger.info(f"✅ [Meta API] Mensaje enviado a {phone} · ID: {result.get('messages', [{}])[0].get('id')}")
         
-        # Tabla de clientes
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS clients (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(200) NOT NULL,
-                email VARCHAR(200),
-                phone VARCHAR(20),
-                address VARCHAR(300),
-                city VARCHAR(100),
-                cif VARCHAR(20),
-                notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Tabla de conversaciones (for organization)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS conversations (
-                id SERIAL PRIMARY KEY,
-                user1_id INTEGER NOT NULL REFERENCES users(id),
-                user2_id INTEGER NOT NULL REFERENCES users(id),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user1_id, user2_id)
-            )
-        """)
-        
-        # Tabla de mensajes privados
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id SERIAL PRIMARY KEY,
-                conversation_id INTEGER NOT NULL REFERENCES conversations(id),
-                sender_id INTEGER NOT NULL REFERENCES users(id),
-                text TEXT,
-                read BOOLEAN DEFAULT false,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Tabla de adjuntos en mensajes
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS message_attachments (
-                id SERIAL PRIMARY KEY,
-                message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-                filename VARCHAR(300) NOT NULL,
-                file_size INTEGER,
-                file_type VARCHAR(100),
-                file_data BYTEA NOT NULL,
-                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Tabla de mensajes en chat general
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS general_chat_messages (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES users(id),
-                text TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Tabla de eventos/citas
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS events (
-                id SERIAL PRIMARY KEY,
-                owner_id INTEGER NOT NULL REFERENCES users(id),
-                assigned_to INTEGER REFERENCES users(id),
-                client_name VARCHAR(200),
-                service VARCHAR(200),
-                event_date DATE,
-                time_start TIME,
-                time_end TIME,
-                notes TEXT,
-                private BOOLEAN DEFAULT false,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        conn.commit()
-        print("✅ Base de datos inicializada correctamente")
-        return True
-    except psycopg2.Error as e:
-        print(f"❌ Error inicializando BD: {e}")
-        return False
-    finally:
-        cur.close()
-        conn.close()
+        return {
+            'ok': True,
+            'message_id': result.get('messages', [{}])[0].get('id'),
+            'phone': phone
+        }
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ [Meta API] Error al enviar a {phone}: {str(e)}")
+        return {
+            'ok': False,
+            'error': f'Error Meta API: {str(e)}'
+        }
+    except Exception as e:
+        logger.error(f"❌ [Meta API] Error inesperado: {str(e)}")
+        return {
+            'ok': False,
+            'error': str(e)
+        }
 
 # ═══════════════════════════════════════════════════════════════
-# INICIALIZAR FLASK Y SCHEDULER
+# SCHEDULER — INICIALIZACIÓN
 # ═══════════════════════════════════════════════════════════════
-app = Flask(__name__, template_folder='templates')
-app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
-app.config['DEBUG'] = False if app.config['ENV'] == 'production' else True
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file upload
-
-UPLOAD_FOLDER = '/tmp/uploads'
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'zip'}
-
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
 scheduler = None
 if SCHEDULER_AVAILABLE:
     scheduler = BackgroundScheduler(timezone='Europe/Madrid')
     scheduler.start()
-    print("✅ [Scheduler] APScheduler iniciado correctamente.")
+    logger.info("✅ [Scheduler] APScheduler iniciado correctamente.")
 
-# Inicializar BD
-with app.app_context():
-    init_db()
+def send_whatsapp_job(to_phone: str, message: str):
+    """
+    Tarea ejecutada por el scheduler en el momento programado.
+    Envía el WhatsApp via Meta Cloud API directamente desde el servidor.
+    """
+    result = send_whatsapp_meta(to_phone, message)
+    if result['ok']:
+        logger.info(f"✅ [Scheduler/Meta] Recordatorio enviado a {to_phone}")
+    else:
+        logger.error(f"❌ [Scheduler/Meta] No se pudo enviar a {to_phone}: {result.get('error')}")
+
+# ═══════════════════════════════════════════════════════════════
+# INICIALIZAR FLASK Y SOCKETIO
+# ═══════════════════════════════════════════════════════════════
+app = Flask(__name__, template_folder='templates')
+app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
+app.config['DEBUG'] = False if app.config['ENV'] == 'production' else True
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
+
+# Configurar SocketIO con soporte para Render
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    ping_timeout=60,
+    ping_interval=25,
+    async_mode='threading'
+)
+
+# Almacenar usuarios conectados en tiempo real
+connected_users = {}
+active_chats = {}
 
 # ═══════════════════════════════════════════════════════════════
 # RUTAS PRINCIPALES
@@ -202,481 +187,351 @@ def home():
     """Ruta principal - Servir GestióPro"""
     return render_template('index3.html')
 
+@app.route('/app')
+def dashboard():
+    """Ruta alternativa del dashboard"""
+    return render_template('index3.html')
+
+@app.route('/index')
+def index_alt():
+    """Ruta alternativa - index"""
+    return render_template('index3.html')
+
+@app.route('/gestionpro')
+def gestionpro():
+    """Ruta de la aplicación GestióPro"""
+    return render_template('index3.html')
+
+# ═══════════════════════════════════════════════════════════════
+# WEBSOCKET EVENTS — MENSAJERÍA EN TIEMPO REAL
+# ═══════════════════════════════════════════════════════════════
+
+@socketio.on('connect')
+def handle_connect(auth):
+    """Usuario se conecta al socket"""
+    user_id = request.sid
+    logger.info(f"🔗 [Socket] Usuario conectado: {user_id}")
+    emit('connect_response', {
+        'data': 'Conectado al servidor',
+        'user_id': user_id
+    })
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Usuario se desconecta del socket"""
+    user_id = request.sid
+    if user_id in connected_users:
+        del connected_users[user_id]
+    logger.info(f"❌ [Socket] Usuario desconectado: {user_id}")
+
+@socketio.on('user_login')
+def handle_user_login(data):
+    """Registra un usuario como conectado"""
+    user_id = request.sid
+    username = data.get('username', f'User_{user_id[:8]}')
+    connected_users[user_id] = {
+        'username': username,
+        'sid': user_id,
+        'connected_at': datetime.now().isoformat()
+    }
+    logger.info(f"✅ [Chat] {username} conectado")
+    
+    # Notificar a todos que hay un nuevo usuario online
+    socketio.emit('user_status_update', {
+        'user_id': user_id,
+        'username': username,
+        'status': 'online',
+        'online_users': len(connected_users)
+    }, broadcast=True)
+
+@socketio.on('send_message')
+def handle_message(data):
+    """Recibe un mensaje y lo retransmite a usuarios específicos"""
+    sender_id = request.sid
+    sender_username = data.get('sender_username', 'Usuario')
+    recipient_id = data.get('recipient_id')  # ID del socket del usuario destino
+    message_text = data.get('message', '')
+    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
+    
+    if not message_text.strip():
+        return
+    
+    # Crear objeto de mensaje
+    message_obj = {
+        'id': message_id,
+        'sender_id': sender_id,
+        'sender_username': sender_username,
+        'recipient_id': recipient_id,
+        'text': message_text,
+        'timestamp': datetime.now().isoformat(),
+        'read': False
+    }
+    
+    logger.info(f"💬 [Chat] {sender_username} → {recipient_id[:8]}: {message_text[:50]}")
+    
+    # Enviar al destinatario si está conectado
+    if recipient_id and recipient_id in connected_users:
+        socketio.emit('receive_message', message_obj, room=recipient_id)
+    
+    # Confirmar al remitente que se envió
+    socketio.emit('message_sent', {
+        'message_id': message_id,
+        'status': 'delivered',
+        'timestamp': datetime.now().isoformat()
+    }, room=sender_id)
+
+@socketio.on('typing')
+def handle_typing(data):
+    """Notifica que alguien está escribiendo"""
+    sender_id = request.sid
+    recipient_id = data.get('recipient_id')
+    sender_username = data.get('sender_username', 'Usuario')
+    
+    if recipient_id and recipient_id in connected_users:
+        socketio.emit('user_typing', {
+            'sender_id': sender_id,
+            'sender_username': sender_username
+        }, room=recipient_id)
+
+@socketio.on('stop_typing')
+def handle_stop_typing(data):
+    """Notifica que dejó de escribir"""
+    sender_id = request.sid
+    recipient_id = data.get('recipient_id')
+    
+    if recipient_id and recipient_id in connected_users:
+        socketio.emit('user_stop_typing', {
+            'sender_id': sender_id
+        }, room=recipient_id)
+
+@socketio.on('get_online_users')
+def handle_get_online_users():
+    """Retorna lista de usuarios online"""
+    online_list = list(connected_users.values())
+    socketio.emit('online_users_list', {
+        'users': online_list,
+        'count': len(online_list)
+    })
+
+# ═══════════════════════════════════════════════════════════════
+# API WHATSAPP — ENVÍO AUTOMÁTICO VÍA META
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/whatsapp/send', methods=['POST'])
+def send_whatsapp():
+    """
+    Envía un mensaje de WhatsApp INMEDIATAMENTE via Meta Cloud API.
+    Usado para el timing 'now' (envío al guardar la cita).
+
+    Body JSON esperado:
+    {
+        "to":      "+34612345678",
+        "message": "Hola, le recordamos su cita..."
+    }
+
+    Respuesta OK:    { "ok": true,  "message_id": "wamid..." }
+    Respuesta error: { "ok": false, "error": "motivo" }
+    """
+    data = request.get_json(silent=True) or {}
+    to_phone = data.get('to', '').strip()
+    message  = data.get('message', '').strip()
+
+    if not to_phone:
+        return jsonify({'ok': False, 'error': 'Falta el campo "to" (teléfono destino)'}), 400
+    if not message:
+        return jsonify({'ok': False, 'error': 'Falta el campo "message"'}), 400
+
+    result = send_whatsapp_meta(to_phone, message)
+    
+    if result['ok']:
+        return jsonify({'ok': True, 'message_id': result.get('message_id')})
+    else:
+        return jsonify({
+            'ok': False,
+            'error': result.get('error'),
+            'configured': result.get('configured', False)
+        }), 503 if not result.get('configured') else 500
+
+
+@app.route('/api/whatsapp/schedule', methods=['POST'])
+def schedule_whatsapp():
+    """
+    Programa el envío de un WhatsApp en una fecha/hora futura.
+    El servidor lo enviará automáticamente aunque el navegador esté cerrado.
+    Usado para los timings '1h', '1d', '1w'.
+
+    Body JSON esperado:
+    {
+        "to":          "+34612345678",
+        "message":     "Hola, le recordamos su cita...",
+        "send_at":     "2025-06-15T10:00:00",   ← fecha/hora de Madrid
+        "job_id":      "wa_evento_42"            ← ID único (para evitar duplicados)
+    }
+
+    Respuesta OK:    { "ok": true,  "job_id": "wa_evento_42", "scheduled_for": "..." }
+    Respuesta error: { "ok": false, "error": "motivo" }
+    """
+    if not SCHEDULER_AVAILABLE or not scheduler:
+        return jsonify({
+            'ok': False,
+            'error': 'APScheduler no disponible. pip install apscheduler',
+            'configured': False
+        }), 503
+
+    data = request.get_json(silent=True) or {}
+    to_phone = data.get('to', '').strip()
+    message  = data.get('message', '').strip()
+    send_at  = data.get('send_at', '').strip()
+    job_id   = data.get('job_id', '').strip()
+
+    if not to_phone or not message or not send_at or not job_id:
+        return jsonify({'ok': False, 'error': 'Faltan campos: to, message, send_at, job_id'}), 400
+
+    # Parsear la fecha de envío
+    try:
+        send_dt = datetime.fromisoformat(send_at)
+        if send_dt.tzinfo is None:
+            madrid = pytz.timezone('Europe/Madrid')
+            send_dt = madrid.localize(send_dt)
+    except ValueError:
+        return jsonify({'ok': False, 'error': f'Formato de send_at inválido: {send_at}'}), 400
+
+    # Si la fecha ya pasó, no programar
+    now_tz = datetime.now(pytz.timezone('Europe/Madrid'))
+    if send_dt <= now_tz:
+        return jsonify({'ok': False, 'error': 'La fecha de envío ya ha pasado'}), 400
+
+    # Eliminar job anterior con el mismo ID si existe
+    try:
+        if scheduler.get_job(job_id):
+            scheduler.remove_job(job_id)
+    except Exception:
+        pass
+
+    # Programar el trabajo
+    try:
+        scheduler.add_job(
+            func=send_whatsapp_job,
+            trigger=DateTrigger(run_date=send_dt),
+            args=[to_phone, message],
+            id=job_id,
+            replace_existing=True
+        )
+        logger.info(f"📅 [Scheduler] Meta WA programado para {send_dt.isoformat()} → {to_phone} (job: {job_id})")
+        return jsonify({
+            'ok': True,
+            'job_id': job_id,
+            'scheduled_for': send_dt.isoformat()
+        })
+    except Exception as e:
+        logger.error(f"❌ [Scheduler] Error al programar job {job_id}: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/whatsapp/cancel/<job_id>', methods=['DELETE'])
+def cancel_whatsapp(job_id):
+    """
+    Cancela un recordatorio de WhatsApp programado.
+    Útil si se elimina o modifica una cita.
+
+    Respuesta OK:    { "ok": true }
+    Respuesta error: { "ok": false, "error": "motivo" }
+    """
+    if not SCHEDULER_AVAILABLE or not scheduler:
+        return jsonify({'ok': False, 'error': 'Scheduler no disponible'}), 503
+    try:
+        job = scheduler.get_job(job_id)
+        if job:
+            scheduler.remove_job(job_id)
+            logger.info(f"🗑️  [Scheduler] Job cancelado: {job_id}")
+            return jsonify({'ok': True})
+        else:
+            return jsonify({'ok': False, 'error': 'Job no encontrado'}), 404
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/whatsapp/status', methods=['GET'])
+def whatsapp_status():
+    """
+    Comprueba si Meta API y el Scheduler están listos.
+    
+    Respuesta:
+    {
+        "meta_ready":      true/false,
+        "scheduler_ready": true/false,
+        "fully_ready":     true/false,
+        "reason":          "..."
+    }
+    """
+    meta_ok = bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN)
+    scheduler_ok = SCHEDULER_AVAILABLE and scheduler is not None
+
+    reasons = []
+    if not meta_ok:
+        reasons.append("Variables de entorno Meta no configuradas (META_PHONE_NUMBER_ID, META_ACCESS_TOKEN)")
+    if not SCHEDULER_AVAILABLE:
+        reasons.append("APScheduler no instalado (pip install apscheduler)")
+    elif not scheduler_ok:
+        reasons.append("Scheduler no inicializado")
+
+    return jsonify({
+        'meta_ready':      meta_ok,
+        'scheduler_ready': scheduler_ok,
+        'fully_ready':     meta_ok and scheduler_ok,
+        'reason':          ' · '.join(reasons) if reasons else 'Todo configurado correctamente'
+    })
+
+# ═══════════════════════════════════════════════════════════════
+# WEBHOOK PARA RECIBIR MENSAJES DE META (Opcional)
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/whatsapp/webhook', methods=['GET'])
+def whatsapp_webhook_verify():
+    """Verifica el webhook con Meta"""
+    token = request.args.get('hub.verify_token')
+    challenge = request.args.get('hub.challenge')
+    verify_token = os.environ.get('WHATSAPP_WEBHOOK_TOKEN', 'your_verify_token')
+    
+    if token == verify_token:
+        return challenge
+    return 'Invalid token', 403
+
+@app.route('/api/whatsapp/webhook', methods=['POST'])
+def whatsapp_webhook_receive():
+    """Recibe mensajes entrantes de Meta"""
+    data = request.get_json()
+    logger.info(f"📨 [Webhook] Mensaje recibido de Meta: {json.dumps(data, indent=2)}")
+    # Aquí puedes procesar mensajes entrantes si lo necesitas
+    return jsonify({'status': 'ok'}), 200
+
+# ═══════════════════════════════════════════════════════════════
+# RUTAS API — ESTADO Y HEALTH CHECK
+# ═══════════════════════════════════════════════════════════════
+
 @app.route('/api/status')
 def api_status():
     """Endpoint para verificar estado de la API"""
-    db_ready = get_db_connection() is not None
     return jsonify({
         'status': 'ok',
         'app': 'GestióPro',
         'version': '3.0',
         'timestamp': datetime.now().isoformat(),
-        'database_ready': db_ready,
-        'whatsapp_ready': bool(META_ACCESS_TOKEN and META_PHONE_NUMBER_ID),
+        'environment': app.config['ENV'],
+        'meta_ready': bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN),
         'scheduler_ready': SCHEDULER_AVAILABLE and scheduler is not None,
+        'websocket_ready': True,
+        'connected_users': len(connected_users)
     })
 
 @app.route('/api/health')
 def api_health():
     """Endpoint de health check para Render"""
-    return jsonify({'status': 'healthy', 'service': 'gestionpro'}), 200
-
-# ═══════════════════════════════════════════════════════════════
-# API MENSAJERÍA PRIVADA (NEW - Database backed)
-# ═══════════════════════════════════════════════════════════════
-
-@app.route('/api/messages/<int:other_user_id>', methods=['GET'])
-def get_messages(other_user_id):
-    """
-    Obtiene todos los mensajes entre el usuario actual y otro usuario.
-    Se debe enviar el user_id del usuario actual en la sesión o headers.
-    
-    Returns: { messages: [{ id, sender_id, text, attachments, created_at, read }] }
-    """
-    current_user_id = request.headers.get('X-User-ID', type=int)
-    
-    if not current_user_id:
-        return jsonify({'ok': False, 'error': 'No user ID provided'}), 400
-    
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'ok': False, 'error': 'Database unavailable'}), 503
-    
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        # Obtener o crear conversación
-        cur.execute("""
-            SELECT id FROM conversations 
-            WHERE (user1_id = %s AND user2_id = %s) 
-               OR (user1_id = %s AND user2_id = %s)
-        """, (current_user_id, other_user_id, other_user_id, current_user_id))
-        
-        conv_result = cur.fetchone()
-        if not conv_result:
-            # Crear nueva conversación
-            cur.execute("""
-                INSERT INTO conversations (user1_id, user2_id)
-                VALUES (%s, %s)
-                RETURNING id
-            """, (min(current_user_id, other_user_id), max(current_user_id, other_user_id)))
-            conv_id = cur.fetchone()['id']
-            conn.commit()
-        else:
-            conv_id = conv_result['id']
-        
-        # Obtener mensajes
-        cur.execute("""
-            SELECT m.id, m.sender_id, m.text, m.read, m.created_at,
-                   array_agg(
-                       json_build_object(
-                           'id', ma.id,
-                           'filename', ma.filename,
-                           'file_size', ma.file_size,
-                           'file_type', ma.file_type
-                       ) ORDER BY ma.id
-                   ) FILTER (WHERE ma.id IS NOT NULL) as attachments
-            FROM messages m
-            LEFT JOIN message_attachments ma ON m.id = ma.message_id
-            WHERE m.conversation_id = %s
-            GROUP BY m.id
-            ORDER BY m.created_at ASC
-        """, (conv_id,))
-        
-        messages = cur.fetchall()
-        
-        # Marcar como leídos los que no son del usuario actual
-        cur.execute("""
-            UPDATE messages SET read = true 
-            WHERE conversation_id = %s AND sender_id != %s
-        """, (conv_id, current_user_id))
-        conn.commit()
-        
-        return jsonify({
-            'ok': True,
-            'conversation_id': conv_id,
-            'messages': [dict(m) for m in messages]
-        })
-    
-    except psycopg2.Error as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
-    finally:
-        cur.close()
-        conn.close()
-
-@app.route('/api/messages', methods=['POST'])
-def send_message():
-    """
-    Envía un mensaje privado entre dos usuarios.
-    
-    Body JSON:
-    {
-        "to_user_id": 2,
-        "text": "Hola, ¿qué tal?",
-        "attachments": [{ "filename": "doc.pdf", "file_data": "base64..." }]  // optional
-    }
-    
-    Returns: { ok: true, message_id: 123, created_at: "..." }
-    """
-    current_user_id = request.headers.get('X-User-ID', type=int)
-    
-    if not current_user_id:
-        return jsonify({'ok': False, 'error': 'No user ID provided'}), 400
-    
-    data = request.get_json(silent=True) or {}
-    to_user_id = data.get('to_user_id')
-    text = data.get('text', '').strip()
-    attachments = data.get('attachments', [])
-    
-    if not to_user_id or (not text and not attachments):
-        return jsonify({'ok': False, 'error': 'Missing required fields'}), 400
-    
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'ok': False, 'error': 'Database unavailable'}), 503
-    
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        # Obtener o crear conversación
-        cur.execute("""
-            SELECT id FROM conversations 
-            WHERE (user1_id = %s AND user2_id = %s) 
-               OR (user1_id = %s AND user2_id = %s)
-        """, (current_user_id, to_user_id, to_user_id, current_user_id))
-        
-        conv_result = cur.fetchone()
-        if not conv_result:
-            cur.execute("""
-                INSERT INTO conversations (user1_id, user2_id)
-                VALUES (%s, %s)
-                RETURNING id
-            """, (min(current_user_id, to_user_id), max(current_user_id, to_user_id)))
-            conv_id = cur.fetchone()['id']
-        else:
-            conv_id = conv_result['id']
-        
-        # Insertar mensaje
-        cur.execute("""
-            INSERT INTO messages (conversation_id, sender_id, text, read)
-            VALUES (%s, %s, %s, true)
-            RETURNING id, created_at
-        """, (conv_id, current_user_id, text or None))
-        
-        msg_result = cur.fetchone()
-        message_id = msg_result['id']
-        created_at = msg_result['created_at']
-        
-        # Insertar adjuntos si existen
-        if attachments:
-            for att in attachments:
-                file_data = att.get('file_data', '')
-                filename = secure_filename(att.get('filename', 'file'))
-                file_type = att.get('file_type', '')
-                file_size = att.get('file_size', 0)
-                
-                # Convertir base64 a bytes
-                if isinstance(file_data, str):
-                    import base64
-                    try:
-                        file_bytes = base64.b64decode(file_data)
-                    except:
-                        file_bytes = file_data.encode()
-                else:
-                    file_bytes = file_data
-                
-                cur.execute("""
-                    INSERT INTO message_attachments 
-                    (message_id, filename, file_size, file_type, file_data)
-                    VALUES (%s, %s, %s, %s, %s)
-                """, (message_id, filename, len(file_bytes), file_type, file_bytes))
-        
-        conn.commit()
-        
-        return jsonify({
-            'ok': True,
-            'message_id': message_id,
-            'created_at': created_at.isoformat() if created_at else datetime.now().isoformat()
-        })
-    
-    except psycopg2.Error as e:
-        conn.rollback()
-        return jsonify({'ok': False, 'error': str(e)}), 500
-    finally:
-        cur.close()
-        conn.close()
-
-@app.route('/api/messages/<int:message_id>/attachments/<int:att_id>/download', methods=['GET'])
-def download_attachment(message_id, att_id):
-    """
-    Descarga un adjunto específico de un mensaje.
-    """
-    current_user_id = request.headers.get('X-User-ID', type=int)
-    
-    if not current_user_id:
-        return jsonify({'ok': False, 'error': 'No user ID provided'}), 400
-    
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'ok': False, 'error': 'Database unavailable'}), 503
-    
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        # Verificar que el usuario tiene acceso a este adjunto
-        cur.execute("""
-            SELECT ma.filename, ma.file_data, ma.file_type
-            FROM message_attachments ma
-            JOIN messages m ON ma.message_id = m.id
-            JOIN conversations c ON m.conversation_id = c.id
-            WHERE ma.id = %s 
-              AND (c.user1_id = %s OR c.user2_id = %s)
-        """, (att_id, current_user_id, current_user_id))
-        
-        att = cur.fetchone()
-        if not att:
-            return jsonify({'ok': False, 'error': 'Attachment not found'}), 404
-        
-        return send_file(
-            io.BytesIO(att['file_data']),
-            mimetype=att['file_type'] or 'application/octet-stream',
-            as_attachment=True,
-            download_name=att['filename']
-        )
-    
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
-    finally:
-        cur.close()
-        conn.close()
-
-# ═══════════════════════════════════════════════════════════════
-# API CLIENTES
-# ═══════════════════════════════════════════════════════════════
-
-@app.route('/api/clients', methods=['GET'])
-def get_clients():
-    """Obtiene todos los clientes"""
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'ok': False, 'error': 'Database unavailable'}), 503
-    
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM clients ORDER BY created_at DESC")
-        clients = cur.fetchall()
-        return jsonify({'ok': True, 'clients': [dict(c) for c in clients]})
-    except psycopg2.Error as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
-    finally:
-        cur.close()
-        conn.close()
-
-@app.route('/api/clients', methods=['POST'])
-def create_client():
-    """Crea un nuevo cliente"""
-    data = request.get_json(silent=True) or {}
-    
-    name = data.get('name', '').strip()
-    phone = data.get('phone', '').strip()
-    email = data.get('email', '').strip()
-    
-    if not name or not phone:
-        return jsonify({'ok': False, 'error': 'Name and phone are required'}), 400
-    
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'ok': False, 'error': 'Database unavailable'}), 503
-    
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("""
-            INSERT INTO clients (name, phone, email)
-            VALUES (%s, %s, %s)
-            RETURNING id, created_at
-        """, (name, phone, email or None))
-        result = cur.fetchone()
-        conn.commit()
-        
-        return jsonify({'ok': True, 'client': dict(result)})
-    except psycopg2.Error as e:
-        conn.rollback()
-        return jsonify({'ok': False, 'error': str(e)}), 500
-    finally:
-        cur.close()
-        conn.close()
-
-@app.route('/api/clients/import/excel', methods=['POST'])
-def import_clients_excel():
-    """
-    Importa clientes desde un archivo Excel.
-    El Excel debe tener 2 columnas: nombre (col 1) y teléfono (col 2)
-    
-    Returns: { ok: true, imported: 5, duplicates: 2 }
-    """
-    if 'file' not in request.files:
-        return jsonify({'ok': False, 'error': 'No file provided'}), 400
-    
-    file = request.files['file']
-    if not file.filename.endswith(('.xls', '.xlsx')):
-        return jsonify({'ok': False, 'error': 'Only .xls and .xlsx files are allowed'}), 400
-    
-    try:
-        # Leer Excel
-        df = pd.read_excel(file, sheet_name=0, header=None)
-        
-        # Esperar exactamente 2 columnas (nombre, teléfono)
-        if df.shape[1] < 2:
-            return jsonify({'ok': False, 'error': 'Excel debe tener al menos 2 columnas'}), 400
-        
-        # Extraer columnas
-        names = df.iloc[:, 0].astype(str).str.strip()
-        phones = df.iloc[:, 1].astype(str).str.strip()
-        
-        conn = get_db_connection()
-        if not conn:
-            return jsonify({'ok': False, 'error': 'Database unavailable'}), 503
-        
-        cur = conn.cursor()
-        imported = 0
-        duplicates = 0
-        
-        for name, phone in zip(names, phones):
-            name = name.strip()
-            phone = phone.strip()
-            
-            if not name or not phone or name.lower() == 'nan':
-                continue
-            
-            # Verificar duplicados
-            cur.execute("SELECT id FROM clients WHERE name = %s", (name,))
-            if cur.fetchone():
-                duplicates += 1
-                continue
-            
-            # Insertar
-            try:
-                cur.execute(
-                    "INSERT INTO clients (name, phone) VALUES (%s, %s)",
-                    (name, phone)
-                )
-                imported += 1
-            except psycopg2.IntegrityError:
-                conn.rollback()
-                duplicates += 1
-                continue
-        
-        conn.commit()
-        
-        return jsonify({
-            'ok': True,
-            'imported': imported,
-            'duplicates': duplicates,
-            'total_processed': len(names)
-        })
-    
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
-    finally:
-        if conn:
-            cur.close()
-            conn.close()
-
-# ═══════════════════════════════════════════════════════════════
-# API WHATSAPP (Meta Cloud API)
-# ═══════════════════════════════════════════════════════════════
-
-def get_meta_headers():
-    """Devuelve headers necesarios para autenticarse con Meta API."""
-    if not META_ACCESS_TOKEN:
-        return None, "Token de acceso Meta no configurado"
-    return {
-        'Authorization': f'Bearer {META_ACCESS_TOKEN}',
-        'Content-Type': 'application/json'
-    }, None
-
-def send_whatsapp_via_meta(to_phone: str, message: str) -> tuple:
-    """Envía un mensaje de WhatsApp via Meta Cloud API"""
-    headers, err = get_meta_headers()
-    if err:
-        return False, None, err
-
-    # Normalizar número
-    phone = to_phone.strip()
-    if not phone.startswith('+'):
-        if phone.startswith('34'):
-            phone = '+' + phone
-        elif len(phone) == 9 and phone[0] in '69':
-            phone = '+34' + phone
-        else:
-            phone = '+' + phone.lstrip('0')
-
-    payload = {
-        'messaging_product': 'whatsapp',
-        'recipient_type': 'individual',
-        'to': phone,
-        'type': 'text',
-        'text': {
-            'preview_url': False,
-            'body': message
-        }
-    }
-
-    try:
-        url = f"{META_API_BASE_URL}/{META_PHONE_NUMBER_ID}/messages"
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
-        
-        if response.status_code in [200, 201]:
-            data = response.json()
-            msg_id = data.get('messages', [{}])[0].get('id', 'unknown')
-            print(f"✅ [Meta/WA] Enviado a {phone} · Message ID: {msg_id}")
-            return True, msg_id, None
-        else:
-            error_detail = response.json().get('error', {}).get('message', 'Error desconocido')
-            print(f"❌ [Meta/WA] Error {response.status_code}: {error_detail}")
-            return False, None, f"Error {response.status_code}: {error_detail}"
-    except Exception as e:
-        print(f"❌ [Meta/WA] Error: {str(e)}")
-        return False, None, str(e)
-
-@app.route('/api/whatsapp/send', methods=['POST'])
-def send_whatsapp():
-    """Envía un mensaje de WhatsApp inmediatamente"""
-    data = request.get_json(silent=True) or {}
-    to_phone = data.get('to', '').strip()
-    message = data.get('message', '').strip()
-
-    if not to_phone or not message:
-        return jsonify({'ok': False, 'error': 'Falta el campo "to" o "message"'}), 400
-
-    success, msg_id, err = send_whatsapp_via_meta(to_phone, message)
-    
-    if success:
-        return jsonify({'ok': True, 'message_id': msg_id})
-    else:
-        return jsonify({
-            'ok': False, 
-            'error': err,
-            'configured': bool(META_ACCESS_TOKEN and META_PHONE_NUMBER_ID)
-        }), 503
-
-@app.route('/api/whatsapp/status', methods=['GET'])
-def whatsapp_status():
-    """Comprueba si Meta API está configurada"""
-    meta_ok = bool(META_ACCESS_TOKEN and META_PHONE_NUMBER_ID)
-    
-    reasons = []
-    if not meta_ok:
-        if not META_ACCESS_TOKEN:
-            reasons.append("META_ACCESS_TOKEN no configurado")
-        if not META_PHONE_NUMBER_ID:
-            reasons.append("META_PHONE_NUMBER_ID no configurado")
-    
     return jsonify({
-        'meta_ready': meta_ok,
-        'fully_ready': meta_ok,
-        'reason': ' · '.join(reasons) if reasons else 'Todo configurado correctamente'
-    })
+        'status': 'healthy',
+        'service': 'gestionpro',
+        'timestamp': datetime.now().isoformat()
+    }), 200
 
 # ═══════════════════════════════════════════════════════════════
 # MANEJO DE ERRORES
@@ -690,6 +545,7 @@ def not_found(error):
 @app.errorhandler(500)
 def server_error(error):
     """Manejar errores 500"""
+    logger.error(f"Error 500: {str(error)}")
     return jsonify({'error': 'Internal server error', 'details': str(error)}), 500
 
 # ═══════════════════════════════════════════════════════════════
@@ -699,9 +555,12 @@ def server_error(error):
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     host = '0.0.0.0'
-    app.run(
+    
+    # Para Render: usar socketio.run en lugar de app.run
+    socketio.run(
+        app,
         host=host,
         port=port,
         debug=app.config['DEBUG'],
-        use_reloader=False
+        allow_unsafe_werkzeug=True
     )
