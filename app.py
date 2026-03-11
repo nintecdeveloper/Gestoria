@@ -1,14 +1,5 @@
 import os
 import json
-
-# ── Gevent monkey-patch DEBE ir antes de todo lo demás ───────────────────
-try:
-    from gevent import monkey
-    monkey.patch_all()
-    GEVENT_OK = True
-except ImportError:
-    GEVENT_OK = False
-
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
@@ -175,14 +166,13 @@ app.config['DEBUG'] = False if app.config['ENV'] == 'production' else True
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 
 # Configurar SocketIO
-# eventlet es necesario para WebSockets reales bajo gunicorn
-_async_mode = 'gevent' if GEVENT_OK else 'threading'
+# async_mode threading es compatible con Python 3.14 sin dependencias externas
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
     ping_timeout=60,
     ping_interval=25,
-    async_mode=_async_mode,
+    async_mode='threading',
     logger=False,
     engineio_logger=False,
     max_http_buffer_size=20 * 1024 * 1024,  # 20MB para adjuntos
@@ -578,13 +568,11 @@ def server_error(error):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    host = '0.0.0.0'
-    
-    # Para Render: usar socketio.run en lugar de app.run
     socketio.run(
         app,
-        host=host,
+        host='0.0.0.0',
         port=port,
-        debug=app.config['DEBUG'],
-        allow_unsafe_werkzeug=True
+        debug=False,
+        allow_unsafe_werkzeug=True,
+        use_reloader=False,
     )
