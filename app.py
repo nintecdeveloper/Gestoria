@@ -1,5 +1,7 @@
 import os
 import json
+import uuid
+import sys
 from flask import Flask, jsonify, request, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
@@ -164,6 +166,25 @@ app = Flask(__name__)
 app.config['DEBUG'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 
+# ── Cargar index3.html al arrancar ────────────────────────────────────────────
+# Lo buscamos en múltiples rutas posibles para ser 100% compatible con Render
+def _load_html():
+    candidates = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'index3.html'),
+        os.path.join(os.getcwd(), 'index3.html'),
+        '/opt/render/project/src/index3.html',
+        'index3.html',
+    ]
+    for path in candidates:
+        if os.path.isfile(path):
+            logger.info(f"✅ [HTML] Cargado desde: {path}")
+            with open(path, 'r', encoding='utf-8') as f:
+                return f.read()
+    logger.error(f"❌ [HTML] index3.html NO encontrado. Rutas probadas: {candidates}")
+    return None
+
+_HTML_CONTENT = None  # se carga en primera petición (lazy) por si Flask no está listo
+
 # Configurar SocketIO
 # async_mode threading es compatible con Python 3.14 sin dependencias externas
 socketio = SocketIO(
@@ -190,10 +211,13 @@ active_chats = {}
 @app.route('/index')
 @app.route('/gestionpro')
 def home():
-    """Servir la aplicación"""
-    # Busca index3.html en el mismo directorio que app.py
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return send_from_directory(base_dir, 'index3.html')
+    """Servir la aplicación — lee el HTML en memoria para evitar problemas de path"""
+    global _HTML_CONTENT
+    if _HTML_CONTENT is None:
+        _HTML_CONTENT = _load_html()
+    if _HTML_CONTENT is None:
+        return "Error: index3.html no encontrado en el servidor.", 500
+    return _HTML_CONTENT, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
 # ═══════════════════════════════════════════════════════════════
 # ALMACENAMIENTO EN MEMORIA — MENSAJERÍA
@@ -550,9 +574,13 @@ def api_health():
 
 @app.errorhandler(404)
 def not_found(error):
-    """Manejar errores 404 - Servir la app en lugar de error"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return send_from_directory(base_dir, 'index3.html'), 200
+    """Manejar errores 404 - Servir la SPA"""
+    global _HTML_CONTENT
+    if _HTML_CONTENT is None:
+        _HTML_CONTENT = _load_html()
+    if _HTML_CONTENT is None:
+        return "Not found", 404
+    return _HTML_CONTENT, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
 @app.errorhandler(500)
 def server_error(error):
