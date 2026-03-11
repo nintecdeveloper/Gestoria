@@ -2724,7 +2724,11 @@
       }
     </style>
     <!-- XLSX Library para importar Excel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+      // Fallback: si XLSX no cargó del CDN, usar parser CSV mínimo propio
+      window._xlsxReady = typeof XLSX !== 'undefined';
+    </script>
   </head>
   <body>
     <!-- LOGIN -->
@@ -3881,7 +3885,13 @@
         </button>
         <div class="modal-title">Importar Clientes</div>
         <div class="modal-sub">
-          Carga un archivo Excel con tus clientes
+          El archivo debe tener las columnas: <strong>Nombre</strong> y <strong>Número de Teléfono</strong>
+        </div>
+        <div style="background:var(--accent-light);border-radius:var(--radius);padding:10px 14px;font-size:11.5px;color:var(--text-muted);margin-bottom:14px;border:1px solid var(--border)">
+          📋 Formato esperado de columnas:<br>
+          <span style="font-family:monospace;color:var(--text)">Nombre</span> · 
+          <span style="font-family:monospace;color:var(--text)">Número de Teléfono</span>
+          <span style="opacity:0.6"> (el resto de columnas son opcionales)</span>
         </div>
         <div style="padding:20px;background:var(--bg2);border-radius:var(--radius);border:2px dashed var(--border);text-align:center;cursor:pointer;" onclick="document.getElementById('excel-file-input').click()">
           <div style="font-size:24px;margin-bottom:8px">📄</div>
@@ -6763,44 +6773,99 @@
         const file = event.target.files[0];
         if (!file) return;
 
+        document.getElementById("import-err").style.display = "none";
+        document.getElementById("import-preview").style.display = "none";
+
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        // ── CSV: parseo propio, sin depender de XLSX ──
+        if (ext === 'csv') {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            try {
+              const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+              if (lines.length < 2) { showImportError("El archivo CSV está vacío"); return; }
+              const headers = lines[0].split(/[,;]/).map(h => h.trim().replace(/^"|"$/g, ''));
+              const rows = lines.slice(1).map(line => {
+                const cols = line.split(/[,;]/).map(c => c.trim().replace(/^"|"$/g, ''));
+                const obj = {};
+                headers.forEach((h, i) => { obj[h] = cols[i] || ""; });
+                return obj;
+              });
+              _processImportRows(rows);
+            } catch(err) { showImportError("Error al procesar CSV: " + err.message); }
+          };
+          reader.readAsText(file, 'UTF-8');
+          return;
+        }
+
+        // ── XLS / XLSX: usar SheetJS con ArrayBuffer ──
         const reader = new FileReader();
         reader.onload = function(e) {
           try {
-            const data = e.target.result;
-            const workbook = XLSX.read(data, { type: "binary" });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const json = XLSX.utils.sheet_to_json(worksheet);
-
-            if (!json.length) {
-              showImportError("El archivo está vacío");
+            if (typeof XLSX === 'undefined') {
+              showImportError("La librería de Excel no cargó. Recarga la página e inténtalo de nuevo, o usa un archivo CSV.");
               return;
             }
-
-            pendingClientsToImport = json.map((row, idx) => ({
-              name: row['Nombre'] || row['nombre'] || row['Name'] || row['name'] || `Cliente ${idx + 1}`,
-              email: row['Email'] || row['email'] || row['E-mail'] || row['e-mail'] || "",
-              phone: row['Teléfono'] || row['telefono'] || row['Phone'] || row['phone'] || "",
-              address: row['Dirección'] || row['direccion'] || row['Address'] || row['address'] || "",
-              city: row['Ciudad'] || row['ciudad'] || row['City'] || row['city'] || "",
-              cif: row['CIF'] || row['NIF'] || row['cif'] || row['nif'] || "",
-              notes: row['Notas'] || row['notas'] || row['Notes'] || row['notes'] || ""
-            }));
-
-            showImportPreview(pendingClientsToImport.slice(0, 5));
-            document.getElementById("import-clients-btn").disabled = false;
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+            if (!json.length) { showImportError("El archivo está vacío"); return; }
+            _processImportRows(json);
           } catch (err) {
             showImportError("Error al procesar el archivo: " + err.message);
           }
         };
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file);
+      }
+
+      // Procesa filas crudas del Excel/CSV → solo Nombre + Número de Teléfono obligatorios
+      function _processImportRows(json) {
+        const parsed = json.map((row, idx) => {
+          // Nombre: acepta "Nombre", "nombre", "Name", "name"
+          const name = (
+            row['Nombre'] || row['nombre'] || row['NOMBRE'] ||
+            row['Name']   || row['name']   || row['NAME']   || ""
+          ).toString().trim();
+
+          // Teléfono: acepta variantes con y sin tilde, en inglés, etc.
+          const phone = (
+            row['Número de Teléfono'] || row['Numero de Telefono'] ||
+            row['Número de telefono'] || row['numero de telefono'] ||
+            row['Teléfono'] || row['Telefono'] || row['telefono'] ||
+            row['TELÉFONO'] || row['Phone']    || row['phone']    ||
+            row['Tel']      || row['tel']      || row['Móvil']    ||
+            row['movil']    || row['Mobile']   || row['mobile']   || ""
+          ).toString().trim();
+
+          return {
+            name:    name || `Cliente ${idx + 1}`,
+            phone:   phone,
+            email:   (row['Email'] || row['email'] || row['E-mail'] || "").toString().trim(),
+            address: (row['Dirección'] || row['Direccion'] || row['Address'] || "").toString().trim(),
+            city:    (row['Ciudad'] || row['ciudad'] || row['City'] || "").toString().trim(),
+            cif:     (row['CIF'] || row['NIF'] || row['cif'] || row['nif'] || "").toString().trim(),
+            notes:   (row['Notas'] || row['notas'] || row['Notes'] || "").toString().trim()
+          };
+        }).filter(c => c.name && c.name !== '' );
+
+        if (!parsed.length) {
+          showImportError("No se encontraron clientes válidos. Asegúrate de tener columnas 'Nombre' y 'Número de Teléfono'.");
+          return;
+        }
+
+        pendingClientsToImport = parsed;
+        showImportPreview(pendingClientsToImport.slice(0, 5));
+        document.getElementById("import-clients-btn").disabled = false;
       }
 
       function showImportPreview(clients) {
         const preview = document.getElementById("import-preview");
         let html = '<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr>';
         
-        const headers = ['nombre', 'email', 'teléfono', 'ciudad'];
+        const headers = ['Nombre', 'Teléfono'];
         headers.forEach(h => {
           html += `<th style="padding:4px;border:1px solid var(--border);text-align:left;background:var(--bg2);font-weight:600">${h}</th>`;
         });
@@ -6809,9 +6874,7 @@
         clients.forEach(c => {
           html += '<tr>';
           html += `<td style="padding:4px;border:1px solid var(--border)">${safeHtml(c.name)}</td>`;
-          html += `<td style="padding:4px;border:1px solid var(--border)">${safeHtml(c.email)}</td>`;
-          html += `<td style="padding:4px;border:1px solid var(--border)">${safeHtml(c.phone)}</td>`;
-          html += `<td style="padding:4px;border:1px solid var(--border)">${safeHtml(c.city)}</td>`;
+          html += `<td style="padding:4px;border:1px solid var(--border)">${safeHtml(c.phone) || '<span style="color:var(--text-muted)">—</span>'}</td>`;
           html += '</tr>';
         });
 
