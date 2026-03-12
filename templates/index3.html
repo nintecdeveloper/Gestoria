@@ -4276,41 +4276,66 @@
           currentSocketId = null;
         });
         
-        // Evento para recibir mensajes privados
+        // ✅ RECIBIR MENSAJES PRIVADOS
         socket.on('receive_message', function(msg) {
-          if (msg.conv_id && CONVS[msg.conv_id]) {
-            if (!Array.isArray(CONVS[msg.conv_id].messages)) {
-              CONVS[msg.conv_id].messages = [];
-            }
-            CONVS[msg.conv_id].messages.push({
-              mine: false,
-              text: msg.text,
-              time: msg.timestamp,
-              read: false
-            });
-            
-            // Si el chat está abierto, actualizar vista
-            if (activeConvId === msg.conv_id) {
-              renderMsgs(msg.conv_id);
-            }
-            
-            buildMsgList(document.getElementById("msg-search-inp").value);
-            showNotification('Nuevo mensaje', `De: ${msg.sender_username}`);
+          console.log('📨 [Socket] Mensaje privado recibido:', msg);
+          const sender = msg.sender_username;
+          const convId = sender;  // LA CLAVE ES EL USERNAME DEL REMITENTE
+          
+          // Crear conversación si no existe
+          if (!CONVS[convId]) {
+            CONVS[convId] = {
+              participant: sender,
+              messages: []
+            };
           }
+          
+          // Agregar mensaje
+          CONVS[convId].messages.push({
+            mine: false,
+            text: msg.text,
+            time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
+            read: false
+          });
+          
+          console.log('✅ [Socket] Mensaje agregado a conversación con', sender);
+          
+          // Actualizar UI si está abierto
+          if (activeConvId === convId) {
+            renderMsgs(convId);
+          }
+          
+          buildMsgList(document.getElementById("msg-search-inp").value);
         });
         
-        // Evento para recibir mensajes del chat general
+        // ✅ RECIBIR NOTIFICACIÓN DE MENSAJE PRIVADO
+        socket.on('message_notification', function(notif) {
+          console.log('🔔 [Socket] Notificación de mensaje:', notif);
+          showNotification('📨 Nuevo mensaje', `De: ${notif.from}`);
+        });
+        
+        // ✅ RECIBIR MENSAJES DEL CHAT GENERAL
         socket.on('receive_general_message', function(msg) {
+          console.log('💬 [Socket] Mensaje general recibido:', msg);
+          const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
+          const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
+          
           GENERAL_CHAT.push({
             id: msg.id,
             userId: msg.sender_id,
             text: msg.text,
-            time: msg.timestamp.split('T')[1].slice(0, 5),
-            date: msg.timestamp.split('T')[0],
+            time: time,
+            date: date,
             username: msg.sender_username
           });
+          console.log('✅ [Socket] Mensaje general agregado');
           renderGeneralChat();
-          showNotification('Mensaje en Chat General', msg.sender_username);
+        });
+        
+        // ✅ RECIBIR NOTIFICACIÓN DE CHAT GENERAL
+        socket.on('general_message_notification', function(notif) {
+          console.log('🔔 [Socket] Notificación de chat general:', notif);
+          showNotification('💬 Chat General', `${notif.from}: ${notif.message}`);
         });
         
         // Evento para recibir notificaciones
@@ -4329,17 +4354,19 @@
         });
       }
       
-      // Función auxiliar para mostrar notificaciones
+      // ✅ MOSTRAR NOTIFICACIONES
       function showNotification(title, message) {
-        // Usar Notification API si está disponible
+        console.log(`🔔 [NOTIFICACIÓN] ${title}: ${message}`);
         if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(title, {
-            body: message,
-            icon: '📢'
-          });
+          try {
+            new Notification(title, {
+              body: message,
+              icon: '📢'
+            });
+          } catch(e) {
+            console.log('Notificación del navegador no soportada');
+          }
         }
-        // O mostrar alert simple
-        console.log(`🔔 ${title}: ${message}`);
       }
       
       // Solicitar permiso para notificaciones
@@ -7220,14 +7247,17 @@
         gchatRenderChips();
         renderGeneralChat();
         
-        // Enviar a través de socket.io si está disponible
+        // ✅ ENVIAR AL CHAT GENERAL VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
+          console.log('📤 [Socket] Enviando mensaje al chat general');
           socket.emit('send_general_message', {
             message: text,
             sender_username: currentUser.name,
             message_id: msgObj.id,
             attachments: attachments
           });
+        } else {
+          console.warn('⚠️ Socket no conectado, mensaje solo guardado localmente');
         }
       }
 
@@ -7524,19 +7554,19 @@
         renderMsgs(activeConvId);
         buildMsgList(document.getElementById("msg-search-inp").value);
         
-        // Enviar a través de socket.io si está disponible
+        // ✅ ENVIAR VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
-          const conv = CONVS[activeConvId];
-          const recipient = USERS.find(u => u.id !== currentUser.id && u.id.toString() === activeConvId);
-          
+          console.log('📤 [Socket] Enviando mensaje privado a:', activeConvId);
           socket.emit('send_message', {
             message: text,
             sender_username: currentUser.name,
-            recipient_id: socket.id, // Será reemplazado por el servidor
+            recipient_username: activeConvId,  // ✅ ENVIAR USERNAME, NO ID
             conv_id: activeConvId,
             message_id: msgObj.id,
             attachments: attachments
           });
+        } else {
+          console.warn('⚠️ Socket no conectado, mensaje solo guardado localmente');
         }
       }
 

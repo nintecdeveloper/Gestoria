@@ -175,8 +175,10 @@ socketio = SocketIO(
 )
 
 # Almacenar usuarios conectados en tiempo real
-connected_users = {}
+connected_users = {}  # {sid: {username, sid, connected_at}}
+username_to_sid = {}  # {username: sid} - MAPEO PARA ENCONTRAR USUARIOS
 active_chats = {}
+message_storage = {}  # {conv_id: [messages]} - ALMACENAR MENSAJES EN SERVIDOR
 
 # ═══════════════════════════════════════════════════════════════
 # RUTAS PRINCIPALES
@@ -221,8 +223,14 @@ def handle_disconnect():
     """Usuario se desconecta del socket"""
     user_id = request.sid
     if user_id in connected_users:
+        username = connected_users[user_id].get('username', 'Usuario')
         del connected_users[user_id]
-    logger.info(f"❌ [Socket] Usuario desconectado: {user_id}")
+        # LIMPIAR MAPEO USERNAME-SID
+        if username in username_to_sid:
+            del username_to_sid[username]
+        logger.info(f"❌ [Socket] {username} desconectado")
+    else:
+        logger.info(f"❌ [Socket] Usuario desconectado: {user_id}")
 
 @socketio.on('user_login')
 def handle_user_login(data):
@@ -234,7 +242,9 @@ def handle_user_login(data):
         'sid': user_id,
         'connected_at': datetime.now().isoformat()
     }
-    logger.info(f"✅ [Chat] {username} conectado")
+    # MAPEAR USERNAME A SID PARA BÚSQUEDA RÁPIDA
+    username_to_sid[username] = user_id
+    logger.info(f"✅ [Chat] {username} conectado (SID: {user_id})")
     
     # Notificar a todos que hay un nuevo usuario online
     socketio.emit('user_status_update', {
@@ -246,15 +256,16 @@ def handle_user_login(data):
 
 @socketio.on('send_message')
 def handle_message(data):
-    """Recibe un mensaje y lo retransmite a usuarios específicos"""
+    """Recibe un mensaje privado y lo retransmite"""
     sender_id = request.sid
     sender_username = data.get('sender_username', 'Usuario')
-    recipient_id = data.get('recipient_id')  # ID del socket del usuario destino
+    recipient_username = data.get('recipient_username', '')  # NOMBRE DE USUARIO, NO ID
     message_text = data.get('message', '')
     message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
-    conv_id = data.get('conv_id')  # ID de conversación
+    conv_id = data.get('conv_id', f'{sender_username}_{recipient_username}')
     
     if not message_text.strip():
+        logger.warning(f"⚠️ [Chat] Mensaje vacío de {sender_username}")
         return
     
     # Crear objeto de mensaje
@@ -262,21 +273,43 @@ def handle_message(data):
         'id': message_id,
         'sender_id': sender_id,
         'sender_username': sender_username,
-        'recipient_id': recipient_id,
-        'conv_id': conv_id,
+        'recipient_username': recipient_username,
         'text': message_text,
         'timestamp': datetime.now().isoformat(),
         'read': False
     }
     
-    logger.info(f"💬 [Chat] {sender_username} → {recipient_id[:8]}: {message_text[:50]}")
+    # ALMACENAR MENSAJE EN SERVIDOR
+    if conv_id not in message_storage:
+        message_storage[conv_id] = []
+    message_storage[conv_id].append(message_obj)
     
-    # Enviar al destinatario si está conectado
-    if recipient_id and recipient_id in connected_users:
-        socketio.emit('receive_message', message_obj, room=recipient_id)
+    logger.info(f"💬 [Chat Privado] {sender_username} → {recipient_username}: {message_text[:50]}")
     
-    # Enviar al remitente una copia del mensaje para su historial
-    socketio.emit('message_sent', message_obj, room=sender_id)
+    # BUSCAR EL SID DEL RECEPTOR POR USERNAME
+    recipient_sid = username_to_sid.get(recipient_username)
+    
+    if recipient_sid and recipient_sid in connected_users:
+        # ENVIAR MENSAJE AL DESTINATARIO
+        socketio.emit('receive_message', message_obj, room=recipient_sid)
+        logger.info(f"✅ [Mensaje Entregado] A {recipient_username} (SID: {recipient_sid})")
+        
+        # ENVIAR NOTIFICACIÓN AL DESTINATARIO
+        socketio.emit('message_notification', {
+            'from': sender_username,
+            'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
+            'timestamp': datetime.now().isoformat()
+        }, room=recipient_sid)
+        logger.info(f"🔔 [Notificación Enviada] A {recipient_username}")
+    else:
+        logger.warning(f"⚠️ [Mensaje No Entregado] {recipient_username} no conectado")
+    
+    # CONFIRMAR AL REMITENTE
+    socketio.emit('message_sent', {
+        'message_id': message_id,
+        'status': 'sent',
+        'timestamp': datetime.now().isoformat()
+    }, room=sender_id)
 
 @socketio.on('send_general_message')
 def handle_general_message(data):
@@ -298,34 +331,46 @@ def handle_general_message(data):
         'timestamp': datetime.now().isoformat()
     }
     
-    logger.info(f"💬 [General Chat] {sender_username}: {message_text[:50]}")
+    logger.info(f"💬 [Chat General] {sender_username}: {message_text[:50]}")
     
     # Retransmitir a todos los usuarios conectados
     socketio.emit('receive_general_message', message_obj, broadcast=True)
+    
+    # ENVIAR NOTIFICACIÓN A TODOS (excepto al remitente)
+    socketio.emit('general_message_notification', {
+        'from': sender_username,
+        'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
+        'timestamp': datetime.now().isoformat()
+    }, broadcast=True, skip_sid=sender_id)
+    logger.info(f"🔔 [Notificación Chat General Enviada] De {sender_username}")
 
 @socketio.on('typing')
 def handle_typing(data):
     """Notifica que alguien está escribiendo"""
     sender_id = request.sid
-    recipient_id = data.get('recipient_id')
+    recipient_username = data.get('recipient_username', '')
     sender_username = data.get('sender_username', 'Usuario')
     
-    if recipient_id and recipient_id in connected_users:
+    # BUSCAR RECEPTOR POR USERNAME
+    recipient_sid = username_to_sid.get(recipient_username)
+    if recipient_sid and recipient_sid in connected_users:
         socketio.emit('user_typing', {
             'sender_id': sender_id,
             'sender_username': sender_username
-        }, room=recipient_id)
+        }, room=recipient_sid)
 
 @socketio.on('stop_typing')
 def handle_stop_typing(data):
     """Notifica que dejó de escribir"""
     sender_id = request.sid
-    recipient_id = data.get('recipient_id')
+    recipient_username = data.get('recipient_username', '')
     
-    if recipient_id and recipient_id in connected_users:
+    # BUSCAR RECEPTOR POR USERNAME
+    recipient_sid = username_to_sid.get(recipient_username)
+    if recipient_sid and recipient_sid in connected_users:
         socketio.emit('user_stop_typing', {
             'sender_id': sender_id
-        }, room=recipient_id)
+        }, room=recipient_sid)
 
 @socketio.on('get_online_users')
 def handle_get_online_users():
@@ -339,12 +384,14 @@ def handle_get_online_users():
 @socketio.on('send_notification')
 def handle_notification(data):
     """Envía una notificación a un usuario específico"""
-    recipient_id = data.get('recipient_id')
+    recipient_username = data.get('recipient_username', '')
     notification_type = data.get('type', 'info')  # info, warning, error, success
     message = data.get('message', '')
     title = data.get('title', '')
     
-    if recipient_id and recipient_id in connected_users:
+    # BUSCAR RECEPTOR POR USERNAME
+    recipient_sid = username_to_sid.get(recipient_username)
+    if recipient_sid and recipient_sid in connected_users:
         socketio.emit('notification_received', {
             'type': notification_type,
             'title': title,
