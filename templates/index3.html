@@ -4361,21 +4361,33 @@
           // Determinar con quién estoy conversando
           const otherId = isMine ? recipientId : senderId;
           
-          console.log('📨 Mensaje de ID=' + senderId + ' para ID=' + recipientId + ', yo=' + currentUser.id + ', mine=' + isMine);
+          console.log('📨 Nuevo mensaje: De ID=' + senderId + ' Para ID=' + recipientId + ', Yo=' + currentUser.id + ', ¿Mío?=' + isMine);
 
           const arr = convData(otherId);
           
-          // Evitar duplicado
-          const exists = arr.find(function(m) { return m.text === msg.text && m.timestamp === msg.timestamp; });
+          // 🔑 DEDUPLICACIÓN MEJORADA: Por combinación única (sender + recipient + text + timestamp)
+          // Esto evita agregar duplicados del mismo mensaje enviado dos veces
+          const exists = arr.find(function(m) { 
+            return m.sender_id === msg.sender_id && 
+                   m.recipient_id === msg.recipient_id && 
+                   m.text === msg.text && 
+                   (m.timestamp === msg.timestamp || m.time === msg.timestamp.split('T')[1].slice(0,5));
+          });
+          
           if (!exists) {
             arr.push({
               mine:        isMine,
               text:        msg.text || '',
               time:        msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime(),
+              timestamp:   msg.timestamp,
+              sender_id:   msg.sender_id,
+              recipient_id: msg.recipient_id,
               read:        (activeConvId === otherId),
               attachments: []
             });
-            console.log('✓ Mensaje agregado');
+            console.log('✓ Mensaje agregado correctamente a la conversación');
+          } else {
+            console.log('⊘ Mensaje duplicado detectado, no se agrega');
           }
 
           if (activeConvId === otherId) {
@@ -7850,13 +7862,18 @@
             }))
           : [];
         
+        // 🔑 IMPORTANTE: Crear ID único para deduplicación
+        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
         const msgObj = { 
           mine: true, 
           text, 
-          time, 
+          time,
+          id: messageId,
+          sender_id: currentUser.id,
+          recipient_id: activeConvId,
           read: true, 
-          attachments,
-          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          attachments
         };
         
         convData(activeConvId).push(msgObj);
@@ -7870,12 +7887,13 @@
         // ✅ ENVIAR VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
           const recipient = USERS.find(u => u.id === activeConvId);
-          console.log('📤 Enviando mensaje privado');
+          console.log('📤 Enviando mensaje privado con ID:', messageId);
           socket.emit('send_msg', {
             text: text,
             sender_username: currentUser.name,
             sender_id: Number(currentUser.id),
-            recipient_id: Number(activeConvId)
+            recipient_id: Number(activeConvId),
+            message_id: messageId
           });
         } else {
           console.error('❌ Socket no conectado');
