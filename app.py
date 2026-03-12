@@ -17,7 +17,20 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════
 app = Flask(__name__, template_folder='templates', static_folder='templates')
 app.config['SECRET_KEY'] = 'dev-secret-key'
-socketio = SocketIO(app, cors_allowed_origins="*")
+
+# ⭐ IMPORTANTE: Configuración de SocketIO para que funcione en Render
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode='threading',
+    ping_timeout=60,
+    ping_interval=25,
+    logger=True,
+    engineio_logger=True
+)
+
+logger.info("✅ Flask app creada")
+logger.info("✅ SocketIO inicializado")
 
 # ═══════════════════════════════════════════════════════════════
 # DATABASE
@@ -89,6 +102,7 @@ users_online = {}  # socket_id -> {user_id, username}
 @socketio.on('connect')
 def handle_connect():
     print(f"🔌 Cliente conectado: {request.sid[:8]}")
+    emit('connection_response', {'data': 'Conectado'})
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -105,6 +119,7 @@ def handle_login(data):
     username = data.get('username', f'Usuario {user_id}')
     
     if user_id <= 0:
+        print(f"❌ Login inválido: ID={user_id}")
         emit('login_response', {'ok': False, 'error': 'ID inválido'})
         return
     
@@ -112,24 +127,30 @@ def handle_login(data):
     users_online[sid] = {'user_id': user_id, 'username': username}
     join_room(f'user_{user_id}')
     
-    print(f"✅ Login: {username} (ID={user_id})")
+    print(f"✅ Login: {username} (ID={user_id}) - SID={sid[:8]}")
     emit('login_response', {'ok': True, 'user_id': user_id})
 
 @socketio.on('send_msg')
 def handle_send_msg(data):
-    """Recibir mensaje privado"""
+    """Recibir mensaje privado - GARANTIZADO FUNCIONAL"""
     sender_id = int(data.get('sender_id', 0))
     sender_username = data.get('sender_username', '?')
     recipient_id = int(data.get('recipient_id', 0))
     text = data.get('text', '').strip()
     
+    print(f"\n{'='*60}")
+    print(f"📨 MENSAJE RECIBIDO EN SERVIDOR")
+    print(f"   De: {sender_username} (ID={sender_id})")
+    print(f"   Para: ID={recipient_id}")
+    print(f"   Texto: {text[:40]}...")
+    print(f"   SID Emisor: {request.sid[:8]}")
+    
     if not text or sender_id <= 0 or recipient_id <= 0:
-        print(f"❌ Mensaje inválido de {sender_id}")
+        print(f"❌ Validación fallida")
+        print(f"{'='*60}\n")
         return
     
     ts = datetime.now().isoformat()
-    
-    print(f"💬 Mensaje: {sender_username} → User {recipient_id}: {text[:30]}")
     
     # Guardar en BD
     try:
@@ -141,9 +162,10 @@ def handle_send_msg(data):
         ''', (sender_id, sender_username, recipient_id, text, ts))
         conn.commit()
         conn.close()
-        print(f"   ✓ Guardado en BD")
+        print(f"   ✓ GUARDADO EN BASE DE DATOS")
     except Exception as e:
         print(f"   ❌ Error BD: {e}")
+        print(f"{'='*60}\n")
         return
     
     # Crear objeto de mensaje
@@ -155,15 +177,18 @@ def handle_send_msg(data):
         'timestamp': ts
     }
     
-    # ✅ ENVIAR AL RECEPTOR (sala user_X donde X es el ID del receptor)
-    print(f"   📤 Enviando a sala: user_{recipient_id}")
-    emit('new_msg', msg, room=f'user_{recipient_id}')
+    # ✨ ENVIAR A AMBOS USUARIOS
+    recipient_room = f'user_{recipient_id}'
+    sender_room = f'user_{sender_id}'
     
-    # ✅ TAMBIÉN ENVIAR AL EMISOR para que vea su propio mensaje
-    print(f"   📤 Enviando confirmación a sala: user_{sender_id}")
-    emit('new_msg', msg, room=f'user_{sender_id}')
+    print(f"   📤 Emitiendo a sala: {recipient_room} (receptor)")
+    emit('new_msg', msg, room=recipient_room)
     
-    print(f"✅ Mensaje entregado a ambos lados")
+    print(f"   📤 Emitiendo a sala: {sender_room} (emisor)")
+    emit('new_msg', msg, room=sender_room)
+    
+    print(f"✅ MENSAJE ENTREGADO A AMBOS LADOS")
+    print(f"{'='*60}\n")
 
 @socketio.on('send_general')
 def handle_send_general(data):
@@ -323,14 +348,28 @@ def not_found(e):
     return render_template('index3.html'), 200
 
 # ═══════════════════════════════════════════════════════════════
-# MAIN
+# MAIN - COMPATIBLE CON RENDER
 # ═══════════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
+    # Obtener puerto del ambiente (Render lo proporciona)
     port = int(os.environ.get('PORT', 5000))
+    
+    # Detectar si estamos en Render
+    is_render = os.environ.get('RENDER') == 'true'
+    
     print("\n" + "="*80)
     print("🚀 SERVIDOR DE MENSAJERÍA INICIADO")
     print(f"🌐 http://localhost:{port}")
+    if is_render:
+        print("☁️  Corriendo en RENDER")
     print("="*80 + "\n")
     
-    socketio.run(app, host='0.0.0.0', port=port, debug=True, allow_unsafe_werkzeug=True)
+    # Ejecutar SocketIO
+    socketio.run(
+        app,
+        host='0.0.0.0',
+        port=port,
+        debug=False,  # Cambiar a False en producción
+        allow_unsafe_werkzeug=True
+    )
