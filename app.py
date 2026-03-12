@@ -84,6 +84,30 @@ def init_db():
         )
     ''')
     
+    # Tabla de recordatorios personales
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS personal_reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            appointment_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            reminder_timing TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(appointment_id) REFERENCES appointments(id)
+        )
+    ''')
+    
+    # Tabla de recordatorios WhatsApp
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS whatsapp_reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            appointment_id INTEGER NOT NULL,
+            recipient_phone TEXT,
+            reminder_timing TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(appointment_id) REFERENCES appointments(id)
+        )
+    ''')
+    
     conn.commit()
     conn.close()
     print("✅ Base de datos inicializada")
@@ -132,7 +156,7 @@ def handle_login(data):
 
 @socketio.on('send_msg')
 def handle_send_msg(data):
-    """Recibir mensaje privado - GARANTIZADO FUNCIONAL"""
+    """Recibir mensaje privado"""
     sender_id = int(data.get('sender_id', 0))
     sender_username = data.get('sender_username', '?')
     recipient_id = int(data.get('recipient_id', 0))
@@ -161,7 +185,7 @@ def handle_send_msg(data):
             VALUES (?, ?, ?, ?, ?)
         ''', (sender_id, sender_username, recipient_id, text, ts))
         
-        # 🔑 IMPORTANTE: Obtener el ID de la fila insertada
+        # 🔑 Obtener el ID de la fila insertada
         message_id = c.lastrowid
         
         conn.commit()
@@ -174,7 +198,7 @@ def handle_send_msg(data):
     
     # Crear objeto de mensaje con TODOS los campos requeridos
     msg = {
-        'id': message_id,                    # 🔑 ID de BD para deduplicación
+        'id': message_id,
         'sender_id': sender_id,
         'sender_username': sender_username,
         'recipient_id': recipient_id,
@@ -182,7 +206,7 @@ def handle_send_msg(data):
         'timestamp': ts
     }
     
-    # ✨ ENVIAR A AMBOS USUARIOS
+    # ENVIAR A AMBOS USUARIOS
     recipient_room = f'user_{recipient_id}'
     sender_room = f'user_{sender_id}'
     
@@ -218,7 +242,7 @@ def handle_send_general(data):
             VALUES (?, ?, ?, ?)
         ''', (sender_id, sender_username, text, ts))
         
-        # 🔑 IMPORTANTE: Obtener el ID de la fila insertada
+        # 🔑 Obtener el ID de la fila insertada
         message_id = c.lastrowid
         
         conn.commit()
@@ -229,7 +253,7 @@ def handle_send_general(data):
     
     # Broadcast a todos - con ID de BD
     msg = {
-        'id': message_id,                    # 🔑 ID de BD para deduplicación
+        'id': message_id,
         'sender_id': sender_id,
         'sender_username': sender_username,
         'text': text,
@@ -238,7 +262,7 @@ def handle_send_general(data):
     emit('new_general_msg', msg, broadcast=True)
 
 # ═══════════════════════════════════════════════════════════════
-# REST ROUTES
+# REST ROUTES - MENSAJES
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/')
@@ -303,8 +327,13 @@ def get_general_messages():
         print(f"❌ Error get_general_messages: {e}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
+# ═══════════════════════════════════════════════════════════════
+# REST ROUTES - CITAS (APPOINTMENTS)
+# ═══════════════════════════════════════════════════════════════
+
 @app.route('/api/appointments', methods=['GET'])
 def get_appointments():
+    """Obtener todas las citas"""
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
@@ -328,34 +357,224 @@ def get_appointments():
         conn.close()
         return jsonify({'ok': True, 'appointments': appointments})
     except Exception as e:
+        print(f"❌ Error get_appointments: {e}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 @app.route('/api/appointments', methods=['POST'])
 def create_appointment():
+    """Crear una nueva cita"""
     try:
         data = request.json
+        
+        # Validación básica
+        required_fields = ['owner_id', 'assigned_to', 'date', 'time', 'time_end', 'client']
+        for field in required_fields:
+            if field not in data or data[field] is None:
+                return jsonify({'ok': False, 'error': f'Campo requerido: {field}'}), 400
+        
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute('''
             INSERT INTO appointments 
             (owner_id, assigned_to, date, time, time_end, client, service, notes, private, client_phone)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (data['owner_id'], data['assigned_to'], data['date'], data['time'], data['time_end'],
-              data['client'], data.get('service', ''), data.get('notes', ''), 
-              data.get('private', False), data.get('client_phone', '')))
+        ''', (
+            data['owner_id'], 
+            data['assigned_to'], 
+            data['date'], 
+            data['time'], 
+            data['time_end'],
+            data['client'], 
+            data.get('service', ''), 
+            data.get('notes', ''), 
+            data.get('private', False), 
+            data.get('client_phone', '')
+        ))
         
         appointment_id = c.lastrowid
         conn.commit()
         conn.close()
         
+        print(f"✅ Cita creada: ID={appointment_id}, Cliente={data['client']}")
         socketio.emit('appointment_created', {'id': appointment_id}, broadcast=True)
         return jsonify({'ok': True, 'appointment_id': appointment_id}), 201
     except Exception as e:
+        print(f"❌ Error create_appointment: {e}")
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/appointments/<int:appointment_id>', methods=['PUT'])
+def update_appointment(appointment_id):
+    """Actualizar una cita existente"""
+    try:
+        data = request.json
+        
+        # Verificar que la cita existe
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute('SELECT * FROM appointments WHERE id = ?', (appointment_id,))
+        existing = c.fetchone()
+        
+        if not existing:
+            conn.close()
+            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
+        
+        # Actualizar campos
+        update_fields = {
+            'date': data.get('date', existing[3]),
+            'time': data.get('time', existing[4]),
+            'time_end': data.get('time_end', existing[5]),
+            'client': data.get('client', existing[6]),
+            'service': data.get('service', existing[7]),
+            'notes': data.get('notes', existing[8]),
+            'private': data.get('private', existing[9]),
+            'client_phone': data.get('client_phone', existing[10]),
+            'assigned_to': data.get('assigned_to', existing[2])
+        }
+        
+        c.execute('''
+            UPDATE appointments 
+            SET date = ?, time = ?, time_end = ?, client = ?, service = ?, 
+                notes = ?, private = ?, client_phone = ?, assigned_to = ?
+            WHERE id = ?
+        ''', (
+            update_fields['date'],
+            update_fields['time'],
+            update_fields['time_end'],
+            update_fields['client'],
+            update_fields['service'],
+            update_fields['notes'],
+            update_fields['private'],
+            update_fields['client_phone'],
+            update_fields['assigned_to'],
+            appointment_id
+        ))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"✅ Cita actualizada: ID={appointment_id}")
+        socketio.emit('appointment_updated', {'id': appointment_id}, broadcast=True)
+        return jsonify({'ok': True, 'appointment_id': appointment_id})
+    except Exception as e:
+        print(f"❌ Error update_appointment: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/appointments/<int:appointment_id>', methods=['DELETE'])
+def delete_appointment(appointment_id):
+    """Eliminar una cita"""
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        
+        # Verificar que existe
+        c.execute('SELECT * FROM appointments WHERE id = ?', (appointment_id,))
+        existing = c.fetchone()
+        
+        if not existing:
+            conn.close()
+            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
+        
+        # Eliminar la cita
+        c.execute('DELETE FROM appointments WHERE id = ?', (appointment_id,))
+        
+        # También eliminar recordatorios asociados
+        c.execute('DELETE FROM personal_reminders WHERE appointment_id = ?', (appointment_id,))
+        c.execute('DELETE FROM whatsapp_reminders WHERE appointment_id = ?', (appointment_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"✅ Cita eliminada: ID={appointment_id}")
+        socketio.emit('appointment_deleted', {'id': appointment_id}, broadcast=True)
+        return jsonify({'ok': True})
+    except Exception as e:
+        print(f"❌ Error delete_appointment: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
+# REST ROUTES - RECORDATORIOS
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/reminders/personal', methods=['POST'])
+def create_personal_reminder():
+    """Crear un recordatorio personal"""
+    try:
+        data = request.json
+        
+        if not all(k in data for k in ['appointment_id', 'user_id', 'reminder_timing']):
+            return jsonify({'ok': False, 'error': 'Campos requeridos faltantes'}), 400
+        
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        
+        # Verificar que la cita existe
+        c.execute('SELECT * FROM appointments WHERE id = ?', (data['appointment_id'],))
+        if not c.fetchone():
+            conn.close()
+            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
+        
+        # Insertar recordatorio
+        c.execute('''
+            INSERT INTO personal_reminders (appointment_id, user_id, reminder_timing)
+            VALUES (?, ?, ?)
+        ''', (data['appointment_id'], data['user_id'], data['reminder_timing']))
+        
+        reminder_id = c.lastrowid
+        conn.commit()
+        conn.close()
+        
+        print(f"✅ Recordatorio personal creado: ID={reminder_id}")
+        return jsonify({'ok': True, 'reminder_id': reminder_id}), 201
+    except Exception as e:
+        print(f"❌ Error create_personal_reminder: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/reminders/whatsapp', methods=['POST'])
+def create_whatsapp_reminder():
+    """Crear un recordatorio por WhatsApp"""
+    try:
+        data = request.json
+        
+        if not all(k in data for k in ['appointment_id', 'recipient_phone', 'reminder_timing']):
+            return jsonify({'ok': False, 'error': 'Campos requeridos faltantes'}), 400
+        
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        
+        # Verificar que la cita existe
+        c.execute('SELECT * FROM appointments WHERE id = ?', (data['appointment_id'],))
+        if not c.fetchone():
+            conn.close()
+            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
+        
+        # Insertar recordatorio
+        c.execute('''
+            INSERT INTO whatsapp_reminders (appointment_id, recipient_phone, reminder_timing)
+            VALUES (?, ?, ?)
+        ''', (data['appointment_id'], data['recipient_phone'], data['reminder_timing']))
+        
+        reminder_id = c.lastrowid
+        conn.commit()
+        conn.close()
+        
+        print(f"✅ Recordatorio WhatsApp creado: ID={reminder_id}")
+        return jsonify({'ok': True, 'reminder_id': reminder_id}), 201
+    except Exception as e:
+        print(f"❌ Error create_whatsapp_reminder: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
+# ERROR HANDLERS
+# ═══════════════════════════════════════════════════════════════
 
 @app.errorhandler(404)
 def not_found(e):
     return render_template('index3.html'), 200
+
+@app.errorhandler(500)
+def internal_error(e):
+    print(f"❌ Error interno del servidor: {e}")
+    return jsonify({'ok': False, 'error': 'Error interno del servidor'}), 500
 
 # ═══════════════════════════════════════════════════════════════
 # MAIN - COMPATIBLE CON RENDER
@@ -369,7 +588,7 @@ if __name__ == '__main__':
     is_render = os.environ.get('RENDER') == 'true'
     
     print("\n" + "="*80)
-    print("🚀 SERVIDOR DE MENSAJERÍA INICIADO")
+    print("🚀 SERVIDOR DE MENSAJERÍA Y CITAS INICIADO")
     print(f"🌐 http://localhost:{port}")
     if is_render:
         print("☁️  Corriendo en RENDER")
@@ -380,6 +599,6 @@ if __name__ == '__main__':
         app,
         host='0.0.0.0',
         port=port,
-        debug=False,  # Cambiar a False en producción
+        debug=False,
         allow_unsafe_werkzeug=True
     )
