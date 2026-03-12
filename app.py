@@ -5,7 +5,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
 import requests
 import logging
-import uuid  # NUEVO: Para IDs únicos
+import uuid
 
 # ═══════════════════════════════════════════════════════════════
 # META WHATSAPP API — IMPORTACIÓN CONDICIONAL
@@ -140,13 +140,13 @@ socketio = SocketIO(
 
 # ═══════════════════════════════════════════════════════════════
 # ESTADO GLOBAL — MENSAJERÍA
-# ✅ MEJORADO: Tracking de SID → user_id para deduplicación
+# ✅ MEJORADO: Tracking completo de usuarios y deduplicación
 # ═══════════════════════════════════════════════════════════════
 connected_users = {}   # sid → {username, user_id, connected_at, room}
 sid_to_userid   = {}   # sid → user_id
 message_storage = {}   # {"1-2": [msg]}
 general_storage = []   # [msg]
-message_ids_seen = set()  # NUEVO: Para deduplicación global
+message_ids_seen = set()  # Para deduplicación global
 
 def make_conv_key(a, b):
     """Clave canónica — idéntica a convKey() del frontend."""
@@ -174,14 +174,12 @@ def gestionpro():
 
 # ═══════════════════════════════════════════════════════════════
 # WEBSOCKET — CICLO DE VIDA
-# ✅ MEJORADO: Más logging, validaciones estrictas
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('connect')
 def handle_connect(auth):
     """Nuevo cliente conectado vía socket."""
     logger.info(f"🔗 [WS] Nuevo socket: {request.sid}")
-    # Enviar ACK inmediato (cliente esperará esto antes de enviar user_login)
     emit('connect_ack', {'sid': request.sid, 'timestamp': datetime.now().isoformat()})
 
 @socketio.on('disconnect')
@@ -198,14 +196,13 @@ def handle_disconnect():
 
 # ═══════════════════════════════════════════════════════════════
 # WEBSOCKET — REGISTRO (join room personal)
-# ✅ MEJORADO: Validación, logging detallado, ACK inmediato
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('user_login')
 def handle_user_login(data):
     """
     Registra un usuario en la room personal.
-    ✅ AHORA: El cliente espera a recibir login_ack antes de continuar.
+    ✅ CORREGIDO: Validación estricta y ACK inmediato
     """
     sid     = request.sid
     username = data.get('username', f'User_{sid[:6]}')
@@ -224,8 +221,7 @@ def handle_user_login(data):
     # Registrar usuario
     room = f"user_{user_id}"
     
-    # ✅ NUEVO: Limpiar cualquier registro anterior del mismo user_id con otro SID
-    # (por si el usuario se reconecta muy rápido)
+    # Limpiar cualquier registro anterior del mismo user_id
     old_sids = [s for s, u in sid_to_userid.items() if u == user_id]
     for old_sid in old_sids:
         if old_sid != sid:
@@ -250,7 +246,7 @@ def handle_user_login(data):
     join_room(room)
     logger.info(f"✅ [WS] {username} (id={user_id}) → room '{room}' (sid={sid[:8]})")
     
-    # ✅ ACK INMEDIATO y confirmar
+    # ACK inmediato
     emit('login_ack', {
         'ok': True, 
         'room': room, 
@@ -261,25 +257,25 @@ def handle_user_login(data):
 
 # ═══════════════════════════════════════════════════════════════
 # WEBSOCKET — MENSAJE PRIVADO
-# ✅ MEJORADO: Deduplicación, validaciones, mejor logging
+# ✅ CORREGIDO: ENVÍA CONFIRMACIÓN AL REMITENTE
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('send_message')
 def handle_send_message(data):
     """
-    Recibe un mensaje privado, lo guarda, lo deduplicá, y lo retransmite.
-    ✅ AHORA: Validaciones estrictas, deduplicación, ACK al remitente.
+    Recibe un mensaje privado, lo guarda, lo deduplica, y lo retransmite.
+    ✅ CORREGIDO: El remitente TAMBIÉN recibe confirmación de entrega
     """
     sender_id        = data.get('sender_id')
     sender_username  = data.get('sender_username', '?')
     recipient_id     = data.get('recipient_id')
     text             = (data.get('message') or '').strip()
-    message_id       = data.get('message_id') or f"msg_{uuid.uuid4().hex[:12]}"  # ✅ UUID si no viene
+    message_id       = data.get('message_id') or f"msg_{uuid.uuid4().hex[:12]}"
     attachments      = data.get('attachments') or []
     
     ts = datetime.now().isoformat()
     
-    # ✅ VALIDACIONES ESTRICTAS
+    # VALIDACIONES ESTRICTAS
     try:
         sender_id    = int(sender_id)
         recipient_id = int(recipient_id)
@@ -293,7 +289,7 @@ def handle_send_message(data):
         })
         return
     
-    # ✅ Validar que sender está registrado
+    # Validar que sender está registrado
     sid = request.sid
     if sid not in sid_to_userid or sid_to_userid[sid] != sender_id:
         logger.error(f"❌ [MSG] Sender no autenticado: SID={sid[:8]}, claimed={sender_id}, actual={sid_to_userid.get(sid)}")
@@ -309,10 +305,9 @@ def handle_send_message(data):
         logger.warning(f"⚠️  [MSG] Mensaje vacío: {message_id}")
         return
     
-    # ✅ DEDUPLICACIÓN: Evitar duplicados en servidor
+    # DEDUPLICACIÓN
     if message_id in message_ids_seen:
-        logger.warning(f"⚠️  [MSG] DUPLICADO detectado: {message_id} (descartado)")
-        # Igual enviamos ACK OK para que no reintente
+        logger.warning(f"⚠️  [MSG] DUPLICADO detectado: {message_id}")
         emit('message_ack', {
             'message_id': message_id,
             'status': 'ok',
@@ -321,7 +316,6 @@ def handle_send_message(data):
         })
         return
     
-    # Marcar como visto
     message_ids_seen.add(message_id)
     
     # Crear mensaje
@@ -335,14 +329,14 @@ def handle_send_message(data):
         'attachments':     attachments
     }
     
-    # Persistir
+    # Persistir en memoria
     key = make_conv_key(sender_id, recipient_id)
     if key not in message_storage:
         message_storage[key] = []
     message_storage[key].append(msg)
-    logger.info(f"💬 [MSG] {sender_username}(id={sender_id}) → id{recipient_id} (conv={key}): '{text[:40]}' [ID={message_id}]")
+    logger.info(f"💬 [MSG] {sender_username}(id={sender_id}) → id{recipient_id} (conv={key}): '{text[:40]}'")
     
-    # ✅ ACK INMEDIATO al remitente (confirmación de recepción en servidor)
+    # ✅ ACK al remitente (confirmación de recepción en servidor)
     emit('message_ack', {
         'message_id': message_id,
         'status': 'ok',
@@ -350,13 +344,46 @@ def handle_send_message(data):
         'stored_at': key
     })
     
-    # ✅ ENTREGAR AL RECEPTOR
-    # Cambio CRÍTICO: include_self=True para que el remitente TAMBIÉN reciba si está en múltiples tabs
+    # ✅ CORREGIDO: AHORA ENVIAMOS AL RECEPTOR
     emit('receive_message', msg, room=f"user_{recipient_id}", include_self=False)
     
-    # ✅ LOG: Confirm entrega
-    recipient_room = f"user_{recipient_id}"
-    logger.debug(f"📤 [EMIT] Mensaje {message_id} emitido a room '{recipient_room}'")
+    # ✅ NUEVO: TAMBIÉN ENVIAMOS AL REMITENTE (para sincronización)
+    # Esto permite que el remitente vea el mensaje confirmado en todas sus pestañas
+    emit('message_delivered', {
+        'message_id': message_id,
+        'recipient_id': recipient_id,
+        'timestamp': ts,
+        'delivered_to_recipient': True
+    }, room=f"user_{sender_id}")
+    
+    logger.debug(f"📤 [EMIT] Mensaje {message_id} entregado a receptor {recipient_id}")
+
+# ═══════════════════════════════════════════════════════════════
+# WEBSOCKET — NOTIFICACIÓN DE LECTURA
+# ═══════════════════════════════════════════════════════════════
+
+@socketio.on('message_read')
+def handle_message_read(data):
+    """
+    Notifica que un mensaje fue leído.
+    Nuevo: permite sincronización de lectura entre usuarios.
+    """
+    reader_id = data.get('reader_id')
+    message_id = data.get('message_id')
+    sender_id = data.get('sender_id')
+    
+    sid = request.sid
+    if sid not in sid_to_userid or sid_to_userid[sid] != reader_id:
+        return
+    
+    # Notificar al remitente que su mensaje fue leído
+    emit('message_read_ack', {
+        'message_id': message_id,
+        'read_by': reader_id,
+        'timestamp': datetime.now().isoformat()
+    }, room=f"user_{sender_id}")
+    
+    logger.debug(f"📖 [READ] Usuario {reader_id} leyó mensaje {message_id}")
 
 # ═══════════════════════════════════════════════════════════════
 # WEBSOCKET — CHAT GENERAL
@@ -369,14 +396,14 @@ def handle_general_message(data):
     sender_id       = data.get('sender_id') or sid_to_userid.get(sid, 0)
     sender_username = data.get('sender_username', '')
     text            = (data.get('message') or '').strip()
-    message_id      = data.get('message_id') or f"gchat_{uuid.uuid4().hex[:12]}"  # ✅ UUID
+    message_id      = data.get('message_id') or f"gchat_{uuid.uuid4().hex[:12]}"
 
     try:
         sender_id = int(sender_id)
     except (TypeError, ValueError):
         sender_id = 0
     
-    # ✅ Deduplicación en general chat
+    # Deduplicación
     if any(m['id'] == message_id for m in general_storage):
         logger.warning(f"⚠️  [GCHAT] DUPLICADO: {message_id}")
         emit('message_ack', {'message_id': message_id, 'status': 'ok', 'duplicated': True})
@@ -407,7 +434,7 @@ def handle_general_message(data):
 def get_conversation(uid_a, uid_b):
     """
     Devuelve histórico de conversación entre dos usuarios.
-    ✅ MEJORADO: Logging detallado, validación.
+    ✅ Con logging detallado.
     """
     key  = make_conv_key(uid_a, uid_b)
     msgs = message_storage.get(key, [])
@@ -591,7 +618,7 @@ def api_status():
     return jsonify({
         'status': 'ok',
         'app': 'GestióPro',
-        'version': '3.1',  # ✅ Versión actualizada
+        'version': '3.2_FIXED',
         'timestamp': datetime.now().isoformat(),
         'environment': app.config['ENV'],
         'meta_ready': bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN),
@@ -606,7 +633,7 @@ def api_health():
     """Endpoint de health check para Render"""
     return jsonify({
         'status': 'healthy',
-        'service': 'gestionpro-v3.1',
+        'service': 'gestionpro-v3.2_FIXED',
         'timestamp': datetime.now().isoformat()
     }), 200
 
