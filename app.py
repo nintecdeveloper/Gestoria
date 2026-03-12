@@ -7,6 +7,12 @@ import requests
 import logging
 
 # ═══════════════════════════════════════════════════════════════
+# LOGGING — CONFIGURACIÓN INMEDIATA (ANTES DE CUALQUIER USO)
+# ═══════════════════════════════════════════════════════════════
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ═══════════════════════════════════════════════════════════════
 # META WHATSAPP API — IMPORTACIÓN CONDICIONAL
 # Ahora usamos Meta Cloud API en lugar de Twilio
 # ═══════════════════════════════════════════════════════════════
