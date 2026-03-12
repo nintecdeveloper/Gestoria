@@ -2921,9 +2921,9 @@
               </div>
               <div class="card">
                 <div class="card-hdr">
-                  <div class="card-title">Actividad reciente</div>
+                  <div class="card-title">Mensajes pendientes</div>
                 </div>
-                <div class="card-body" id="recent-activity"></div>
+                <div class="card-body" id="pending-messages"></div>
               </div>
             </div>
           </div>
@@ -3092,7 +3092,15 @@
                 <h2>Calendario Laboral</h2>
                 <p>Citas del departamento laboral</p>
               </div>
-              <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Nueva cita</button>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar por:</label>
+                  <select id="dept-laboral-filter-person" onchange="renderDeptCalendar('laboral')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Todos</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Agendar cita</button>
+              </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
             <div id="dept-laboral-legend" class="dept-legend" style="display:none"></div>
@@ -3125,7 +3133,15 @@
                 <h2>Calendario Fiscal</h2>
                 <p>Citas del departamento fiscal</p>
               </div>
-              <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Nueva cita</button>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar por:</label>
+                  <select id="dept-fiscal-filter-person" onchange="renderDeptCalendar('fiscal')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Todos</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Agendar cita</button>
+              </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
             <div id="dept-fiscal-legend" class="dept-legend" style="display:none"></div>
@@ -3158,7 +3174,15 @@
                 <h2>Calendario Mercantil</h2>
                 <p>Citas del departamento mercantil</p>
               </div>
-              <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Nueva cita</button>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar por:</label>
+                  <select id="dept-mercantil-filter-person" onchange="renderDeptCalendar('mercantil')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Todos</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Agendar cita</button>
+              </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
             <div id="dept-mercantil-legend" class="dept-legend" style="display:none"></div>
@@ -3795,13 +3819,13 @@
 
     <!-- MODAL: GESTIÓN DE CLIENTES -->
     <div class="modal-overlay" id="client-modal">
-      <div class="modal" style="width: 500px">
+      <div class="modal" style="width: 420px">
         <button class="modal-close" onclick="closeModal('client-modal')">
           &times;
         </button>
         <div class="modal-title" id="client-modal-title">Nuevo cliente</div>
         <div class="modal-sub">
-          Completa los datos del cliente
+          Añade el nombre y teléfono del cliente
         </div>
         <div class="form-group">
           <label>Nombre / Empresa *</label>
@@ -3812,55 +3836,15 @@
           />
         </div>
         <div class="form-group">
-          <label>Email</label>
-          <input
-            type="email"
-            id="client-email"
-            placeholder="Ej: juan@ejemplo.com"
-          />
-        </div>
-        <div class="form-group">
-          <label>Teléfono</label>
+          <label>Teléfono *</label>
           <input
             type="tel"
             id="client-phone"
             placeholder="Ej: +34 666 123 456"
           />
         </div>
-        <div class="form-group">
-          <label>Dirección</label>
-          <input
-            type="text"
-            id="client-address"
-            placeholder="Dirección completa"
-          />
-        </div>
-        <div class="form-group">
-          <label>Ciudad</label>
-          <input
-            type="text"
-            id="client-city"
-            placeholder="Ej: Barcelona"
-          />
-        </div>
-        <div class="form-group">
-          <label>CIF/NIF</label>
-          <input
-            type="text"
-            id="client-cif"
-            placeholder="Ej: A12345678"
-          />
-        </div>
-        <div class="form-group">
-          <label>Notas</label>
-          <textarea
-            id="client-notes"
-            rows="3"
-            placeholder="Información adicional sobre el cliente..."
-          ></textarea>
-        </div>
         <div class="form-err" id="client-err">
-          El nombre del cliente es obligatorio.
+          El nombre y teléfono del cliente son obligatorios.
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal('client-modal')">
@@ -4176,23 +4160,13 @@
         {
           id: 201,
           name: "Carlos Martínez López",
-          email: "carlos.martinez@ejemplo.com",
           phone: "+34 666 123 456",
-          address: "Calle Principal 123",
-          city: "Barcelona",
-          cif: "12345678X",
-          notes: "Cliente preferente, activo desde 2021",
           createdAt: new Date().toISOString()
         },
         {
           id: 202,
           name: "Empresa ABC SL",
-          email: "info@empresaabc.com",
           phone: "+34 932 654 321",
-          address: "Avenida Diagonal 500",
-          city: "Barcelona",
-          cif: "A87654321",
-          notes: "Servicios contables mensuales",
           createdAt: new Date().toISOString()
         }
       ];
@@ -4261,6 +4235,117 @@
       ];
 
       let CONVS = {};
+
+      // ══════════════════════════════════════════
+      //  SOCKET.IO - MENSAJERÍA EN TIEMPO REAL
+      // ══════════════════════════════════════════
+      
+      let socket = null;
+      let currentSocketId = null;
+      
+      function initializeSocket() {
+        // Importar socket.io desde CDN si no está disponible
+        if (typeof io === 'undefined') {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.socket.io/4.5.4/socket.io.min.js';
+          script.onload = connectSocket;
+          document.head.appendChild(script);
+        } else {
+          connectSocket();
+        }
+      }
+      
+      function connectSocket() {
+        socket = io();
+        
+        socket.on('connect', function() {
+          currentSocketId = socket.id;
+          console.log('✅ Socket.io conectado:', currentSocketId);
+          
+          // Notificar al servidor que el usuario se conectó
+          if (currentUser) {
+            socket.emit('user_login', {
+              username: currentUser.name,
+              userId: currentUser.id
+            });
+          }
+        });
+        
+        socket.on('disconnect', function() {
+          console.log('❌ Socket.io desconectado');
+          currentSocketId = null;
+        });
+        
+        // Evento para recibir mensajes privados
+        socket.on('receive_message', function(msg) {
+          if (msg.conv_id && CONVS[msg.conv_id]) {
+            if (!Array.isArray(CONVS[msg.conv_id].messages)) {
+              CONVS[msg.conv_id].messages = [];
+            }
+            CONVS[msg.conv_id].messages.push({
+              mine: false,
+              text: msg.text,
+              time: msg.timestamp,
+              read: false
+            });
+            
+            // Si el chat está abierto, actualizar vista
+            if (activeConvId === msg.conv_id) {
+              renderMsgs(msg.conv_id);
+            }
+            
+            buildMsgList(document.getElementById("msg-search-inp").value);
+            showNotification('Nuevo mensaje', `De: ${msg.sender_username}`);
+          }
+        });
+        
+        // Evento para recibir mensajes del chat general
+        socket.on('receive_general_message', function(msg) {
+          GENERAL_CHAT.push({
+            id: msg.id,
+            userId: msg.sender_id,
+            text: msg.text,
+            time: msg.timestamp.split('T')[1].slice(0, 5),
+            date: msg.timestamp.split('T')[0],
+            username: msg.sender_username
+          });
+          renderGeneralChat();
+          showNotification('Mensaje en Chat General', msg.sender_username);
+        });
+        
+        // Evento para recibir notificaciones
+        socket.on('notification_received', function(notif) {
+          showNotification(notif.title || 'Notificación', notif.message);
+        });
+        
+        // Evento de usuarios online
+        socket.on('user_status_update', function(data) {
+          console.log(`👤 ${data.username} está ${data.status}`);
+        });
+        
+        // Evento de lista de usuarios online
+        socket.on('online_users_list', function(data) {
+          console.log('👥 Usuarios online:', data.count);
+        });
+      }
+      
+      // Función auxiliar para mostrar notificaciones
+      function showNotification(title, message) {
+        // Usar Notification API si está disponible
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(title, {
+            body: message,
+            icon: '📢'
+          });
+        }
+        // O mostrar alert simple
+        console.log(`🔔 ${title}: ${message}`);
+      }
+      
+      // Solicitar permiso para notificaciones
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
 
       // ══════════════════════════════════════════
       //  DEPARTAMENTOS Y PERMISOS
@@ -4585,6 +4670,14 @@
         activeConvId = null;
         editingEvId = null;
         gchatUnreadCount = 0;
+        
+        // Desconectar socket.io
+        if (socket && socket.connected) {
+          socket.disconnect();
+          socket = null;
+          currentSocketId = null;
+        }
+        
         document.getElementById("app").style.display = "none";
         document.getElementById("login-screen").style.display = "flex";
         document.getElementById("login-user").value = "";
@@ -4654,6 +4747,11 @@
         }
 
         showSection("dashboard");
+        
+        // Inicializar socket.io para mensajería en tiempo real
+        setTimeout(() => {
+          initializeSocket();
+        }, 100);
       }
 
       // ══════════════════════════════════════════
@@ -4825,10 +4923,35 @@
               .join("")
           : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">Sin citas pendientes.</div>';
 
-        document.getElementById("recent-activity").innerHTML = `
-    <div class="task-item"><div class="t-dot"></div><div><div class="t-title">Sesión iniciada</div><div class="t-meta">Hace unos momentos</div></div></div>
-    <div class="task-item"><div class="t-dot amber"></div><div><div class="t-title">Chat General disponible</div><div class="t-meta">${GENERAL_CHAT.length} mensajes en el canal</div></div></div>
-    <div class="task-item"><div class="t-dot red"></div><div><div class="t-title">${EVENTS.length} citas en el sistema</div><div class="t-meta">Actualizado ahora</div></div></div>`;
+        // Renderizar mensajes pendientes
+        const pendingMsgs = [];
+        Object.keys(CONVERSATIONS).forEach(convId => {
+          const conv = CONVERSATIONS[convId];
+          if (Array.isArray(conv.messages)) {
+            const unreadCount = conv.messages.filter(m => !m.read && !m.mine).length;
+            if (unreadCount > 0) {
+              pendingMsgs.push({
+                convId,
+                participant: conv.participant,
+                count: unreadCount
+              });
+            }
+          }
+        });
+
+        const pendingMsgsHtml = pendingMsgs.length > 0
+          ? pendingMsgs.map(msg => `
+            <div class="task-item" onclick="showSection('messages'); openConv('${msg.convId}')" style="cursor:pointer">
+              <div class="t-dot amber"></div>
+              <div>
+                <div class="t-title">${msg.participant}</div>
+                <div class="t-meta">${msg.count} mensaje${msg.count !== 1 ? 's' : ''} sin leer</div>
+              </div>
+            </div>
+          `).join("")
+          : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">No hay mensajes pendientes.</div>';
+
+        document.getElementById("pending-messages").innerHTML = pendingMsgsHtml;
       }
 
       // ══════════════════════════════════════════
@@ -5678,7 +5801,29 @@
 
         const isAdmin = currentUser.role === "admin";
         const deptUsers = USERS.filter(u => u.departamento === dept && u.active);
-        const deptUserIds = deptUsers.map(u => u.id);
+        
+        // Obtener filtro de empleado
+        const filterSel = document.getElementById("dept-" + dept + "-filter-person");
+        let selectedEmployeeId = filterSel ? filterSel.value : "all";
+        if (!selectedEmployeeId || selectedEmployeeId === "all") {
+          selectedEmployeeId = "all";
+        } else {
+          selectedEmployeeId = parseInt(selectedEmployeeId);
+        }
+        
+        // Lllenar el select de filtro si es necesario
+        if (filterSel && filterSel.options.length === 1) {
+          const current = filterSel.value;
+          filterSel.innerHTML = '<option value="all">Todos</option>' +
+            deptUsers.map(u =>
+              `<option value="${u.id}"${u.id === selectedEmployeeId ? ' selected' : ''}>${safeHtml(u.name)}</option>`
+            ).join('');
+          filterSel.value = current;
+        }
+        
+        const deptUserIds = selectedEmployeeId === "all" 
+          ? deptUsers.map(u => u.id)
+          : [selectedEmployeeId];
 
         // Leyenda de empleados
         const legendEl = document.getElementById("dept-" + dept + "-legend");
@@ -6616,11 +6761,7 @@
         const filteredClients = filterQuery 
           ? CLIENTS.filter(c => 
               c.name.toLowerCase().includes(filterQuery) ||
-              (c.email && c.email.toLowerCase().includes(filterQuery)) ||
-              (c.phone && c.phone.toLowerCase().includes(filterQuery)) ||
-              (c.city && c.city.toLowerCase().includes(filterQuery)) ||
-              (c.cif && c.cif.toLowerCase().includes(filterQuery)) ||
-              (c.address && c.address.toLowerCase().includes(filterQuery))
+              (c.phone && c.phone.toLowerCase().includes(filterQuery))
             )
           : CLIENTS;
 
@@ -6637,12 +6778,7 @@
     <div class="client-avatar">${initials(c.name)}</div>
     <div class="client-info">
       <div class="client-name">${safeHtml(c.name)}</div>
-      <div class="client-contact">${safeHtml(c.email || c.phone || 'Sin contacto')}</div>
-      <div class="client-meta">
-        ${c.cif ? `<span>📋 ${safeHtml(c.cif)}</span>` : ''}
-        ${c.city ? `<span>📍 ${safeHtml(c.city)}</span>` : ''}
-        ${c.phone ? `<span>☎️ ${safeHtml(c.phone)}</span>` : ''}
-      </div>
+      <div class="client-contact">${safeHtml(c.phone || 'Sin teléfono')}</div>
     </div>
     <div class="action-btns">
       <button class="btn-icon" title="Editar" onclick="editClient(${c.id})">Editar</button>
@@ -6682,12 +6818,7 @@
         document.getElementById("client-modal-title").textContent = "Nuevo cliente";
         document.getElementById("client-save-btn").textContent = "Guardar";
         document.getElementById("client-name").value = "";
-        document.getElementById("client-email").value = "";
         document.getElementById("client-phone").value = "";
-        document.getElementById("client-address").value = "";
-        document.getElementById("client-city").value = "";
-        document.getElementById("client-cif").value = "";
-        document.getElementById("client-notes").value = "";
         document.getElementById("client-err").style.display = "none";
         openModal("client-modal");
       }
@@ -6699,27 +6830,17 @@
         document.getElementById("client-modal-title").textContent = "Editar cliente";
         document.getElementById("client-save-btn").textContent = "Guardar cambios";
         document.getElementById("client-name").value = c.name;
-        document.getElementById("client-email").value = c.email || "";
         document.getElementById("client-phone").value = c.phone || "";
-        document.getElementById("client-address").value = c.address || "";
-        document.getElementById("client-city").value = c.city || "";
-        document.getElementById("client-cif").value = c.cif || "";
-        document.getElementById("client-notes").value = c.notes || "";
         document.getElementById("client-err").style.display = "none";
         openModal("client-modal");
       }
 
       function saveClient() {
         const name = document.getElementById("client-name").value.trim();
-        const email = document.getElementById("client-email").value.trim();
         const phone = document.getElementById("client-phone").value.trim();
-        const address = document.getElementById("client-address").value.trim();
-        const city = document.getElementById("client-city").value.trim();
-        const cif = document.getElementById("client-cif").value.trim();
-        const notes = document.getElementById("client-notes").value.trim();
         const errEl = document.getElementById("client-err");
 
-        if (!name) {
+        if (!name || !phone) {
           errEl.style.display = "";
           return;
         }
@@ -6729,23 +6850,13 @@
           const c = CLIENTS.find((x) => x.id === editingClientId);
           if (c) {
             c.name = name;
-            c.email = email;
             c.phone = phone;
-            c.address = address;
-            c.city = city;
-            c.cif = cif;
-            c.notes = notes;
           }
         } else {
           CLIENTS.push({
             id: nextClientId++,
             name,
-            email,
             phone,
-            address,
-            city,
-            cif,
-            notes,
             createdAt: new Date().toISOString()
           });
         }
@@ -7093,18 +7204,31 @@
         const attachments = gchatPendingAttachments.length
           ? gchatPendingAttachments.map(a => ({ name: a.name, size: a.size, dataUrl: a.dataUrl, type: a.type }))
           : [];
-        GENERAL_CHAT.push({
+        
+        const msgObj = {
           id: nextGchatId++,
           userId: currentUser.id,
           text,
           time: nowTime(),
           date: todayStr(),
           attachments,
-        });
+        };
+        
+        GENERAL_CHAT.push(msgObj);
         inp.value = "";
         gchatPendingAttachments = [];
         gchatRenderChips();
         renderGeneralChat();
+        
+        // Enviar a través de socket.io si está disponible
+        if (socket && socket.connected && currentUser) {
+          socket.emit('send_general_message', {
+            message: text,
+            sender_username: currentUser.name,
+            message_id: msgObj.id,
+            attachments: attachments
+          });
+        }
       }
 
       /** Array temporal de adjuntos pendientes de enviar */
@@ -7372,6 +7496,7 @@
         // Permitir envío sin texto si hay adjuntos
         if (!text && msgPendingAttachments.length === 0) return;
         const time = nowTime();
+        
         // Clonar adjuntos pendientes para el mensaje (deep copy garantizado)
         const attachments = msgPendingAttachments.length
           ? msgPendingAttachments.map(a => ({
@@ -7381,13 +7506,38 @@
               type: a.type
             }))
           : [];
-        convData(activeConvId).push({ mine: true, text, time, read: true, attachments });
+        
+        const msgObj = { 
+          mine: true, 
+          text, 
+          time, 
+          read: true, 
+          attachments,
+          id: `msg_${Date.now()}`
+        };
+        
+        convData(activeConvId).push(msgObj);
         inp.value = "";
         // Limpiar adjuntos pendientes
         msgPendingAttachments = [];
         msgRenderChips();
         renderMsgs(activeConvId);
         buildMsgList(document.getElementById("msg-search-inp").value);
+        
+        // Enviar a través de socket.io si está disponible
+        if (socket && socket.connected && currentUser) {
+          const conv = CONVS[activeConvId];
+          const recipient = USERS.find(u => u.id !== currentUser.id && u.id.toString() === activeConvId);
+          
+          socket.emit('send_message', {
+            message: text,
+            sender_username: currentUser.name,
+            recipient_id: socket.id, // Será reemplazado por el servidor
+            conv_id: activeConvId,
+            message_id: msgObj.id,
+            attachments: attachments
+          });
+        }
       }
 
       // ══════════════════════════════════════════

@@ -252,6 +252,7 @@ def handle_message(data):
     recipient_id = data.get('recipient_id')  # ID del socket del usuario destino
     message_text = data.get('message', '')
     message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
+    conv_id = data.get('conv_id')  # ID de conversación
     
     if not message_text.strip():
         return
@@ -262,6 +263,7 @@ def handle_message(data):
         'sender_id': sender_id,
         'sender_username': sender_username,
         'recipient_id': recipient_id,
+        'conv_id': conv_id,
         'text': message_text,
         'timestamp': datetime.now().isoformat(),
         'read': False
@@ -273,12 +275,33 @@ def handle_message(data):
     if recipient_id and recipient_id in connected_users:
         socketio.emit('receive_message', message_obj, room=recipient_id)
     
-    # Confirmar al remitente que se envió
-    socketio.emit('message_sent', {
-        'message_id': message_id,
-        'status': 'delivered',
+    # Enviar al remitente una copia del mensaje para su historial
+    socketio.emit('message_sent', message_obj, room=sender_id)
+
+@socketio.on('send_general_message')
+def handle_general_message(data):
+    """Recibe un mensaje del chat general y lo retransmite a todos"""
+    sender_id = request.sid
+    sender_username = data.get('sender_username', 'Usuario')
+    message_text = data.get('message', '')
+    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
+    
+    if not message_text.strip():
+        return
+    
+    # Crear objeto de mensaje
+    message_obj = {
+        'id': message_id,
+        'sender_id': sender_id,
+        'sender_username': sender_username,
+        'text': message_text,
         'timestamp': datetime.now().isoformat()
-    }, room=sender_id)
+    }
+    
+    logger.info(f"💬 [General Chat] {sender_username}: {message_text[:50]}")
+    
+    # Retransmitir a todos los usuarios conectados
+    socketio.emit('receive_general_message', message_obj, broadcast=True)
 
 @socketio.on('typing')
 def handle_typing(data):
@@ -312,6 +335,38 @@ def handle_get_online_users():
         'users': online_list,
         'count': len(online_list)
     })
+
+@socketio.on('send_notification')
+def handle_notification(data):
+    """Envía una notificación a un usuario específico"""
+    recipient_id = data.get('recipient_id')
+    notification_type = data.get('type', 'info')  # info, warning, error, success
+    message = data.get('message', '')
+    title = data.get('title', '')
+    
+    if recipient_id and recipient_id in connected_users:
+        socketio.emit('notification_received', {
+            'type': notification_type,
+            'title': title,
+            'message': message,
+            'timestamp': datetime.now().isoformat()
+        }, room=recipient_id)
+        logger.info(f"🔔 [Notification] Enviada a {recipient_id[:8]}: {title}")
+
+@socketio.on('broadcast_notification')
+def handle_broadcast_notification(data):
+    """Envía una notificación a todos los usuarios"""
+    notification_type = data.get('type', 'info')
+    message = data.get('message', '')
+    title = data.get('title', '')
+    
+    socketio.emit('notification_received', {
+        'type': notification_type,
+        'title': title,
+        'message': message,
+        'timestamp': datetime.now().isoformat()
+    }, broadcast=True)
+    logger.info(f"🔔 [Broadcast Notification] {title}")
 
 # ═══════════════════════════════════════════════════════════════
 # API WHATSAPP — ENVÍO AUTOMÁTICO VÍA META
