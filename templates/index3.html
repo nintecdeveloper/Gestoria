@@ -3340,7 +3340,7 @@
                 <input 
                   type="text" 
                   id="clients-search"
-                  placeholder="🔍 Buscar cliente por nombre, email, CIF o ciudad..."
+                  placeholder="🔍 Buscar cliente por nombre o teléfono..."
                   style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;background:var(--surface);color:var(--text)"
                   oninput="filterClients(this.value)"
                   autocomplete="off"
@@ -3559,7 +3559,7 @@
           <select id="ev-service"></select>
         </div>
         <div class="form-group" id="ev-employee-group">
-          <label>Empleado asignado</label>
+          <label>Técnico / Empleado asignado</label>
           <select id="ev-employee"></select>
         </div>
         <div class="form-group">
@@ -4279,33 +4279,45 @@
         // ✅ RECIBIR MENSAJES PRIVADOS
         socket.on('receive_message', function(msg) {
           console.log('📨 [Socket] Mensaje privado recibido:', msg);
-          const sender = msg.sender_username;
-          const convId = sender;  // LA CLAVE ES EL USERNAME DEL REMITENTE
+          const senderName = msg.sender_username;
           
-          // Crear conversación si no existe
-          if (!CONVS[convId]) {
-            CONVS[convId] = {
-              participant: sender,
-              messages: []
-            };
+          // Encontrar el usuario remitente por su nombre
+          const senderUser = USERS.find(u => u.name === senderName || u.username === senderName);
+          
+          if (senderUser) {
+            // Usar clave numérica estándar para consistencia con openConv
+            const convId = convKey(currentUser.id, senderUser.id);
+            if (!CONVS[convId]) CONVS[convId] = [];
+            CONVS[convId].push({
+              mine: false,
+              text: msg.text,
+              time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
+              read: false
+            });
+            // Si la conversación está activa, marcar como leído y renderizar
+            if (activeConvId === senderUser.id) {
+              CONVS[convId].forEach(m => { if (!m.mine) m.read = true; });
+              renderMsgs(senderUser.id);
+            }
+          } else {
+            // Fallback: almacenar con clave de nombre si no se encuentra el usuario
+            if (!CONVS[senderName]) CONVS[senderName] = { participant: senderName, messages: [] };
+            const conv = CONVS[senderName];
+            const arr = Array.isArray(conv) ? conv : conv.messages;
+            arr.push({
+              mine: false,
+              text: msg.text,
+              time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
+              read: false
+            });
           }
           
-          // Agregar mensaje
-          CONVS[convId].messages.push({
-            mine: false,
-            text: msg.text,
-            time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
-            read: false
-          });
-          
-          console.log('✅ [Socket] Mensaje agregado a conversación con', sender);
-          
-          // Actualizar UI si está abierto
-          if (activeConvId === convId) {
-            renderMsgs(convId);
-          }
-          
+          updateBadge();
           buildMsgList(document.getElementById("msg-search-inp").value);
+          // Actualizar panel de pendientes si el dashboard está activo
+          if (document.getElementById('section-dashboard').classList.contains('active')) {
+            renderDashboard();
+          }
         });
         
         // ✅ RECIBIR NOTIFICACIÓN DE MENSAJE PRIVADO
@@ -4950,30 +4962,44 @@
               .join("")
           : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">Sin citas pendientes.</div>';
 
-        // Renderizar mensajes pendientes
+        // Renderizar mensajes directos pendientes (no leídos, dirigidos al usuario actual)
         const pendingMsgs = [];
-        Object.keys(CONVERSATIONS).forEach(convId => {
-          const conv = CONVERSATIONS[convId];
-          if (Array.isArray(conv.messages)) {
-            const unreadCount = conv.messages.filter(m => !m.read && !m.mine).length;
-            if (unreadCount > 0) {
-              pendingMsgs.push({
-                convId,
-                participant: conv.participant,
-                count: unreadCount
-              });
-            }
+        // Buscar en CONVS usando claves de username (socket) y claves numéricas (legacy)
+        USERS.filter(u => u.id !== currentUser.id && u.active).forEach(u => {
+          // Clave legacy numérica
+          const legacyKey = convKey(currentUser.id, u.id);
+          const legacyMsgs = Array.isArray(CONVS[legacyKey]) ? CONVS[legacyKey] : [];
+          const legacyUnread = legacyMsgs.filter(m => !m.mine && !m.read);
+          // Clave de username (socket)
+          const usernameKey = u.name;
+          const socketMsgs = Array.isArray(CONVS[usernameKey]) ? CONVS[usernameKey].filter(m => !m.mine) : [];
+          const socketUnread = socketMsgs.filter(m => !m.read);
+
+          const totalUnreadMsgs = [...legacyUnread, ...socketUnread];
+          if (totalUnreadMsgs.length > 0) {
+            const lastMsg = totalUnreadMsgs[totalUnreadMsgs.length - 1];
+            pendingMsgs.push({
+              userId: u.id,
+              name: u.name,
+              count: totalUnreadMsgs.length,
+              preview: lastMsg.text ? lastMsg.text.slice(0, 60) : '📎 Adjunto',
+              time: lastMsg.time || ''
+            });
           }
         });
 
         const pendingMsgsHtml = pendingMsgs.length > 0
           ? pendingMsgs.map(msg => `
-            <div class="task-item" onclick="showSection('messages'); openConv('${msg.convId}')" style="cursor:pointer">
+            <div class="task-item" onclick="showSection('messages'); openConv(${msg.userId})" style="cursor:pointer">
               <div class="t-dot amber"></div>
-              <div>
-                <div class="t-title">${msg.participant}</div>
-                <div class="t-meta">${msg.count} mensaje${msg.count !== 1 ? 's' : ''} sin leer</div>
+              <div style="flex:1;min-width:0">
+                <div class="t-title" style="display:flex;align-items:center;gap:6px">
+                  ${safeHtml(msg.name)}
+                  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent2);flex-shrink:0" title="${msg.count} sin leer"></span>
+                </div>
+                <div class="t-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">"${safeHtml(msg.preview)}"</div>
               </div>
+              <span class="tag tag-gray" style="white-space:nowrap;flex-shrink:0">${msg.time}</span>
             </div>
           `).join("")
           : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">No hay mensajes pendientes.</div>';
@@ -5535,7 +5561,8 @@
       function fillEmployeeSelect(selectedId) {
         const grp = document.getElementById("ev-employee-group");
         const isAdmin = currentUser.role === "admin";
-        grp.style.display = (isAdmin && pendingIsGlobal) ? "" : "none";
+        // Admin siempre puede asignar técnico, tanto en citas propias como globales
+        grp.style.display = isAdmin ? "" : "none";
         if (isAdmin) {
           document.getElementById("ev-employee").innerHTML = USERS.filter(
             (u) => u.active,
@@ -5673,7 +5700,7 @@
         errEl.textContent = "Rellena los campos obligatorios (*).";
         errEl.style.display = "none";
         const isAdmin = currentUser.role === "admin";
-        const assignedTo = (isAdmin && pendingIsGlobal)
+        const assignedTo = isAdmin
           ? parseInt(document.getElementById("ev-employee").value)
           : currentUser.id;
         const service = document.getElementById("ev-service").value;
@@ -7449,6 +7476,38 @@
         msgPendingAttachments = [];
         msgRenderChips();
         renderMsgs(otherId);
+
+        // Cargar historial del servidor (mensajes enviados mientras el usuario estaba offline)
+        if (currentUser) {
+          const convId = `${currentUser.name}_${other.name}`;
+          fetch(`/api/messages/${convId}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (!data || !data.ok || !data.messages || !data.messages.length) return;
+              const localMsgs = convData(otherId);
+              const localIds = new Set(localMsgs.map(m => m.id).filter(Boolean));
+              let added = false;
+              data.messages.forEach(serverMsg => {
+                if (localIds.has(serverMsg.id)) return; // evitar duplicados
+                const isMine = serverMsg.sender_username === currentUser.name;
+                localMsgs.push({
+                  id: serverMsg.id,
+                  mine: isMine,
+                  text: serverMsg.text,
+                  time: serverMsg.timestamp ? serverMsg.timestamp.split('T')[1].slice(0,5) : '',
+                  read: isMine ? true : serverMsg.read
+                });
+                added = true;
+              });
+              if (added) {
+                localMsgs.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+                renderMsgs(otherId);
+                buildMsgList(document.getElementById("msg-search-inp").value);
+              }
+            })
+            .catch(() => {}); // silenciar errores de red
+        }
+
         // Mobile: slide animation
         if (isMobile()) {
           document.getElementById("msg-main").classList.add("conv-open");
@@ -7559,12 +7618,14 @@
         
         // ✅ ENVIAR VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
-          console.log('📤 [Socket] Enviando mensaje privado a:', activeConvId);
+          const recipientUser = USERS.find(u => u.id === activeConvId);
+          const recipientName = recipientUser ? recipientUser.name : String(activeConvId);
+          console.log('📤 [Socket] Enviando mensaje privado a:', recipientName);
           socket.emit('send_message', {
             message: text,
             sender_username: currentUser.name,
-            recipient_username: activeConvId,  // ✅ ENVIAR USERNAME, NO ID
-            conv_id: activeConvId,
+            recipient_username: recipientName,
+            conv_id: `${currentUser.name}_${recipientName}`,
             message_id: msgObj.id,
             attachments: attachments
           });
