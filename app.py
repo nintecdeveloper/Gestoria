@@ -160,16 +160,21 @@ def handle_send_msg(data):
             INSERT INTO messages (sender_id, sender_username, recipient_id, text, timestamp)
             VALUES (?, ?, ?, ?, ?)
         ''', (sender_id, sender_username, recipient_id, text, ts))
+        
+        # 🔑 IMPORTANTE: Obtener el ID de la fila insertada
+        message_id = c.lastrowid
+        
         conn.commit()
         conn.close()
-        print(f"   ✓ GUARDADO EN BASE DE DATOS")
+        print(f"   ✓ GUARDADO EN BASE DE DATOS (ID={message_id})")
     except Exception as e:
         print(f"   ❌ Error BD: {e}")
         print(f"{'='*60}\n")
         return
     
-    # Crear objeto de mensaje
+    # Crear objeto de mensaje con TODOS los campos requeridos
     msg = {
+        'id': message_id,                    # 🔑 ID de BD para deduplicación
         'sender_id': sender_id,
         'sender_username': sender_username,
         'recipient_id': recipient_id,
@@ -187,7 +192,7 @@ def handle_send_msg(data):
     print(f"   📤 Emitiendo a sala: {sender_room} (emisor)")
     emit('new_msg', msg, room=sender_room)
     
-    print(f"✅ MENSAJE ENTREGADO A AMBOS LADOS")
+    print(f"✅ MENSAJE ENTREGADO A AMBOS LADOS (ID={message_id})")
     print(f"{'='*60}\n")
 
 @socketio.on('send_general')
@@ -212,14 +217,19 @@ def handle_send_general(data):
             INSERT INTO general_messages (sender_id, sender_username, text, timestamp)
             VALUES (?, ?, ?, ?)
         ''', (sender_id, sender_username, text, ts))
+        
+        # 🔑 IMPORTANTE: Obtener el ID de la fila insertada
+        message_id = c.lastrowid
+        
         conn.commit()
         conn.close()
     except Exception as e:
         print(f"❌ Error BD: {e}")
         return
     
-    # Broadcast a todos
+    # Broadcast a todos - con ID de BD
     msg = {
+        'id': message_id,                    # 🔑 ID de BD para deduplicación
         'sender_id': sender_id,
         'sender_username': sender_username,
         'text': text,

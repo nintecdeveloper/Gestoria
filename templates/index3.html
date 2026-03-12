@@ -4269,6 +4269,9 @@
               mine:        Number(m.sender_id) === Number(currentUser.id),
               text:        m.text || '',
               time:        m.timestamp ? m.timestamp.split('T')[1].slice(0,5) : '??:??',
+              timestamp:   m.timestamp,                    // 🔑 AGREGADO
+              sender_id:   m.sender_id,                     // 🔑 AGREGADO
+              recipient_id: m.recipient_id,                 // 🔑 AGREGADO
               read:        true,
               attachments: m.attachments || []
             });
@@ -4365,17 +4368,15 @@
 
           const arr = convData(otherId);
           
-          // 🔑 DEDUPLICACIÓN MEJORADA: Por combinación única (sender + recipient + text + timestamp)
-          // Esto evita agregar duplicados del mismo mensaje enviado dos veces
+          // 🔑 DEDUPLICACIÓN MEJORADA: Usar ID de BD como clave única
+          // El servidor ahora devuelve el ID de BD, así que es una deduplicación confiable
           const exists = arr.find(function(m) { 
-            return m.sender_id === msg.sender_id && 
-                   m.recipient_id === msg.recipient_id && 
-                   m.text === msg.text && 
-                   (m.timestamp === msg.timestamp || m.time === msg.timestamp.split('T')[1].slice(0,5));
+            return m.id === msg.id;  // ✓ Deduplicación por ID de BD (más confiable)
           });
           
           if (!exists) {
             arr.push({
+              id:          msg.id,
               mine:        isMine,
               text:        msg.text || '',
               time:        msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime(),
@@ -4387,7 +4388,7 @@
             });
             console.log('✓ Mensaje agregado correctamente a la conversación');
           } else {
-            console.log('⊘ Mensaje duplicado detectado, no se agrega');
+            console.log('⊘ Mensaje duplicado detectado (ID=' + msg.id + '), no se agrega');
           }
 
           if (activeConvId === otherId) {
@@ -4404,11 +4405,15 @@
 
         // ─── RECIBIR MENSAJE DEL CHAT GENERAL ───────────────
         socket.on('new_general_msg', function(msg) {
-          // Evitar duplicados - buscar por texto y timestamp
-          if (GENERAL_CHAT.find(function(m) { return m.text === msg.text && m.username === msg.sender_username; })) return;
+          // 🔑 Evitar duplicados usando ID de BD (más confiable que texto + usuario)
+          if (GENERAL_CHAT.find(function(m) { return m.id === msg.id; })) {
+            console.log('⊘ Mensaje general duplicado detectado (ID=' + msg.id + '), no se agrega');
+            return;
+          }
           const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime();
           const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
           GENERAL_CHAT.push({
+            id:       msg.id,                // 🔑 AGREGADO para deduplicación
             userId:   Number(msg.sender_id),
             text:     msg.text,
             time:     time,
@@ -7557,13 +7562,17 @@
           ? gchatPendingAttachments.map(a => ({ name: a.name, size: a.size, dataUrl: a.dataUrl, type: a.type }))
           : [];
         
+        const timestamp = new Date().toISOString();  // 🔑 AGREGADO: timestamp ISO
         const msgObj = {
-          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,  // ID temporal
           userId: currentUser.id,
+          sender_id: currentUser.id,                  // 🔑 AGREGADO: para consistencia
           username: currentUser.name,
+          sender_username: currentUser.name,          // 🔑 AGREGADO: para consistencia
           text,
           time: nowTime(),
           date: todayStr(),
+          timestamp: timestamp,                       // 🔑 AGREGADO: timestamp para consistencia
           attachments,
         };
         
@@ -7851,6 +7860,7 @@
         // Permitir envío sin texto si hay adjuntos
         if (!text && msgPendingAttachments.length === 0) return;
         const time = nowTime();
+        const timestamp = new Date().toISOString();  // 🔑 AGREGADO: timestamp ISO para consistencia
         
         // Clonar adjuntos pendientes para el mensaje (deep copy garantizado)
         const attachments = msgPendingAttachments.length
@@ -7866,10 +7876,11 @@
         const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
         const msgObj = { 
+          id: messageId,                // 🔑 ID temporal (será reemplazado por ID de BD cuando venga del servidor)
           mine: true, 
           text, 
           time,
-          id: messageId,
+          timestamp: timestamp,          // 🔑 AGREGADO: timestamp para consistencia
           sender_id: currentUser.id,
           recipient_id: activeConvId,
           read: true, 
@@ -7887,7 +7898,7 @@
         // ✅ ENVIAR VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
           const recipient = USERS.find(u => u.id === activeConvId);
-          console.log('📤 Enviando mensaje privado con ID:', messageId);
+          console.log('📤 Enviando mensaje privado con ID temporal:', messageId);
           socket.emit('send_msg', {
             text: text,
             sender_username: currentUser.name,
