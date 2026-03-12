@@ -1,72 +1,50 @@
 import os
-import json
 import sqlite3
 from flask import Flask, render_template, jsonify, request
-from flask_socketio import SocketIO, emit, join_room, leave_room, rooms
-from datetime import datetime, timedelta
-import requests
+from flask_socketio import SocketIO, emit, join_room
+from datetime import datetime
 import logging
-import uuid
 import sys
-import threading
-from functools import wraps
 
 # ═══════════════════════════════════════════════════════════════
-# CONFIGURACIÓN DE LOGGING
+# LOGGING
 # ═══════════════════════════════════════════════════════════════
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s | %(levelname)-8s | %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
+logging.basicConfig(level=logging.DEBUG, format='%(message)s', handlers=[logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-print("\n" + "="*80)
-print("🚀 INICIANDO SERVIDOR CON MENSAJERÍA 100% FUNCIONAL")
-print("="*80 + "\n")
 
 # ═══════════════════════════════════════════════════════════════
 # FLASK APP Y SOCKETIO
 # ═══════════════════════════════════════════════════════════════
-
 app = Flask(__name__, template_folder='templates', static_folder='templates')
 app.config['SECRET_KEY'] = 'dev-secret-key'
-socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
-
-logger.info("✅ Flask app creada")
-logger.info("✅ SocketIO inicializado")
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # ═══════════════════════════════════════════════════════════════
-# CONFIGURACIÓN DE BASE DE DATOS
+# DATABASE
 # ═══════════════════════════════════════════════════════════════
-
 DB_FILE = 'gestionpro.db'
 
 def init_db():
-    """Inicializar base de datos con todas las tablas necesarias"""
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     
-    # Tabla de mensajes PRIVADOS
+    # Tabla simplificada de mensajes privados
     c.execute('''
         CREATE TABLE IF NOT EXISTS messages (
-            id TEXT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             sender_id INTEGER NOT NULL,
             sender_username TEXT,
             recipient_id INTEGER NOT NULL,
             text TEXT,
             timestamp TEXT,
-            read BOOLEAN DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
-    # Tabla de mensajes GENERALES
+    # Tabla de mensajes generales
     c.execute('''
         CREATE TABLE IF NOT EXISTS general_messages (
-            id TEXT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             sender_id INTEGER NOT NULL,
             sender_username TEXT,
             text TEXT,
@@ -89,324 +67,154 @@ def init_db():
             notes TEXT,
             private BOOLEAN DEFAULT 0,
             client_phone TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Tabla de recordatorios personales
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS personal_reminders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            appointment_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
-            reminder_timing TEXT NOT NULL,
-            scheduled_for TEXT NOT NULL,
-            fired BOOLEAN DEFAULT 0,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(appointment_id) REFERENCES appointments(id)
-        )
-    ''')
-    
-    # Tabla de recordatorios WhatsApp
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS whatsapp_reminders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            appointment_id INTEGER NOT NULL,
-            recipient_phone TEXT NOT NULL,
-            message TEXT,
-            reminder_timing TEXT NOT NULL,
-            scheduled_for TEXT NOT NULL,
-            fired BOOLEAN DEFAULT 0,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(appointment_id) REFERENCES appointments(id)
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
     conn.commit()
     conn.close()
-    logger.info("✅ Base de datos inicializada (6 tablas)")
+    print("✅ Base de datos inicializada")
 
-# Inicializar BD al arrancar
 init_db()
 
 # ═══════════════════════════════════════════════════════════════
 # ESTADO GLOBAL
 # ═══════════════════════════════════════════════════════════════
-
-connected_users = {}
-sid_to_userid = {}
-message_ids_seen = set()
-reminder_timers = {}
-
-logger.info("✅ Estructuras de datos inicializadas")
+users_online = {}  # socket_id -> {user_id, username}
 
 # ═══════════════════════════════════════════════════════════════
-# UTILIDADES
-# ═══════════════════════════════════════════════════════════════
-
-def get_db():
-    """Obtener conexión a BD"""
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def log_rooms_status():
-    """Loguear estado actual de salas"""
-    logger.debug(f"📊 ESTADO DE SALAS: {len(connected_users)} usuarios")
-    for sid, user_data in list(connected_users.items()):
-        uid = user_data.get('user_id')
-        logger.debug(f"   - {user_data.get('username')} (UID={uid})")
-
-# ═══════════════════════════════════════════════════════════════
-# WEBSOCKET - CONEXIÓN
+# WEBSOCKET EVENTS
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('connect')
 def handle_connect():
-    """Cliente conectado"""
-    sid = request.sid
-    logger.info(f"🔌 [CONNECT] {sid[:8]}")
-    emit('connection_response', {'data': 'Conectado'})
+    print(f"🔌 Cliente conectado: {request.sid[:8]}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Cliente desconectado"""
     sid = request.sid
-    user_data = connected_users.pop(sid, None)
-    user_id = sid_to_userid.pop(sid, None)
-    
-    if user_data:
-        logger.info(f"❌ [DISCONNECT] {user_data.get('username')} (UID={user_id})")
+    if sid in users_online:
+        user = users_online.pop(sid)
+        print(f"❌ Desconectado: {user.get('username')}")
 
-@socketio.on('user_login')
-def handle_user_login(data):
+@socketio.on('login')
+def handle_login(data):
     """Usuario hace login"""
     sid = request.sid
-    username = data.get('username', f'User_{sid[:6]}')
-    user_id = data.get('userId')
+    user_id = int(data.get('user_id', 0))
+    username = data.get('username', f'Usuario {user_id}')
     
-    logger.info(f"👤 [LOGIN] {username} (UID={user_id})")
-    
-    try:
-        user_id = int(user_id)
-        if user_id <= 0:
-            raise ValueError("user_id debe ser > 0")
-    except (TypeError, ValueError) as e:
-        logger.error(f"❌ [LOGIN] User ID inválido: {user_id}")
-        emit('login_ack', {'ok': False, 'error': f'Invalid user_id'})
+    if user_id <= 0:
+        emit('login_response', {'ok': False, 'error': 'ID inválido'})
         return
     
-    # Limpiar sesiones anteriores del mismo usuario
-    old_sids = [s for s, u in sid_to_userid.items() if u == user_id and s != sid]
-    for old_sid in old_sids:
-        connected_users.pop(old_sid, None)
-        sid_to_userid.pop(old_sid, None)
-    
     # Registrar usuario
-    room = f"user_{user_id}"
-    connected_users[sid] = {
-        'username': username,
-        'user_id': user_id,
-        'connected_at': datetime.now().isoformat(),
-        'room': room
-    }
-    sid_to_userid[sid] = user_id
+    users_online[sid] = {'user_id': user_id, 'username': username}
+    join_room(f'user_{user_id}')
     
-    # Unirse a la sala
-    join_room(room, sid=sid)
-    
-    logger.info(f"✅ [LOGIN] {username} en sala '{room}'")
-    log_rooms_status()
-    
-    emit('login_ack', {
-        'ok': True,
-        'room': room,
-        'user_id': user_id,
-        'timestamp': datetime.now().isoformat()
-    })
+    print(f"✅ Login: {username} (ID={user_id})")
+    emit('login_response', {'ok': True, 'user_id': user_id})
 
-# ═══════════════════════════════════════════════════════════════
-# WEBSOCKET - MENSAJERÍA PRIVADA (MEJORADA)
-# ═══════════════════════════════════════════════════════════════
-
-@socketio.on('send_message')
-def handle_send_message(data):
-    """Enviar mensaje privado - MEJORADO PARA VER DESDE AMBOS LADOS"""
-    sid = request.sid
-    sender_id = data.get('sender_id')
+@socketio.on('send_msg')
+def handle_send_msg(data):
+    """Recibir mensaje privado"""
+    sender_id = int(data.get('sender_id', 0))
     sender_username = data.get('sender_username', '?')
-    recipient_id = data.get('recipient_id')
-    text = (data.get('message') or '').strip()
-    message_id = data.get('message_id') or f"msg_{uuid.uuid4().hex[:12]}"
+    recipient_id = int(data.get('recipient_id', 0))
+    text = data.get('text', '').strip()
+    
+    if not text or sender_id <= 0 or recipient_id <= 0:
+        print(f"❌ Mensaje inválido de {sender_id}")
+        return
     
     ts = datetime.now().isoformat()
     
-    logger.info(f"💬 [SEND_MESSAGE] {sender_username} (UID{sender_id}) → UID{recipient_id}")
+    print(f"💬 Mensaje: {sender_username} → User {recipient_id}: {text[:30]}")
     
-    # Validación
+    # Guardar en BD
     try:
-        sender_id = int(sender_id)
-        recipient_id = int(recipient_id)
-    except (TypeError, ValueError):
-        logger.error(f"❌ [SEND_MESSAGE] IDs inválidos")
-        emit('message_ack', {'message_id': message_id, 'status': 'error'})
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO messages (sender_id, sender_username, recipient_id, text, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (sender_id, sender_username, recipient_id, text, ts))
+        conn.commit()
+        conn.close()
+        print(f"   ✓ Guardado en BD")
+    except Exception as e:
+        print(f"   ❌ Error BD: {e}")
         return
     
-    if sid not in sid_to_userid:
-        logger.error(f"❌ [SEND_MESSAGE] SID no autenticado")
-        emit('message_ack', {'message_id': message_id, 'status': 'error'})
-        return
-    
-    if sid_to_userid[sid] != sender_id:
-        logger.error(f"❌ [SEND_MESSAGE] Sender mismatch")
-        emit('message_ack', {'message_id': message_id, 'status': 'error'})
-        return
-    
-    if not text:
-        logger.warning(f"⚠️ [SEND_MESSAGE] Texto vacío")
-        return
-    
-    if message_id in message_ids_seen:
-        logger.warning(f"⚠️ [SEND_MESSAGE] Duplicado: {message_id}")
-        return
-    
-    message_ids_seen.add(message_id)
-    
-    # Crear mensaje
+    # Crear objeto de mensaje
     msg = {
-        'id': message_id,
         'sender_id': sender_id,
         'sender_username': sender_username,
         'recipient_id': recipient_id,
         'text': text,
-        'timestamp': ts,
-        'read': False
+        'timestamp': ts
     }
     
-    # Guardar en BD
-    try:
-        conn = get_db()
-        c = conn.cursor()
-        c.execute('''
-            INSERT INTO messages (id, sender_id, sender_username, recipient_id, text, timestamp, read)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (message_id, sender_id, sender_username, recipient_id, text, ts, 0))
-        conn.commit()
-        conn.close()
-        logger.debug(f"   ✓ Guardado en BD")
-    except Exception as e:
-        logger.error(f"   ❌ Error BD: {e}")
+    # ✅ ENVIAR AL RECEPTOR (sala user_X donde X es el ID del receptor)
+    print(f"   📤 Enviando a sala: user_{recipient_id}")
+    emit('new_msg', msg, room=f'user_{recipient_id}')
     
-    # Enviar ACK al emisor
-    emit('message_ack', {
-        'message_id': message_id,
-        'status': 'ok',
-        'timestamp': ts
-    }, to=sid)
-    logger.info(f"   ✓ ACK enviado al emisor")
+    # ✅ TAMBIÉN ENVIAR AL EMISOR para que vea su propio mensaje
+    print(f"   📤 Enviando confirmación a sala: user_{sender_id}")
+    emit('new_msg', msg, room=f'user_{sender_id}')
     
-    # ✨ MEJORADO: Enviar a AMBOS usuarios
-    # 1. Enviar al receptor
-    recipient_room = f"user_{recipient_id}"
-    logger.info(f"   📤 Enviando a receptor (sala: {recipient_room})")
-    emit('receive_message', msg, room=recipient_room, include_self=True)
-    
-    # 2. Enviar también al emisor CONFIRMADO desde servidor
-    sender_room = f"user_{sender_id}"
-    logger.info(f"   📤 Enviando confirmación al emisor (sala: {sender_room})")
-    emit('receive_message', msg, room=sender_room, skip_sid=sid)
-    
-    logger.info(f"✅ [SEND_MESSAGE] Completado - ambos usuarios notificados")
+    print(f"✅ Mensaje entregado a ambos lados")
 
-@socketio.on('send_general_message')
-def handle_general_message(data):
-    """Enviar mensaje a chat general"""
-    sid = request.sid
-    sender_id = data.get('sender_id')
+@socketio.on('send_general')
+def handle_send_general(data):
+    """Mensaje al chat general"""
+    sender_id = int(data.get('sender_id', 0))
     sender_username = data.get('sender_username', '?')
-    text = (data.get('message') or '').strip()
-    message_id = data.get('message_id') or f"msg_{uuid.uuid4().hex[:12]}"
+    text = data.get('text', '').strip()
+    
+    if not text or sender_id <= 0:
+        return
     
     ts = datetime.now().isoformat()
     
-    logger.info(f"📢 [GENERAL_MESSAGE] {sender_username}: {text[:50]}")
+    print(f"📢 Chat general: {sender_username}: {text[:30]}")
     
-    # Validación
-    if not text:
-        logger.warning(f"⚠️ [GENERAL_MESSAGE] Texto vacío")
+    # Guardar en BD
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO general_messages (sender_id, sender_username, text, timestamp)
+            VALUES (?, ?, ?, ?)
+        ''', (sender_id, sender_username, text, ts))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"❌ Error BD: {e}")
         return
     
-    if message_id in message_ids_seen:
-        logger.warning(f"⚠️ [GENERAL_MESSAGE] Duplicado")
-        return
-    
-    message_ids_seen.add(message_id)
-    
-    # Crear mensaje
+    # Broadcast a todos
     msg = {
-        'id': message_id,
         'sender_id': sender_id,
         'sender_username': sender_username,
         'text': text,
         'timestamp': ts
     }
-    
-    # Guardar en BD
-    try:
-        conn = get_db()
-        c = conn.cursor()
-        c.execute('''
-            INSERT INTO general_messages (id, sender_id, sender_username, text, timestamp)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (message_id, sender_id, sender_username, text, ts))
-        conn.commit()
-        conn.close()
-        logger.debug(f"   ✓ Guardado en BD")
-    except Exception as e:
-        logger.error(f"   ❌ Error BD: {e}")
-    
-    # Enviar ACK
-    emit('message_ack', {
-        'message_id': message_id,
-        'status': 'ok',
-        'timestamp': ts
-    })
-    
-    # Broadcast a TODOS
-    logger.info(f"   📤 Broadcast a todos")
-    emit('receive_general_message', msg, broadcast=True, include_self=True)
-
-@socketio.on('message_read')
-def handle_message_read(data):
-    """Notificar lectura de mensaje"""
-    message_id = data.get('message_id')
-    sender_id = data.get('sender_id')
-    
-    try:
-        conn = get_db()
-        c = conn.cursor()
-        c.execute('UPDATE messages SET read = 1 WHERE id = ?', (message_id,))
-        conn.commit()
-        conn.close()
-        logger.debug(f"✓ Mensaje {message_id} marcado como leído")
-    except Exception as e:
-        logger.error(f"Error actualizando lectura: {e}")
+    emit('new_general_msg', msg, broadcast=True)
 
 # ═══════════════════════════════════════════════════════════════
-# REST - MENSAJERÍA
+# REST ROUTES
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/')
 def index():
-    """Servir index3.html"""
     return render_template('index3.html')
 
 @app.route('/api/messages/<int:user_a>/<int:user_b>')
 def get_messages(user_a, user_b):
-    """Obtener mensajes privados entre dos usuarios"""
+    """Obtener mensajes entre dos usuarios"""
     try:
-        conn = get_db()
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         
         c.execute('''
@@ -417,67 +225,81 @@ def get_messages(user_a, user_b):
         ''', (user_a, user_b, user_b, user_a))
         
         rows = c.fetchall()
-        messages = [dict(row) for row in rows]
+        messages = []
+        for row in rows:
+            messages.append({
+                'id': row[0],
+                'sender_id': row[1],
+                'sender_username': row[2],
+                'recipient_id': row[3],
+                'text': row[4],
+                'timestamp': row[5]
+            })
         conn.close()
         
-        logger.debug(f"📥 [API] get_messages({user_a},{user_b}): {len(messages)}")
         return jsonify({'ok': True, 'messages': messages})
     except Exception as e:
-        logger.error(f"Error en get_messages: {e}")
+        print(f"❌ Error get_messages: {e}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 @app.route('/api/general-messages')
 def get_general_messages():
     """Obtener mensajes del chat general"""
     try:
-        conn = get_db()
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         
-        c.execute('''
-            SELECT * FROM general_messages 
-            ORDER BY timestamp ASC
-        ''')
+        c.execute('SELECT * FROM general_messages ORDER BY timestamp ASC')
         
         rows = c.fetchall()
-        messages = [dict(row) for row in rows]
+        messages = []
+        for row in rows:
+            messages.append({
+                'id': row[0],
+                'sender_id': row[1],
+                'sender_username': row[2],
+                'text': row[3],
+                'timestamp': row[4]
+            })
         conn.close()
         
-        logger.debug(f"📥 [API] get_general_messages: {len(messages)}")
         return jsonify({'ok': True, 'messages': messages})
     except Exception as e:
-        logger.error(f"Error en get_general_messages: {e}")
+        print(f"❌ Error get_general_messages: {e}")
         return jsonify({'ok': False, 'error': str(e)}), 500
-
-# ═══════════════════════════════════════════════════════════════
-# REST - CITAS
-# ═══════════════════════════════════════════════════════════════
 
 @app.route('/api/appointments', methods=['GET'])
 def get_appointments():
-    """Obtener citas"""
     try:
-        conn = get_db()
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute('SELECT * FROM appointments ORDER BY date DESC, time ASC')
         rows = c.fetchall()
-        appointments = [dict(row) for row in rows]
+        appointments = []
+        for row in rows:
+            appointments.append({
+                'id': row[0],
+                'owner_id': row[1],
+                'assigned_to': row[2],
+                'date': row[3],
+                'time': row[4],
+                'time_end': row[5],
+                'client': row[6],
+                'service': row[7] or '',
+                'notes': row[8] or '',
+                'private': row[9],
+                'client_phone': row[10] or ''
+            })
         conn.close()
         return jsonify({'ok': True, 'appointments': appointments})
     except Exception as e:
-        logger.error(f"Error en get_appointments: {e}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 @app.route('/api/appointments', methods=['POST'])
 def create_appointment():
-    """Crear cita"""
     try:
         data = request.json
-        required = ['owner_id', 'assigned_to', 'date', 'time', 'time_end', 'client']
-        for field in required:
-            if field not in data:
-                return jsonify({'ok': False, 'error': f'Campo faltante: {field}'}), 400
-        
-        conn = get_db()
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute('''
             INSERT INTO appointments 
@@ -491,55 +313,14 @@ def create_appointment():
         conn.commit()
         conn.close()
         
-        logger.info(f"✅ [CITA] Nueva: ID={appointment_id}")
-        socketio.emit('appointment_created', {'id': appointment_id, 'client': data['client']}, broadcast=True)
-        
+        socketio.emit('appointment_created', {'id': appointment_id}, broadcast=True)
         return jsonify({'ok': True, 'appointment_id': appointment_id}), 201
     except Exception as e:
-        logger.error(f"Error creando cita: {e}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
-@app.route('/api/health')
-def health():
-    """Health check"""
-    try:
-        conn = get_db()
-        c = conn.cursor()
-        
-        c.execute('SELECT COUNT(*) as cnt FROM messages')
-        msg_count = c.fetchone()['cnt']
-        
-        c.execute('SELECT COUNT(*) as cnt FROM general_messages')
-        gen_msg_count = c.fetchone()['cnt']
-        
-        c.execute('SELECT COUNT(*) as cnt FROM appointments')
-        apt_count = c.fetchone()['cnt']
-        
-        conn.close()
-        
-        return jsonify({
-            'status': 'ok',
-            'connected_users': len(connected_users),
-            'private_messages': msg_count,
-            'general_messages': gen_msg_count,
-            'appointments': apt_count
-        })
-    except Exception as e:
-        logger.error(f"Error en health check: {e}")
-        return jsonify({'status': 'error', 'error': str(e)}), 500
-
-# ═══════════════════════════════════════════════════════════════
-# MANEJO DE ERRORES
-# ═══════════════════════════════════════════════════════════════
-
 @app.errorhandler(404)
-def not_found(error):
+def not_found(e):
     return render_template('index3.html'), 200
-
-@app.errorhandler(500)
-def server_error(error):
-    logger.error(f"❌ Error 500: {str(error)}")
-    return jsonify({'error': 'Internal server error'}), 500
 
 # ═══════════════════════════════════════════════════════════════
 # MAIN
@@ -547,19 +328,9 @@ def server_error(error):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    host = '0.0.0.0'
+    print("\n" + "="*80)
+    print("🚀 SERVIDOR DE MENSAJERÍA INICIADO")
+    print(f"🌐 http://localhost:{port}")
+    print("="*80 + "\n")
     
-    logger.info("="*80)
-    logger.info("🚀 SERVIDOR LISTO - MENSAJERÍA 100% FUNCIONAL")
-    logger.info(f"HOST: {host}:{port}")
-    logger.info(f"DB: {DB_FILE}")
-    logger.info("="*80 + "\n")
-    
-    socketio.run(
-        app,
-        host=host,
-        port=port,
-        debug=True,
-        allow_unsafe_werkzeug=True,
-        log_output=True
-    )
+    socketio.run(app, host='0.0.0.0', port=port, debug=True, allow_unsafe_werkzeug=True)

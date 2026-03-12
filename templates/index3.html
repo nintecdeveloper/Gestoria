@@ -4311,9 +4311,9 @@
 
       function registerSocketUser() {
         if (currentUser && socket && socket.connected) {
-          socket.emit('user_login', {
+          socket.emit('login', {
             username: currentUser.name,
-            userId:   Number(currentUser.id)
+            user_id:   Number(currentUser.id)
           });
         }
       }
@@ -4342,48 +4342,42 @@
           registerSocketUser();
         });
 
-        socket.on('login_ack', function(data) {
+        socket.on('login_response', function(data) {
           if (!data.ok) {
             console.error('❌ [WS] Error en login:', data.error);
             return;
           }
-          console.log('✅ [WS] Usuario autenticado. Room:', data.room);
+          console.log('✅ [WS] Usuario autenticado');
           // Cargar histórico DESPUÉS de que el socket esté registrado
           loadAllHistories();
         });
 
-        // ─── RECIBIR MENSAJE PRIVADO (MEJORADO) ─────────────────────────
-        socket.on('receive_message', function(msg) {
+        // ─── RECIBIR MENSAJE PRIVADO ─────────────────────────
+        socket.on('new_msg', function(msg) {
           const senderId = Number(msg.sender_id);
           const recipientId = Number(msg.recipient_id);
           const isMine = Number(msg.sender_id) === Number(currentUser.id);
           
           // Determinar con quién estoy conversando
-          // Si yo soy el remitente, la conversación es con el receptor
-          // Si yo soy el receptor, la conversación es con el remitente
           const otherId = isMine ? recipientId : senderId;
           
-          console.log('📨 [WS] Mensaje ID=' + msg.id + ' de=' + senderId + ' para=' + recipientId + ' yo=' + currentUser.id + ' mine=' + isMine);
+          console.log('📨 Mensaje de ID=' + senderId + ' para ID=' + recipientId + ', yo=' + currentUser.id + ', mine=' + isMine);
 
           const arr = convData(otherId);
           
-          // Evitar duplicado con verificación por ID
-          const exists = arr.find(function(m) { return m.id === msg.id; });
+          // Evitar duplicado
+          const exists = arr.find(function(m) { return m.text === msg.text && m.timestamp === msg.timestamp; });
           if (!exists) {
             arr.push({
-              id:          msg.id,
               mine:        isMine,
               text:        msg.text || '',
               time:        msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime(),
               read:        (activeConvId === otherId),
-              attachments: msg.attachments || []
+              attachments: []
             });
-            console.log('✓ Mensaje agregado a la conversación con user=' + otherId);
-          } else {
-            console.log('⊘ Mensaje duplicado, no agregado');
+            console.log('✓ Mensaje agregado');
           }
 
-          // Renderizar si la conversación está activa
           if (activeConvId === otherId) {
             renderMsgs(otherId);
           }
@@ -4393,16 +4387,16 @@
         });
 
         socket.on('message_ack', function(ack) {
-          console.log('📬 [WS] ACK:', ack.status, ack.message_id);
+          console.log('📬 ACK recibido');
         });
 
         // ─── RECIBIR MENSAJE DEL CHAT GENERAL ───────────────
-        socket.on('receive_general_message', function(msg) {
-          if (GENERAL_CHAT.find(function(m) { return m.id === msg.id; })) return;
+        socket.on('new_general_msg', function(msg) {
+          // Evitar duplicados - buscar por texto y timestamp
+          if (GENERAL_CHAT.find(function(m) { return m.text === msg.text && m.username === msg.sender_username; })) return;
           const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime();
           const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
           GENERAL_CHAT.push({
-            id:       msg.id,
             userId:   Number(msg.sender_id),
             text:     msg.text,
             time:     time,
@@ -7569,13 +7563,11 @@
         
         // ✅ ENVIAR AL CHAT GENERAL VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
-          console.log('📤 [Socket] Enviando al chat general');
-          socket.emit('send_general_message', {
-            message: text,
+          console.log('📤 Enviando al chat general');
+          socket.emit('send_general', {
+            text: text,
             sender_username: currentUser.name,
-            sender_id: Number(currentUser.id),
-            message_id: msgObj.id,
-            attachments: attachments
+            sender_id: Number(currentUser.id)
           });
         } else {
           console.warn('⚠️ Socket no conectado');
@@ -7875,21 +7867,18 @@
         renderMsgs(activeConvId);
         buildMsgList(document.getElementById("msg-search-inp").value);
         
-        // ✅ ENVIAR VÍA SOCKET.IO CON AUTENTICACIÓN CONFIRMADA
+        // ✅ ENVIAR VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
           const recipient = USERS.find(u => u.id === activeConvId);
-          console.log('📤 [Socket] Enviando con autenticación confirmada');
-          socket.emit('send_message', {
-            message: text,
+          console.log('📤 Enviando mensaje privado');
+          socket.emit('send_msg', {
+            text: text,
             sender_username: currentUser.name,
             sender_id: Number(currentUser.id),
-            recipient_username: recipient ? recipient.name : '',
-            recipient_id: Number(activeConvId),
-            message_id: msgObj.id,
-            attachments: attachments
+            recipient_id: Number(activeConvId)
           });
         } else {
-          console.error('❌ Socket no conectado o currentUser no existe');
+          console.error('❌ Socket no conectado');
         }
       }
 
