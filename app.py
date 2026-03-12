@@ -52,10 +52,31 @@ META_API_VERSION = "v18.0"
 META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/messages"
 
 # ═══════════════════════════════════════════════════════════════
-# LOGGING
+# USUARIOS Y CALENDARIOS — DATOS INICIALES
 # ═══════════════════════════════════════════════════════════════
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+
+# Lista de usuarios (sin Sara)
+USUARIOS = [
+    {'id': 1, 'nombre': 'Antonio', 'departamento': 'admin', 'email': 'antonio@rodonverges.com', 'rol': 'admin'},
+    {'id': 2, 'nombre': 'Myriam', 'departamento': 'laboral', 'email': 'myriam@rodonverges.com', 'rol': 'user'},
+    {'id': 4, 'nombre': 'Montse Martín', 'departamento': 'laboral', 'email': 'montse@rodonverges.com', 'rol': 'user'},
+    {'id': 5, 'nombre': 'Anna Fabregà', 'departamento': 'fiscal', 'email': 'anna@rodonverges.com', 'rol': 'user'},
+]
+
+# Estructura de calendarios
+CALENDARIOS = {
+    'personales': [
+        {'id': 1, 'usuario_id': 1, 'usuario': 'Antonio', 'nombre': 'Mi calendario personal'},
+        {'id': 2, 'usuario_id': 2, 'usuario': 'Myriam', 'nombre': 'Mi calendario personal'},
+        {'id': 4, 'usuario_id': 4, 'usuario': 'Montse Martín', 'nombre': 'Mi calendario personal'},
+        {'id': 5, 'usuario_id': 5, 'usuario': 'Anna Fabregà', 'nombre': 'Mi calendario personal'},
+    ],
+    'departamentales': [
+        {'id': 101, 'nombre': 'Calendario Laboral', 'tipo': 'laboral', 'departamento': 'laboral'},
+        {'id': 102, 'nombre': 'Calendario Fiscal', 'tipo': 'fiscal', 'departamento': 'fiscal'},
+        {'id': 103, 'nombre': 'Calendario Mercantil', 'tipo': 'mercantil', 'departamento': 'mercantil'},
+    ]
+}
 
 def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
     """

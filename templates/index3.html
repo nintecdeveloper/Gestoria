@@ -551,6 +551,101 @@
         padding: 2px 7px;
         border-radius: 10px;
       }
+      /* ESTILOS PARA NAVEGACIÓN EXPANDIBLE */
+      .nav-expandable {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 24px;
+        color: rgba(255, 255, 255, 0.7);
+        cursor: pointer;
+        transition: all 0.15s;
+        font-size: 13.5px;
+        border-left: 3px solid transparent;
+      }
+      .nav-expandable:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+      }
+      .nav-expandable.active {
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        border-left-color: rgba(255, 255, 255, 0.55);
+      }
+      .nav-expand-icon {
+        margin-left: auto;
+        font-size: 11px;
+        transition: transform 0.2s;
+        opacity: 0.6;
+      }
+      .nav-expandable.expanded .nav-expand-icon {
+        transform: rotate(90deg);
+      }
+      .nav-submenu {
+        background: rgba(0, 0, 0, 0.2);
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+      }
+      .nav-submenu.expanded {
+        max-height: 800px;
+      }
+      .nav-subitem {
+        padding: 8px 24px 8px 44px;
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        font-size: 12.5px;
+        transition: all 0.15s;
+        border-left: 2px solid transparent;
+      }
+      .nav-subitem:hover {
+        color: rgba(255, 255, 255, 0.9);
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .nav-subitem.active {
+        color: rgba(255, 255, 255, 1);
+        background: rgba(255, 255, 255, 0.08);
+        border-left-color: rgba(255, 255, 255, 0.55);
+      }
+      .nav-subitem-nested {
+        padding-left: 64px;
+        font-size: 12px;
+        opacity: 0.8;
+      }
+      .nav-subitem-user {
+        padding: 6px 24px 6px 64px;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .nav-subitem-user:hover {
+        color: rgba(255, 255, 255, 0.8);
+      }
+      /* Expandible secundario dentro del submenu */
+      .nav-expandable-sub {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0;
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        font-size: 12.5px;
+        transition: all 0.15s;
+        border-left: 2px solid transparent;
+      }
+      .nav-expandable-sub:hover {
+        color: rgba(255, 255, 255, 0.9);
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .nav-expandable-sub .nav-expand-icon {
+        transition: transform 0.2s;
+        font-size: 11px;
+        opacity: 0.6;
+      }
+      .nav-expandable-sub.expanded .nav-expand-icon {
+        transform: rotate(90deg);
+      }
       .sidebar-user {
         padding: 12px 16px 12px 24px;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -2831,12 +2926,45 @@
           >
             <span class="icon">&#8857;</span> Usuarios
           </div>
-          <div
-            class="nav-item admin-only"
-            data-sec="admin-calendars"
-            onclick="showSection('admin-calendars')"
-          >
-            <span class="icon">&#9632;</span> Calendarios
+          <!-- CALENDARIOS - SECCIÓN EXPANDIBLE COMPLETA -->
+          <div class="nav-expandable admin-only" onclick="toggleCalendarsMenu(event)">
+            <span class="icon">📅</span> Calendarios
+            <span class="nav-expand-icon">▶</span>
+          </div>
+          <div class="nav-submenu" id="calendars-submenu">
+            <!-- Calendario Personal -->
+            <div class="nav-expandable-sub" onclick="toggleSubMenu(event, 'personal-sub')">
+              <span style="padding-left: 24px;">📌 Calendario Personal</span>
+              <span class="nav-expand-icon" style="margin-right: 24px;">▶</span>
+            </div>
+            <div class="nav-submenu" id="personal-sub" style="background: rgba(0,0,0,0.3);">
+              <div class="nav-subitem" onclick="showSection('cal-personal')">
+                Ver calendario personal
+              </div>
+            </div>
+
+            <!-- Calendarios Departamentales -->
+            <div class="nav-expandable-sub" onclick="toggleSubMenu(event, 'dept-sub')">
+              <span style="padding-left: 24px;">🏢 Calendarios Departamentales</span>
+              <span class="nav-expand-icon" style="margin-right: 24px;">▶</span>
+            </div>
+            <div class="nav-submenu" id="dept-sub" style="background: rgba(0,0,0,0.3);">
+              <div class="nav-subitem nav-subitem-nested" onclick="showSection('cal-laboral')">
+                💼 Cal. Laboral
+              </div>
+              <div class="nav-subitem nav-subitem-nested" onclick="showSection('cal-mercantil')">
+                📊 Cal. Mercantil
+              </div>
+            </div>
+
+            <!-- Calendarios Personales por Usuario -->
+            <div class="nav-expandable-sub" onclick="toggleSubMenu(event, 'users-cal-sub')">
+              <span style="padding-left: 24px;">👤 Calendarios Personales</span>
+              <span class="nav-expand-icon" style="margin-right: 24px;">▶</span>
+            </div>
+            <div class="nav-submenu" id="users-cal-sub" style="background: rgba(0,0,0,0.3);">
+              <div id="calendars-user-list"></div>
+            </div>
           </div>
           <div
             class="nav-item"
@@ -2845,12 +2973,28 @@
           >
             <span class="icon">&#9671;</span> Servicios
           </div>
-          <div
-            class="nav-item"
-            data-sec="clients"
-            onclick="showSection('clients')"
-          >
+          <!-- CLIENTES - SECCIÓN EXPANDIBLE -->
+          <div class="nav-item nav-expandable" onclick="toggleClientsMenu(event)">
             <span class="icon">👥</span> Clientes
+            <span class="nav-expand-icon">▶</span>
+          </div>
+          <div class="nav-submenu" id="clients-submenu" style="display: none;">
+            <div class="nav-subitem" onclick="showSection('clients-personal')">
+              📌 Calendario Personal
+            </div>
+            <div class="nav-subitem" onclick="showSection('clients-departamental')">
+              🏢 Calendarios Departamentales
+            </div>
+            <div class="nav-subitem nav-subitem-nested" style="margin-left: 20px;">
+              💼 Cal. Laboral
+            </div>
+            <div class="nav-subitem nav-subitem-nested" style="margin-left: 20px;">
+              📊 Cal. Mercantil
+            </div>
+            <div class="nav-subitem" onclick="showSection('clients-usuarios')">
+              👤 Calendarios Personales
+            </div>
+            <div id="clients-user-list" style="margin-left: 30px; margin-top: 8px;"></div>
           </div>
           <div class="nav-section-title">Comunicación</div>
           <div
@@ -4110,16 +4254,28 @@
           color: "blue",
         },
         {
-          id: 3,
-          username: "sara",
-          password: "sara123",
-          name: "Sara",
+          id: 4,
+          username: "montse",
+          password: "montse123",
+          name: "Montse Martín",
           role: "empleado",
-          email: "sara@rodonverges.com",
-          phone: "+34 93 000 00 03",
+          email: "montse@rodonverges.com",
+          phone: "+34 93 000 00 04",
+          active: true,
+          departamento: "laboral",
+          color: "pink",
+        },
+        {
+          id: 5,
+          username: "anna",
+          password: "anna123",
+          name: "Anna Fabregà",
+          role: "empleado",
+          email: "anna@rodonverges.com",
+          phone: "+34 93 000 00 05",
           active: true,
           departamento: "fiscal",
-          color: "amber",
+          color: "purple",
         },
       ];
 
@@ -4765,6 +4921,9 @@
         updateBadge();
         updateDeptCalNav();
 
+        // Inicializar lista de usuarios en calendarios
+        renderCalendarsUserList();
+
         // ══════════════════════════════════════════
         //  NUEVO: Ocultar nav del calendario del admin para el propio admin
         //  (el admin ya tiene acceso a todas sus citas desde "Mi Calendario")
@@ -4812,6 +4971,55 @@
         "general-chat": "Chat General",
         messages: "Mensajería",
       };
+
+      // ══════════════════════════════════════════
+      // FUNCIONES PARA EXPANSIÓN DE MENÚS
+      // ══════════════════════════════════════════
+      
+      function toggleCalendarsMenu(event) {
+        event.stopPropagation();
+        const btn = event.currentTarget;
+        const submenu = document.getElementById('calendars-submenu');
+        
+        btn.classList.toggle('expanded');
+        submenu.classList.toggle('expanded');
+      }
+
+      function toggleSubMenu(event, submenuId) {
+        event.stopPropagation();
+        const btn = event.currentTarget;
+        const submenu = document.getElementById(submenuId);
+        
+        btn.classList.toggle('expanded');
+        submenu.classList.toggle('expanded');
+      }
+
+      function toggleClientsMenu(event) {
+        event.stopPropagation();
+        const btn = event.currentTarget;
+        const submenu = document.getElementById('clients-submenu');
+        
+        btn.classList.toggle('expanded');
+        submenu.classList.toggle('expanded');
+      }
+
+      // Renderizar lista de usuarios en calendarios personales
+      function renderCalendarsUserList() {
+        const container = document.getElementById('calendars-user-list');
+        if (!container) return;
+        
+        const usuarios = [
+          { nombre: 'Myriam', id: 2 },
+          { nombre: 'Montse Martín', id: 4 },
+          { nombre: 'Anna Fabregà', id: 5 },
+        ];
+        
+        container.innerHTML = usuarios.map(u => `
+          <div class="nav-subitem-user" onclick="showSection('calendar-user-${u.id}')" title="${u.nombre}">
+            👤 ${u.nombre.split(' ')[0]}...
+          </div>
+        `).join('');
+      }
 
       function showSection(name) {
         if (window.innerWidth <= 768) {
