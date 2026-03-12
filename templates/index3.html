@@ -4337,6 +4337,8 @@
 
         socket.on('login_ack', function(data) {
           console.log('✅ [WS] Room asignada:', data.room);
+          // Cargar histórico DESPUÉS de que el socket esté registrado
+          loadAllHistories();
         });
 
         // ─── RECIBIR MENSAJE PRIVADO ─────────────────────────
@@ -4780,9 +4782,9 @@
 
         showSection("dashboard");
 
-        // Inicializar socket.io y cargar histórico de mensajes
+        // Inicializar socket.io
+        // loadAllHistories() se llamará desde login_ack cuando el socket esté registrado
         initializeSocket();
-        loadAllHistories();
       }
 
       // ══════════════════════════════════════════
@@ -7557,7 +7559,7 @@
           time, 
           read: true, 
           attachments,
-          id: `msg_${Date.now()}`
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
         };
         
         convData(activeConvId).push(msgObj);
