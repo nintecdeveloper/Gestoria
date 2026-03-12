@@ -2882,41 +2882,50 @@
           >
             <span class="icon">&#9672;</span> Inicio
           </div>
-          <div
-            class="nav-item"
-            data-sec="my-calendar"
-            onclick="showSection('my-calendar')"
-          >
-            <span class="icon">&#9638;</span> Mi Calendario
+          <!-- ════════════════════════════════════════════════════════════ -->
+          <!-- CALENDARIOS - MENÚ PRINCIPAL EXPANDIBLE -->
+          <!-- ════════════════════════════════════════════════════════════ -->
+          <div class="nav-expandable" onclick="toggleCalendarsMenu(event)">
+            <span class="icon">📅</span> Calendarios
+            <span class="nav-expand-icon">▶</span>
           </div>
-          <div
-            class="nav-item admin-only"
-            data-sec="global-calendar"
-            onclick="showSection('global-calendar')"
-          >
-            <span class="icon">&#10012;</span> Calendario Global
-          </div>
-          <!-- ══════════════════════════════════════════════════
-               NUEVO: Enlace al Calendario del Admin — visible para TODOS los usuarios
-               (empleados incluidos). No tiene clase admin-only.
-          ══════════════════════════════════════════════════ -->
-          <div
-            class="nav-item"
-            data-sec="admin-view-calendar"
-            id="nav-admin-view-calendar"
-            onclick="showSection('admin-view-calendar')"
-          >
-            <span class="icon">&#9673;</span> Cal. Administradores
-          </div>
-          <!-- Calendarios de departamento - visibilidad controlada por permisos -->
-          <div class="nav-item nav-sub dept-cal-nav" data-dept="laboral" data-sec="cal-laboral" onclick="showSection('cal-laboral')" style="display:none">
-            <span class="icon">📋</span> Cal. Laboral
-          </div>
-          <div class="nav-item nav-sub dept-cal-nav" data-dept="fiscal" data-sec="cal-fiscal" onclick="showSection('cal-fiscal')" style="display:none">
-            <span class="icon">📋</span> Cal. Fiscal
-          </div>
-          <div class="nav-item nav-sub dept-cal-nav" data-dept="mercantil" data-sec="cal-mercantil" onclick="showSection('cal-mercantil')" style="display:none">
-            <span class="icon">📋</span> Cal. Mercantil
+          <div class="nav-submenu expanded" id="calendars-submenu">
+            <!-- Mi Calendario -->
+            <div class="nav-subitem" onclick="showSection('my-calendar')">
+              📌 Mi Calendario
+            </div>
+            <!-- Calendario Global (Admin) -->
+            <div class="nav-subitem admin-only" onclick="showSection('global-calendar')">
+              ➕ Calendario Global
+            </div>
+            <!-- Cal. Administradores -->
+            <div class="nav-subitem" id="nav-admin-view-calendar" onclick="showSection('admin-view-calendar')">
+              👤 Cal. Administradores
+            </div>
+            <!-- Calendarios Departamentales (Expandible) -->
+            <div class="nav-expandable-sub expanded" onclick="toggleSubMenu(event, 'dept-calendars-sub')">
+              <span>🏢 Calendarios Departamentales</span>
+              <span class="nav-expand-icon">▶</span>
+            </div>
+            <div class="nav-submenu expanded" id="dept-calendars-sub">
+              <div class="nav-subitem nav-subitem-nested" onclick="showSection('cal-laboral')">
+                💼 Cal. Laboral
+              </div>
+              <div class="nav-subitem nav-subitem-nested" onclick="showSection('cal-mercantil')">
+                📊 Cal. Mercantil
+              </div>
+              <div class="nav-subitem nav-subitem-nested" onclick="showSection('cal-fiscal')">
+                📋 Cal. Fiscal
+              </div>
+            </div>
+            <!-- Calendarios Personales (Expandible) -->
+            <div class="nav-expandable-sub expanded" onclick="toggleSubMenu(event, 'personal-calendars-sub')">
+              <span>👥 Calendarios Personales</span>
+              <span class="nav-expand-icon">▶</span>
+            </div>
+            <div class="nav-submenu expanded" id="personal-calendars-sub">
+              <div id="calendars-user-list"></div>
+            </div>
           </div>
           <div class="nav-section-title">Empresa</div>
           <div
@@ -2925,46 +2934,6 @@
             onclick="showSection('users')"
           >
             <span class="icon">&#8857;</span> Usuarios
-          </div>
-          <!-- CALENDARIOS - SECCIÓN EXPANDIBLE COMPLETA -->
-          <div class="nav-expandable admin-only" onclick="toggleCalendarsMenu(event)">
-            <span class="icon">📅</span> Calendarios
-            <span class="nav-expand-icon">▶</span>
-          </div>
-          <div class="nav-submenu" id="calendars-submenu">
-            <!-- Calendario Personal -->
-            <div class="nav-expandable-sub" onclick="toggleSubMenu(event, 'personal-sub')">
-              <span style="padding-left: 24px;">📌 Calendario Personal</span>
-              <span class="nav-expand-icon" style="margin-right: 24px;">▶</span>
-            </div>
-            <div class="nav-submenu" id="personal-sub" style="background: rgba(0,0,0,0.3);">
-              <div class="nav-subitem" onclick="showSection('cal-personal')">
-                Ver calendario personal
-              </div>
-            </div>
-
-            <!-- Calendarios Departamentales -->
-            <div class="nav-expandable-sub" onclick="toggleSubMenu(event, 'dept-sub')">
-              <span style="padding-left: 24px;">🏢 Calendarios Departamentales</span>
-              <span class="nav-expand-icon" style="margin-right: 24px;">▶</span>
-            </div>
-            <div class="nav-submenu" id="dept-sub" style="background: rgba(0,0,0,0.3);">
-              <div class="nav-subitem nav-subitem-nested" onclick="showSection('cal-laboral')">
-                💼 Cal. Laboral
-              </div>
-              <div class="nav-subitem nav-subitem-nested" onclick="showSection('cal-mercantil')">
-                📊 Cal. Mercantil
-              </div>
-            </div>
-
-            <!-- Calendarios Personales por Usuario -->
-            <div class="nav-expandable-sub" onclick="toggleSubMenu(event, 'users-cal-sub')">
-              <span style="padding-left: 24px;">👤 Calendarios Personales</span>
-              <span class="nav-expand-icon" style="margin-right: 24px;">▶</span>
-            </div>
-            <div class="nav-submenu" id="users-cal-sub" style="background: rgba(0,0,0,0.3);">
-              <div id="calendars-user-list"></div>
-            </div>
           </div>
           <div
             class="nav-item"
