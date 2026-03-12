@@ -4234,74 +4234,17 @@
         },
       ];
 
-      // ══════════════════════════════════════════════════════
-      //  MENSAJERÍA — ESTADO LOCAL
-      //  CONVS: clave "MIN_ID-MAX_ID" → [{mine,text,time,read,id,attachments}]
-      //  Misma lógica que el backend: make_conv_key(a,b)
-      // ══════════════════════════════════════════════════════
       let CONVS = {};
+
+      // ══════════════════════════════════════════
+      //  SOCKET.IO - MENSAJERÍA EN TIEMPO REAL
+      // ══════════════════════════════════════════
+      
       let socket = null;
       let currentSocketId = null;
-
-      // ── Clave canónica de conversación ──────────────────────
-      function convKey(a, b) {
-        return [Number(a), Number(b)].sort((x, y) => x - y).join('-');
-      }
-      function convData(otherId) {
-        const k = convKey(currentUser.id, Number(otherId));
-        if (!CONVS[k]) CONVS[k] = [];
-        return CONVS[k];
-      }
-
-      // ── Carga histórico desde el servidor al hacer login ────
-      async function loadHistory(otherUserId) {
-        try {
-          const res = await fetch(`/api/messages/${currentUser.id}/${otherUserId}`);
-          if (!res.ok) return;
-          const data = await res.json();
-          if (!data.ok || !data.messages || !data.messages.length) return;
-
-          const arr = convData(otherUserId);
-          data.messages.forEach(function(m) {
-            if (arr.find(function(x) { return x.id === m.id; })) return; // dedup
-            arr.push({
-              id:          m.id,
-              mine:        Number(m.sender_id) === Number(currentUser.id),
-              text:        m.text || '',
-              time:        m.timestamp ? m.timestamp.split('T')[1].slice(0,5) : '??:??',
-              timestamp:   m.timestamp,                    // 🔑 AGREGADO
-              sender_id:   m.sender_id,                     // 🔑 AGREGADO
-              recipient_id: m.recipient_id,                 // 🔑 AGREGADO
-              read:        true,
-              attachments: m.attachments || []
-            });
-          });
-          console.log('[Chat] Histórico cargado con', otherUserId, '→', data.messages.length, 'msgs');
-        } catch(e) {
-          console.warn('[Chat] Error cargando histórico:', e);
-        }
-      }
-
-      async function loadAllHistories() {
-        if (!currentUser) return;
-        
-        console.log('📥 [LOAD] Cargando todos los mensajes...');
-        
-        // Cargar chat general
-        await loadGeneralChatHistory();
-        
-        // Cargar mensajes privados
-        const others = USERS.filter(function(u) { return u.id !== currentUser.id; });
-        for (const u of others) {
-          await loadHistory(u.id);
-        }
-        updateBadge();
-        buildMsgList(document.getElementById('msg-search-inp') ?
-          document.getElementById('msg-search-inp').value : '');
-      }
-
-      // ── Socket.IO ────────────────────────────────────────────
+      
       function initializeSocket() {
+        // Importar socket.io desde CDN si no está disponible
         if (typeof io === 'undefined') {
           const script = document.createElement('script');
           script.src = 'https://cdn.socket.io/4.5.4/socket.io.min.js';
@@ -4311,212 +4254,119 @@
           connectSocket();
         }
       }
-
-      function registerSocketUser() {
-        if (currentUser && socket && socket.connected) {
-          socket.emit('login', {
-            username: currentUser.name,
-            user_id:   Number(currentUser.id)
-          });
-        }
-      }
-
+      
       function connectSocket() {
-        socket = io({ transports: ['websocket', 'polling'] });
-
+        socket = io();
+        
         socket.on('connect', function() {
           currentSocketId = socket.id;
-          console.log('✅ [WS] Conectado:', currentSocketId);
-          registerSocketUser();
+          console.log('✅ Socket.io conectado:', currentSocketId);
+          
+          // Notificar al servidor que el usuario se conectó
+          if (currentUser) {
+            socket.emit('user_login', {
+              username: currentUser.name,
+              userId: currentUser.id
+            });
+          }
         });
-
-        socket.on('connect_error', function(err) {
-          console.warn('⚠️ [WS] Error:', err.message);
-        });
-
+        
         socket.on('disconnect', function() {
-          console.log('❌ [WS] Desconectado');
+          console.log('❌ Socket.io desconectado');
           currentSocketId = null;
         });
-
-        // Re-registrar en cada reconexión automática
-        socket.on('reconnect', function() {
-          console.log('🔄 [WS] Reconectado');
-          registerSocketUser();
-        });
-
-        socket.on('login_response', function(data) {
-          if (!data.ok) {
-            console.error('❌ [WS] Error en login:', data.error);
-            return;
+        
+        // ✅ RECIBIR MENSAJES PRIVADOS
+        socket.on('receive_message', function(msg) {
+          console.log('📨 [Socket] Mensaje privado recibido:', msg);
+          const sender = msg.sender_username;
+          const convId = sender;  // LA CLAVE ES EL USERNAME DEL REMITENTE
+          
+          // Crear conversación si no existe
+          if (!CONVS[convId]) {
+            CONVS[convId] = {
+              participant: sender,
+              messages: []
+            };
           }
-          console.log('✅ [WS] Usuario autenticado');
-          // Cargar histórico DESPUÉS de que el socket esté registrado
-          loadAllHistories();
-        });
-
-        // ─── RECIBIR MENSAJE PRIVADO ─────────────────────────
-        socket.on('new_msg', function(msg) {
-          const senderId = Number(msg.sender_id);
-          const recipientId = Number(msg.recipient_id);
-          const isMine = Number(msg.sender_id) === Number(currentUser.id);
           
-          // Determinar con quién estoy conversando
-          const otherId = isMine ? recipientId : senderId;
-          
-          console.log('📨 Nuevo mensaje: De ID=' + senderId + ' Para ID=' + recipientId + ', Yo=' + currentUser.id + ', ¿Mío?=' + isMine);
-
-          const arr = convData(otherId);
-          
-          // 🔑 DEDUPLICACIÓN MEJORADA: Usar ID de BD como clave única
-          // El servidor ahora devuelve el ID de BD, así que es una deduplicación confiable
-          const exists = arr.find(function(m) { 
-            return m.id === msg.id;  // ✓ Deduplicación por ID de BD (más confiable)
+          // Agregar mensaje
+          CONVS[convId].messages.push({
+            mine: false,
+            text: msg.text,
+            time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
+            read: false
           });
           
-          if (!exists) {
-            arr.push({
-              id:          msg.id,
-              mine:        isMine,
-              text:        msg.text || '',
-              time:        msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime(),
-              timestamp:   msg.timestamp,
-              sender_id:   msg.sender_id,
-              recipient_id: msg.recipient_id,
-              read:        (activeConvId === otherId),
-              attachments: []
-            });
-            console.log('✓ Mensaje agregado correctamente a la conversación');
-          } else {
-            console.log('⊘ Mensaje duplicado detectado (ID=' + msg.id + '), no se agrega');
-          }
-
-          if (activeConvId === otherId) {
-            renderMsgs(otherId);
+          console.log('✅ [Socket] Mensaje agregado a conversación con', sender);
+          
+          // Actualizar UI si está abierto
+          if (activeConvId === convId) {
+            renderMsgs(convId);
           }
           
-          updateBadge();
-          buildMsgList(document.getElementById('msg-search-inp').value);
+          buildMsgList(document.getElementById("msg-search-inp").value);
         });
-
-        socket.on('message_ack', function(ack) {
-          console.log('📬 ACK recibido');
+        
+        // ✅ RECIBIR NOTIFICACIÓN DE MENSAJE PRIVADO
+        socket.on('message_notification', function(notif) {
+          console.log('🔔 [Socket] Notificación de mensaje:', notif);
+          showNotification('📨 Nuevo mensaje', `De: ${notif.from}`);
         });
-
-        // ─── RECIBIR MENSAJE DEL CHAT GENERAL ───────────────
-        socket.on('new_general_msg', function(msg) {
-          // 🔑 Evitar duplicados usando ID de BD (más confiable que texto + usuario)
-          if (GENERAL_CHAT.find(function(m) { return m.id === msg.id; })) {
-            console.log('⊘ Mensaje general duplicado detectado (ID=' + msg.id + '), no se agrega');
-            return;
-          }
-          const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime();
+        
+        // ✅ RECIBIR MENSAJES DEL CHAT GENERAL
+        socket.on('receive_general_message', function(msg) {
+          console.log('💬 [Socket] Mensaje general recibido:', msg);
+          const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
           const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
+          
           GENERAL_CHAT.push({
-            id:       msg.id,                // 🔑 AGREGADO para deduplicación
-            userId:   Number(msg.sender_id),
-            text:     msg.text,
-            time:     time,
-            date:     date,
+            id: msg.id,
+            userId: msg.sender_id,
+            text: msg.text,
+            time: time,
+            date: date,
             username: msg.sender_username
           });
+          console.log('✅ [Socket] Mensaje general agregado');
           renderGeneralChat();
-          updateBadge();
         });
-
+        
+        // ✅ RECIBIR NOTIFICACIÓN DE CHAT GENERAL
+        socket.on('general_message_notification', function(notif) {
+          console.log('🔔 [Socket] Notificación de chat general:', notif);
+          showNotification('💬 Chat General', `${notif.from}: ${notif.message}`);
+        });
+        
+        // Evento para recibir notificaciones
+        socket.on('notification_received', function(notif) {
+          showNotification(notif.title || 'Notificación', notif.message);
+        });
+        
+        // Evento de usuarios online
         socket.on('user_status_update', function(data) {
-          console.log('👤 [WS]', data.username, '→', data.status);
-        });
-
-        // ══════════════════════════════════════════
-        //  ESCUCHAR NOTIFICACIONES DE RECORDATORIOS
-        // ══════════════════════════════════════════
-        
-        socket.on('reminder_notification', (data) => {
-          console.log('🔔 [EVENTO] reminder_notification recibido:', data);
-          
-          if (data.type === 'personal') {
-            const title = '📌 Recordatorio de cita';
-            const message = `${data.client}${data.service ? ' (' + data.service + ')' : ''}\n${data.date} a las ${data.time}`;
-            
-            showNotification(title, message);
-            
-            try {
-              const audio = new Audio('data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==');
-              audio.play().catch(e => console.log('No se pudo reproducir sonido'));
-            } catch(e) {}
-          }
-          
-          if (data.type === 'whatsapp') {
-            console.log('✅ WhatsApp enviado automáticamente a cliente');
-            _showWaToast(`✅ WhatsApp enviado a ${data.client}`);
-          }
+          console.log(`👤 ${data.username} está ${data.status}`);
         });
         
-        socket.on('appointment_created', (data) => {
-          console.log('📅 Nueva cita:', data);
-          loadAllAppointments();
-        });
-        
-        socket.on('appointment_updated', (data) => {
-          console.log('✏️ Cita actualizada:', data);
-          loadAllAppointments();
-        });
-        
-        socket.on('appointment_deleted', (data) => {
-          console.log('🗑️ Cita eliminada:', data);
-          loadAllAppointments();
+        // Evento de lista de usuarios online
+        socket.on('online_users_list', function(data) {
+          console.log('👥 Usuarios online:', data.count);
         });
       }
       
       // ✅ MOSTRAR NOTIFICACIONES
       function showNotification(title, message) {
         console.log(`🔔 [NOTIFICACIÓN] ${title}: ${message}`);
-        
-        // Intentar mostrar notificación del navegador
         if ('Notification' in window && Notification.permission === 'granted') {
           try {
             new Notification(title, {
               body: message,
-              icon: '📢',
-              tag: 'gestionpro-notification',
-              requireInteraction: true,  // ← NO se cierra automáticamente
-              badge: '🎯'
+              icon: '📢'
             });
           } catch(e) {
-            console.log('Notificación del navegador no soportada:', e);
+            console.log('Notificación del navegador no soportada');
           }
         }
-        
-        // Si no hay notificación del navegador, mostrar toast visual en la página
-        if ('Notification' in window && Notification.permission !== 'granted') {
-          _showNotificationToast(title, message);
-        }
-      }
-      
-      function _showNotificationToast(title, message) {
-        let toast = document.getElementById('_notification-toast');
-        if (!toast) {
-          toast = document.createElement('div');
-          toast.id = '_notification-toast';
-          toast.style.cssText = [
-            'position:fixed', 'top:20px', 'right:20px', 'z-index:99999',
-            'background:#2d5016', 'color:#fff', 'padding:16px 20px',
-            'border-radius:8px', 'font-size:14px', 'max-width:320px',
-            'box-shadow:0 8px 24px rgba(0,0,0,0.25)',
-            'animation:slideIn 0.3s ease-out'
-          ].join(';');
-          document.body.appendChild(toast);
-        }
-        
-        toast.innerHTML = `<strong>${title}</strong><br>${message}`;
-        toast.style.opacity = '1';
-        
-        clearTimeout(toast._timeout);
-        toast._timeout = setTimeout(() => {
-          toast.style.opacity = '0';
-          toast.style.transition = 'opacity 0.3s';
-        }, 5000);
       }
       
       // Solicitar permiso para notificaciones
@@ -4547,67 +4397,49 @@
       // ══════════════════════════════════════════
       let adminViewCalMonth = new Date();
 
-      // CONVS vacío — se carga desde el servidor en loadAllHistories()
+      (function () {
+        function seed(a, b, msgs) {
+          const key = [a, b].sort((x, y) => x - y).join("-");
+          CONVS[key] = msgs;
+        }
+        seed(1, 2, [
+          {
+            mine: false,
+            text: "Buenos días, ¿has podido revisar el informe de Carlos?",
+            time: "09:15",
+            read: true,
+          },
+          {
+            mine: true,
+            text: "Sí, acabo de enviarlo por email al cliente.",
+            time: "09:22",
+            read: true,
+          },
+          {
+            mine: false,
+            text: "Perfecto, lo reviso ahora mismo.",
+            time: "10:24",
+            read: false,
+          },
+        ]);
+      })();
 
-      let GENERAL_CHAT = [];
-      
-      // ═══════════════════════════════════════════
-      //  CARGAR MENSAJES HISTÓRICOS
-      // ═══════════════════════════════════════════
-      
-      async function loadGeneralChatHistory() {
-        try {
-          console.log('📥 [LOAD] Cargando mensajes generales...');
-          const res = await fetch('/api/general-messages');
-          const data = await res.json();
-          
-          if (data.ok && Array.isArray(data.messages)) {
-            GENERAL_CHAT = [];
-            data.messages.forEach(msg => {
-              const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : '00:00';
-              const date = msg.timestamp ? msg.timestamp.split('T')[0] : '2000-01-01';
-              GENERAL_CHAT.push({
-                id: msg.id,
-                userId: Number(msg.sender_id),
-                text: msg.text,
-                time: time,
-                date: date,
-                username: msg.sender_username
-              });
-            });
-            console.log(`✅ [LOAD] ${GENERAL_CHAT.length} mensajes generales`);
-            renderGeneralChat();
-          }
-        } catch(e) {
-          console.warn('⚠️ Error cargando generales:', e);
-        }
-      }
-      
-      async function loadPrivateMessageHistory(otherId) {
-        try {
-          const res = await fetch(`/api/messages/${currentUser.id}/${otherId}`);
-          const data = await res.json();
-          
-          if (data.ok && Array.isArray(data.messages)) {
-            const arr = convData(otherId);
-            arr.length = 0;
-            
-            data.messages.forEach(msg => {
-              const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : '00:00';
-              arr.push({
-                id: msg.id,
-                mine: Number(msg.sender_id) === currentUser.id,
-                text: msg.text,
-                time: time,
-                read: msg.read ? true : false
-              });
-            });
-            console.log(`📥 [LOAD] ${arr.length} mensajes privados con UID${otherId}`);
-          }
-        } catch(e) {
-          console.warn(`⚠️ Error cargando privados:`, e);
-        }
-      }
+      let GENERAL_CHAT = [
+        {
+          id: 1,
+          userId: 1,
+          text: "Buenos días a todos. Recordad que hoy tenemos reunión de equipo a las 10h.",
+          time: "08:45",
+          date: dOff(0),
+        },
+        {
+          id: 2,
+          userId: 2,
+          text: "Anotado, gracias por el aviso!",
+          time: "08:52",
+          date: dOff(0),
+        },
+      ];
       let nextGchatId = 100;
 
       // ══════════════════════════════════════════
@@ -4662,52 +4494,6 @@
       }
       // Comprobar estado al cargar
       checkWaStatus();
-      
-      // ══════════════════════════════════════════
-      //  CARGAR CITAS Y RECORDATORIOS AL INICIAR
-      // ══════════════════════════════════════════
-      
-      async function loadAllAppointments() {
-        try {
-          const res = await fetch('/api/appointments');
-          const data = await res.json();
-          
-          if (data.ok && Array.isArray(data.appointments)) {
-            EVENTS = data.appointments.map(apt => ({
-              id: apt.id,
-              ownerId: apt.owner_id,
-              assignedTo: apt.assigned_to,
-              date: apt.date,
-              time: apt.time,
-              timeEnd: apt.time_end,
-              client: apt.client,
-              service: apt.service,
-              notes: apt.notes,
-              private: apt.private,
-              clientPhone: apt.client_phone,
-              prReminder: null,
-              waReminder: null
-            }));
-            
-            logger.info(`✅ Cargadas ${EVENTS.length} citas del servidor`);
-            refreshCals();
-            renderDashboard();
-          }
-        } catch(e) {
-          console.error('❌ Error cargando citas:', e);
-        }
-      }
-      
-      // Cargar al DOMContentLoaded
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', async () => {
-          await loadAllAppointments();
-          recoverReminders();
-        });
-      } else {
-        loadAllAppointments();
-        recoverReminders();
-      }
 
       // ══════════════════════════════════════════
       //  UTILS
@@ -4764,7 +4550,14 @@
           minute: "2-digit",
         });
       }
-      // convKey y convData definidos en bloque socket
+      function convKey(a, b) {
+        return [a, b].sort((x, y) => x - y).join("-");
+      }
+      function convData(otherId) {
+        const k = convKey(currentUser.id, otherId);
+        if (!CONVS[k]) CONVS[k] = [];
+        return CONVS[k];
+      }
       function unreadOf(otherId) {
         return convData(otherId).filter((m) => !m.mine && !m.read).length;
       }
@@ -4904,8 +4697,7 @@
         activeConvId = null;
         editingEvId = null;
         gchatUnreadCount = 0;
-        CONVS = {};  // Limpiar mensajes de la sesión anterior
-
+        
         // Desconectar socket.io
         if (socket && socket.connected) {
           socket.disconnect();
@@ -4982,10 +4774,11 @@
         }
 
         showSection("dashboard");
-
-        // Inicializar socket.io
-        // loadAllHistories() se llamará desde login_ack cuando el socket esté registrado
-        initializeSocket();
+        
+        // Inicializar socket.io para mensajería en tiempo real
+        setTimeout(() => {
+          initializeSocket();
+        }, 100);
       }
 
       // ══════════════════════════════════════════
@@ -5625,29 +5418,11 @@
 
       function deleteCurrentEvent() {
         if (currentDetailId === null) return;
-        
-        if (!confirm('¿Eliminar esta cita?')) return;
-        
-        fetch(`/api/appointments/${currentDetailId}`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' }
-        })
-        .then(r => r.json())
-        .then(data => {
-          if (data.ok) {
-            EVENTS = EVENTS.filter(e => e.id !== currentDetailId);
-            currentDetailId = null;
-            closeModal("detail-modal");
-            refreshCals();
-            renderDashboard();
-          } else {
-            alert('Error al eliminar la cita');
-          }
-        })
-        .catch(e => {
-          console.error('Error eliminando cita:', e);
-          alert('Error de conexión al servidor');
-        });
+        EVENTS = EVENTS.filter((e) => e.id !== currentDetailId);
+        currentDetailId = null;
+        closeModal("detail-modal");
+        refreshCals();
+        renderDashboard();
       }
 
       function editCurrentEvent() {
@@ -5884,6 +5659,7 @@
           errEl.style.display = "";
           return;
         }
+        // Hora fin es OBLIGATORIA
         if (!timeEnd) {
           errEl.textContent = "La hora de fin es obligatoria.";
           errEl.style.display = "";
@@ -5904,6 +5680,7 @@
         const notes = document.getElementById("ev-notes").value;
         const isPrivate = isAdmin ? (document.getElementById("ev-private")?.checked || false) : false;
 
+        // Verificar solapamiento con otras citas de la misma persona
         const overlap = hasOverlappingEvent(assignedTo, date, time, timeEnd, editingEvId !== null ? editingEvId : null);
         if (overlap) {
           errEl.textContent = `⚠ ${overlap.client} ya tiene una cita de ${overlap.time} a ${overlap.timeEnd} en esa franja. Elige otro horario.`;
@@ -5911,190 +5688,88 @@
           return;
         }
 
+        // Obtener estado de recordatorios
         const prState = _prReminders['ev'] || {};
         const waState = _waReminders['ev'] || {};
+        // Extraer primer timing WA seleccionado (estructura: { timing: label, ... })
         const waTimings = Object.keys(waState);
         const waFirstTiming = waTimings.length ? waTimings[0] : null;
         const waFirstLabel = waFirstTiming ? waState[waFirstTiming] : null;
 
+        // Obtener teléfono del cliente (desde hidden field o búsqueda en CLIENTS)
         const evClientPhone = (document.getElementById("ev-client-phone") || {}).value || "";
         const clientPhoneForWa = evClientPhone || lookupClientPhone(client);
 
         if (editingEvId !== null) {
           const ev = EVENTS.find((e) => e.id === editingEvId);
           if (ev) {
-            const updatePayload = {
-              date,
-              time,
-              time_end: timeEnd,
-              client,
-              service,
-              notes,
-              client_phone: clientPhoneForWa || ev.clientPhone || null
-            };
+            ev.date = date;
+            ev.time = time;
+            ev.timeEnd = timeEnd;
+            ev.client = client;
+            ev.service = service;
+            ev.notes = notes;
+            ev.clientPhone = clientPhoneForWa || ev.clientPhone || null;
+            if (isAdmin) { ev.assignedTo = assignedTo; ev.private = isPrivate; }
             
-            if (isAdmin) {
-              updatePayload.assigned_to = assignedTo;
-              updatePayload.private = isPrivate;
+            // Guardar recordatorio personal al editar
+            if (prState.timing) {
+              ev.prReminder = {
+                timing: prState.timing,
+                label: prState.label
+              };
+              requestNotificationPermission();
+              scheduleReminder(ev, prState.timing);
+            } else {
+              delete ev.prReminder;
             }
-
-            fetch(`/api/appointments/${editingEvId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(updatePayload)
-            })
-            .then(r => r.json())
-            .then(data => {
-              if (data.ok) {
-                ev.date = date;
-                ev.time = time;
-                ev.timeEnd = timeEnd;
-                ev.client = client;
-                ev.service = service;
-                ev.notes = notes;
-                ev.clientPhone = clientPhoneForWa || ev.clientPhone || null;
-                if (isAdmin) { ev.assignedTo = assignedTo; ev.private = isPrivate; }
-
-                if (prState.timing) {
-                  ev.prReminder = {
-                    timing: prState.timing,
-                    label: prState.label
-                  };
-                  if ('Notification' in window && Notification.permission !== 'granted') {
-                    Notification.requestPermission();
-                  }
-                  scheduleReminder(ev, prState.timing);
-                } else {
-                  delete ev.prReminder;
-                }
-
-                if (waFirstTiming) {
-                  ev.waReminder = { timing: waFirstTiming, label: waFirstLabel };
-                  scheduleWaReminder(ev, waFirstTiming);
-                } else {
-                  delete ev.waReminder;
-                }
-
-                closeModal("event-modal");
-                refreshCals();
-                renderDashboard();
-              } else {
-                errEl.textContent = "Error al actualizar la cita en el servidor";
-                errEl.style.display = "";
-              }
-            })
-            .catch(e => {
-              console.error('Error actualizando cita:', e);
-              errEl.textContent = "Error de conexión al servidor";
-              errEl.style.display = "";
-            });
-            return;
+            
+            // Guardar recordatorio WhatsApp al editar
+            if (waFirstTiming) {
+              ev.waReminder = { timing: waFirstTiming, label: waFirstLabel };
+              scheduleWaReminder(ev, waFirstTiming);
+            } else {
+              delete ev.waReminder;
+            }
           }
         } else {
-          const eventPayload = {
-            owner_id: currentUser.id,
-            assigned_to: assignedTo,
+          const eventObj = {
+            id: nextEventId++,
+            ownerId: currentUser.id,
+            assignedTo,
             date,
             time,
-            time_end: timeEnd,
+            timeEnd,
             client,
             service,
             notes,
             private: isPrivate,
-            client_phone: clientPhoneForWa || null
+            clientPhone: clientPhoneForWa || null,
           };
-
-          fetch('/api/appointments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(eventPayload)
-          })
-          .then(r => r.json())
-          .then(data => {
-            if (data.ok) {
-              const eventObj = {
-                id: data.appointment_id,
-                ownerId: currentUser.id,
-                assignedTo,
-                date,
-                time,
-                timeEnd,
-                client,
-                service,
-                notes,
-                private: isPrivate,
-                clientPhone: clientPhoneForWa || null
-              };
-
-              if (prState.timing) {
-                eventObj.prReminder = {
-                  timing: prState.timing,
-                  label: prState.label
-                };
-
-                if ('Notification' in window && Notification.permission !== 'granted') {
-                  Notification.requestPermission();
-                }
-
-                fetch('/api/reminders/personal', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    appointment_id: eventObj.id,
-                    user_id: currentUser.id,
-                    reminder_timing: prState.timing
-                  })
-                })
-                .then(r => r.json())
-                .then(data => {
-                  if (data.ok) {
-                    console.log(`✅ Recordatorio personal guardado: ${eventObj.client}`);
-                  }
-                })
-                .catch(e => console.warn('⚠️ Error guardando recordatorio personal:', e));
-
-                scheduleReminder(eventObj, prState.timing);
-              }
-
-              if (waFirstTiming) {
-                eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
-
-                fetch('/api/reminders/whatsapp', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    appointment_id: eventObj.id,
-                    recipient_phone: clientPhoneForWa,
-                    reminder_timing: waFirstTiming
-                  })
-                })
-                .then(r => r.json())
-                .then(data => {
-                  if (data.ok) {
-                    console.log(`✅ Recordatorio WA guardado: ${eventObj.client}`);
-                  }
-                })
-                .catch(e => console.warn('⚠️ Error guardando recordatorio WA:', e));
-
-                scheduleWaReminder(eventObj, waFirstTiming);
-              }
-
-              EVENTS.push(eventObj);
-              closeModal("event-modal");
-              refreshCals();
-              renderDashboard();
-            } else {
-              errEl.textContent = "Error al crear la cita en el servidor";
-              errEl.style.display = "";
-            }
-          })
-          .catch(e => {
-            console.error('Error creando cita:', e);
-            errEl.textContent = "Error de conexión al servidor";
-            errEl.style.display = "";
-          });
-          return;
+          
+          // Agregar recordatorio personal si está configurado
+          if (prState.timing) {
+            eventObj.prReminder = {
+              timing: prState.timing,
+              label: prState.label
+            };
+            
+            // Programar notificación
+            requestNotificationPermission();
+            scheduleReminder(eventObj, prState.timing);
+          }
+          
+          // Agregar recordatorio WhatsApp si está configurado
+          if (waFirstTiming) {
+            eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
+            scheduleWaReminder(eventObj, waFirstTiming);
+          }
+          
+          EVENTS.push(eventObj);
         }
+        closeModal("event-modal");
+        refreshCals();
+        renderDashboard();
       }
 
       function populateGlobalFilter() {
@@ -6685,9 +6360,7 @@
             timing: prState.timing,
             label: prState.label
           };
-          if ('Notification' in window && Notification.permission !== 'granted') {
-            Notification.requestPermission();
-          }
+          requestNotificationPermission();
           scheduleReminder(eventObj, prState.timing);
         }
 
@@ -7562,17 +7235,12 @@
           ? gchatPendingAttachments.map(a => ({ name: a.name, size: a.size, dataUrl: a.dataUrl, type: a.type }))
           : [];
         
-        const timestamp = new Date().toISOString();  // 🔑 AGREGADO: timestamp ISO
         const msgObj = {
-          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,  // ID temporal
+          id: nextGchatId++,
           userId: currentUser.id,
-          sender_id: currentUser.id,                  // 🔑 AGREGADO: para consistencia
-          username: currentUser.name,
-          sender_username: currentUser.name,          // 🔑 AGREGADO: para consistencia
           text,
           time: nowTime(),
           date: todayStr(),
-          timestamp: timestamp,                       // 🔑 AGREGADO: timestamp para consistencia
           attachments,
         };
         
@@ -7584,14 +7252,15 @@
         
         // ✅ ENVIAR AL CHAT GENERAL VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
-          console.log('📤 Enviando al chat general');
-          socket.emit('send_general', {
-            text: text,
+          console.log('📤 [Socket] Enviando mensaje al chat general');
+          socket.emit('send_general_message', {
+            message: text,
             sender_username: currentUser.name,
-            sender_id: Number(currentUser.id)
+            message_id: msgObj.id,
+            attachments: attachments
           });
         } else {
-          console.warn('⚠️ Socket no conectado');
+          console.warn('⚠️ Socket no conectado, mensaje solo guardado localmente');
         }
       }
 
@@ -7860,7 +7529,6 @@
         // Permitir envío sin texto si hay adjuntos
         if (!text && msgPendingAttachments.length === 0) return;
         const time = nowTime();
-        const timestamp = new Date().toISOString();  // 🔑 AGREGADO: timestamp ISO para consistencia
         
         // Clonar adjuntos pendientes para el mensaje (deep copy garantizado)
         const attachments = msgPendingAttachments.length
@@ -7872,19 +7540,13 @@
             }))
           : [];
         
-        // 🔑 IMPORTANTE: Crear ID único para deduplicación
-        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
         const msgObj = { 
-          id: messageId,                // 🔑 ID temporal (será reemplazado por ID de BD cuando venga del servidor)
           mine: true, 
           text, 
-          time,
-          timestamp: timestamp,          // 🔑 AGREGADO: timestamp para consistencia
-          sender_id: currentUser.id,
-          recipient_id: activeConvId,
+          time, 
           read: true, 
-          attachments
+          attachments,
+          id: `msg_${Date.now()}`
         };
         
         convData(activeConvId).push(msgObj);
@@ -7897,17 +7559,17 @@
         
         // ✅ ENVIAR VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
-          const recipient = USERS.find(u => u.id === activeConvId);
-          console.log('📤 Enviando mensaje privado con ID temporal:', messageId);
-          socket.emit('send_msg', {
-            text: text,
+          console.log('📤 [Socket] Enviando mensaje privado a:', activeConvId);
+          socket.emit('send_message', {
+            message: text,
             sender_username: currentUser.name,
-            sender_id: Number(currentUser.id),
-            recipient_id: Number(activeConvId),
-            message_id: messageId
+            recipient_username: activeConvId,  // ✅ ENVIAR USERNAME, NO ID
+            conv_id: activeConvId,
+            message_id: msgObj.id,
+            attachments: attachments
           });
         } else {
-          console.error('❌ Socket no conectado');
+          console.warn('⚠️ Socket no conectado, mensaje solo guardado localmente');
         }
       }
 
@@ -8220,9 +7882,7 @@
         }
 
         if (Notification.permission === 'default') {
-          if ('Notification' in window && Notification.permission !== 'granted') {
-            Notification.requestPermission();
-          }
+          requestNotificationPermission();
           return;
         }
 
@@ -8277,26 +7937,6 @@
           day: 'numeric', 
           month: 'long' 
         });
-
-        // ✅ NUEVO: Guardar recordatorio en servidor
-        if (eventData.id && currentUser && currentUser.id) {
-          fetch('/api/reminders/personal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              appointment_id: eventData.id,
-              user_id: currentUser.id,
-              reminder_timing: reminderTiming
-            })
-          })
-          .then(r => r.json())
-          .then(data => {
-            if (data.ok) {
-              console.log(`✅ Recordatorio guardado en servidor: ${eventData.client}`);
-            }
-          })
-          .catch(e => console.warn('⚠️ Error guardando recordatorio en servidor:', e));
-        }
 
         // ✅ GUARDAR EN LOCALSTORAGE PARA PERSISTENCIA
         const remindersStorageKey = 'gestionpro_reminders';
@@ -8503,26 +8143,6 @@ ${dateStr} a las ${eventData.time}`,
         const clientPhone  = eventData.clientPhone || lookupClientPhone(eventData.client);
         const phoneClean   = formatPhoneForWa(clientPhone);
         const message      = buildWaMessage(eventData);
-
-        // ✅ NUEVO: Guardar recordatorio en servidor
-        if (eventData.id && phoneClean) {
-          fetch('/api/reminders/whatsapp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              appointment_id: eventData.id,
-              recipient_phone: phoneClean,
-              reminder_timing: reminderTiming
-            })
-          })
-          .then(r => r.json())
-          .then(data => {
-            if (data.ok) {
-              console.log(`✅ Recordatorio WA guardado en servidor: ${eventData.client}`);
-            }
-          })
-          .catch(e => console.warn('⚠️ Error guardando recordatorio WA:', e));
-        }
 
         // ── Timing 'now': envío inmediato ────────────────────
         if (reminderTiming === 'now' || timeUntil <= 0) {
@@ -8871,9 +8491,7 @@ ${dateStr} a las ${eventData.time}`,
       // (Se pide después de 1 segundo para no ser intrusivo)
       setTimeout(() => {
         if (Notification.permission === 'default') {
-          if ('Notification' in window && Notification.permission !== 'granted') {
-            Notification.requestPermission();
-          }
+          requestNotificationPermission();
         }
       }, 1000);
       
