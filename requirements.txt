@@ -1,11 +1,32 @@
-Flask==3.0.0
-Werkzeug==3.0.1
-flask-socketio==5.3.6
-python-socketio==5.11.1
-python-engineio==4.9.1
-gunicorn==21.2.0
+# Core Flask & WebSocket
+Flask==2.3.3
+Flask-SocketIO==5.3.4
+python-socketio==5.9.0
+python-engineio==4.7.1
+Werkzeug==2.3.7
+
+# Utilities
 requests==2.31.0
-openpyxl==3.1.2
-APScheduler==3.10.4
-pytz==2023.3
 python-dotenv==1.0.0
+
+# Scheduling & Async
+APScheduler==3.10.4
+
+# Production Server
+gunicorn==21.2.0
+
+# Optional: Database (if migrating from SQLite to PostgreSQL)
+# psycopg2-binary==2.9.7
+
+# Optional: Caching with Redis
+# redis==5.0.0
+# flask-caching==2.0.2
+
+# Optional: Enhanced Logging
+# python-json-logger==2.0.7
+
+# Optional: Email notifications
+# Flask-Mail==0.9.1
+
+# Optional: API Documentation
+# flask-restx==0.5.1

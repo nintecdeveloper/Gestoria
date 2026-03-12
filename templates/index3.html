@@ -4394,21 +4394,96 @@
         socket.on('user_status_update', function(data) {
           console.log('👤 [WS]', data.username, '→', data.status);
         });
+
+        // ══════════════════════════════════════════
+        //  ESCUCHAR NOTIFICACIONES DE RECORDATORIOS
+        // ══════════════════════════════════════════
+        
+        socket.on('reminder_notification', (data) => {
+          console.log('🔔 [EVENTO] reminder_notification recibido:', data);
+          
+          if (data.type === 'personal') {
+            const title = '📌 Recordatorio de cita';
+            const message = `${data.client}${data.service ? ' (' + data.service + ')' : ''}\n${data.date} a las ${data.time}`;
+            
+            showNotification(title, message);
+            
+            try {
+              const audio = new Audio('data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==');
+              audio.play().catch(e => console.log('No se pudo reproducir sonido'));
+            } catch(e) {}
+          }
+          
+          if (data.type === 'whatsapp') {
+            console.log('✅ WhatsApp enviado automáticamente a cliente');
+            _showWaToast(`✅ WhatsApp enviado a ${data.client}`);
+          }
+        });
+        
+        socket.on('appointment_created', (data) => {
+          console.log('📅 Nueva cita:', data);
+          loadAllAppointments();
+        });
+        
+        socket.on('appointment_updated', (data) => {
+          console.log('✏️ Cita actualizada:', data);
+          loadAllAppointments();
+        });
+        
+        socket.on('appointment_deleted', (data) => {
+          console.log('🗑️ Cita eliminada:', data);
+          loadAllAppointments();
+        });
       }
       
       // ✅ MOSTRAR NOTIFICACIONES
       function showNotification(title, message) {
         console.log(`🔔 [NOTIFICACIÓN] ${title}: ${message}`);
+        
+        // Intentar mostrar notificación del navegador
         if ('Notification' in window && Notification.permission === 'granted') {
           try {
             new Notification(title, {
               body: message,
-              icon: '📢'
+              icon: '📢',
+              tag: 'gestionpro-notification',
+              requireInteraction: true,  // ← NO se cierra automáticamente
+              badge: '🎯'
             });
           } catch(e) {
-            console.log('Notificación del navegador no soportada');
+            console.log('Notificación del navegador no soportada:', e);
           }
         }
+        
+        // Si no hay notificación del navegador, mostrar toast visual en la página
+        if ('Notification' in window && Notification.permission !== 'granted') {
+          _showNotificationToast(title, message);
+        }
+      }
+      
+      function _showNotificationToast(title, message) {
+        let toast = document.getElementById('_notification-toast');
+        if (!toast) {
+          toast = document.createElement('div');
+          toast.id = '_notification-toast';
+          toast.style.cssText = [
+            'position:fixed', 'top:20px', 'right:20px', 'z-index:99999',
+            'background:#2d5016', 'color:#fff', 'padding:16px 20px',
+            'border-radius:8px', 'font-size:14px', 'max-width:320px',
+            'box-shadow:0 8px 24px rgba(0,0,0,0.25)',
+            'animation:slideIn 0.3s ease-out'
+          ].join(';');
+          document.body.appendChild(toast);
+        }
+        
+        toast.innerHTML = `<strong>${title}</strong><br>${message}`;
+        toast.style.opacity = '1';
+        
+        clearTimeout(toast._timeout);
+        toast._timeout = setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transition = 'opacity 0.3s';
+        }, 5000);
       }
       
       // Solicitar permiso para notificaciones
@@ -4511,6 +4586,52 @@
       }
       // Comprobar estado al cargar
       checkWaStatus();
+      
+      // ══════════════════════════════════════════
+      //  CARGAR CITAS Y RECORDATORIOS AL INICIAR
+      // ══════════════════════════════════════════
+      
+      async function loadAllAppointments() {
+        try {
+          const res = await fetch('/api/appointments');
+          const data = await res.json();
+          
+          if (data.ok && Array.isArray(data.appointments)) {
+            EVENTS = data.appointments.map(apt => ({
+              id: apt.id,
+              ownerId: apt.owner_id,
+              assignedTo: apt.assigned_to,
+              date: apt.date,
+              time: apt.time,
+              timeEnd: apt.time_end,
+              client: apt.client,
+              service: apt.service,
+              notes: apt.notes,
+              private: apt.private,
+              clientPhone: apt.client_phone,
+              prReminder: null,
+              waReminder: null
+            }));
+            
+            logger.info(`✅ Cargadas ${EVENTS.length} citas del servidor`);
+            refreshCals();
+            renderDashboard();
+          }
+        } catch(e) {
+          console.error('❌ Error cargando citas:', e);
+        }
+      }
+      
+      // Cargar al DOMContentLoaded
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', async () => {
+          await loadAllAppointments();
+          recoverReminders();
+        });
+      } else {
+        loadAllAppointments();
+        recoverReminders();
+      }
 
       // ══════════════════════════════════════════
       //  UTILS
@@ -5428,11 +5549,29 @@
 
       function deleteCurrentEvent() {
         if (currentDetailId === null) return;
-        EVENTS = EVENTS.filter((e) => e.id !== currentDetailId);
-        currentDetailId = null;
-        closeModal("detail-modal");
-        refreshCals();
-        renderDashboard();
+        
+        if (!confirm('¿Eliminar esta cita?')) return;
+        
+        fetch(`/api/appointments/${currentDetailId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            EVENTS = EVENTS.filter(e => e.id !== currentDetailId);
+            currentDetailId = null;
+            closeModal("detail-modal");
+            refreshCals();
+            renderDashboard();
+          } else {
+            alert('Error al eliminar la cita');
+          }
+        })
+        .catch(e => {
+          console.error('Error eliminando cita:', e);
+          alert('Error de conexión al servidor');
+        });
       }
 
       function editCurrentEvent() {
@@ -5669,7 +5808,6 @@
           errEl.style.display = "";
           return;
         }
-        // Hora fin es OBLIGATORIA
         if (!timeEnd) {
           errEl.textContent = "La hora de fin es obligatoria.";
           errEl.style.display = "";
@@ -5690,7 +5828,6 @@
         const notes = document.getElementById("ev-notes").value;
         const isPrivate = isAdmin ? (document.getElementById("ev-private")?.checked || false) : false;
 
-        // Verificar solapamiento con otras citas de la misma persona
         const overlap = hasOverlappingEvent(assignedTo, date, time, timeEnd, editingEvId !== null ? editingEvId : null);
         if (overlap) {
           errEl.textContent = `⚠ ${overlap.client} ya tiene una cita de ${overlap.time} a ${overlap.timeEnd} en esa franja. Elige otro horario.`;
@@ -5698,92 +5835,190 @@
           return;
         }
 
-        // Obtener estado de recordatorios
         const prState = _prReminders['ev'] || {};
         const waState = _waReminders['ev'] || {};
-        // Extraer primer timing WA seleccionado (estructura: { timing: label, ... })
         const waTimings = Object.keys(waState);
         const waFirstTiming = waTimings.length ? waTimings[0] : null;
         const waFirstLabel = waFirstTiming ? waState[waFirstTiming] : null;
 
-        // Obtener teléfono del cliente (desde hidden field o búsqueda en CLIENTS)
         const evClientPhone = (document.getElementById("ev-client-phone") || {}).value || "";
         const clientPhoneForWa = evClientPhone || lookupClientPhone(client);
 
         if (editingEvId !== null) {
           const ev = EVENTS.find((e) => e.id === editingEvId);
           if (ev) {
-            ev.date = date;
-            ev.time = time;
-            ev.timeEnd = timeEnd;
-            ev.client = client;
-            ev.service = service;
-            ev.notes = notes;
-            ev.clientPhone = clientPhoneForWa || ev.clientPhone || null;
-            if (isAdmin) { ev.assignedTo = assignedTo; ev.private = isPrivate; }
+            const updatePayload = {
+              date,
+              time,
+              time_end: timeEnd,
+              client,
+              service,
+              notes,
+              client_phone: clientPhoneForWa || ev.clientPhone || null
+            };
             
-            // Guardar recordatorio personal al editar
-            if (prState.timing) {
-              ev.prReminder = {
-                timing: prState.timing,
-                label: prState.label
-              };
-              if ('Notification' in window && Notification.permission !== 'granted') {
-            Notification.requestPermission();
-          }
-              scheduleReminder(ev, prState.timing);
-            } else {
-              delete ev.prReminder;
+            if (isAdmin) {
+              updatePayload.assigned_to = assignedTo;
+              updatePayload.private = isPrivate;
             }
-            
-            // Guardar recordatorio WhatsApp al editar
-            if (waFirstTiming) {
-              ev.waReminder = { timing: waFirstTiming, label: waFirstLabel };
-              scheduleWaReminder(ev, waFirstTiming);
-            } else {
-              delete ev.waReminder;
-            }
+
+            fetch(`/api/appointments/${editingEvId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatePayload)
+            })
+            .then(r => r.json())
+            .then(data => {
+              if (data.ok) {
+                ev.date = date;
+                ev.time = time;
+                ev.timeEnd = timeEnd;
+                ev.client = client;
+                ev.service = service;
+                ev.notes = notes;
+                ev.clientPhone = clientPhoneForWa || ev.clientPhone || null;
+                if (isAdmin) { ev.assignedTo = assignedTo; ev.private = isPrivate; }
+
+                if (prState.timing) {
+                  ev.prReminder = {
+                    timing: prState.timing,
+                    label: prState.label
+                  };
+                  if ('Notification' in window && Notification.permission !== 'granted') {
+                    Notification.requestPermission();
+                  }
+                  scheduleReminder(ev, prState.timing);
+                } else {
+                  delete ev.prReminder;
+                }
+
+                if (waFirstTiming) {
+                  ev.waReminder = { timing: waFirstTiming, label: waFirstLabel };
+                  scheduleWaReminder(ev, waFirstTiming);
+                } else {
+                  delete ev.waReminder;
+                }
+
+                closeModal("event-modal");
+                refreshCals();
+                renderDashboard();
+              } else {
+                errEl.textContent = "Error al actualizar la cita en el servidor";
+                errEl.style.display = "";
+              }
+            })
+            .catch(e => {
+              console.error('Error actualizando cita:', e);
+              errEl.textContent = "Error de conexión al servidor";
+              errEl.style.display = "";
+            });
+            return;
           }
         } else {
-          const eventObj = {
-            id: nextEventId++,
-            ownerId: currentUser.id,
-            assignedTo,
+          const eventPayload = {
+            owner_id: currentUser.id,
+            assigned_to: assignedTo,
             date,
             time,
-            timeEnd,
+            time_end: timeEnd,
             client,
             service,
             notes,
             private: isPrivate,
-            clientPhone: clientPhoneForWa || null,
+            client_phone: clientPhoneForWa || null
           };
-          
-          // Agregar recordatorio personal si está configurado
-          if (prState.timing) {
-            eventObj.prReminder = {
-              timing: prState.timing,
-              label: prState.label
-            };
-            
-            // Programar notificación
-            if ('Notification' in window && Notification.permission !== 'granted') {
-            Notification.requestPermission();
-          }
-            scheduleReminder(eventObj, prState.timing);
-          }
-          
-          // Agregar recordatorio WhatsApp si está configurado
-          if (waFirstTiming) {
-            eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
-            scheduleWaReminder(eventObj, waFirstTiming);
-          }
-          
-          EVENTS.push(eventObj);
+
+          fetch('/api/appointments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(eventPayload)
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              const eventObj = {
+                id: data.appointment_id,
+                ownerId: currentUser.id,
+                assignedTo,
+                date,
+                time,
+                timeEnd,
+                client,
+                service,
+                notes,
+                private: isPrivate,
+                clientPhone: clientPhoneForWa || null
+              };
+
+              if (prState.timing) {
+                eventObj.prReminder = {
+                  timing: prState.timing,
+                  label: prState.label
+                };
+
+                if ('Notification' in window && Notification.permission !== 'granted') {
+                  Notification.requestPermission();
+                }
+
+                fetch('/api/reminders/personal', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    appointment_id: eventObj.id,
+                    user_id: currentUser.id,
+                    reminder_timing: prState.timing
+                  })
+                })
+                .then(r => r.json())
+                .then(data => {
+                  if (data.ok) {
+                    console.log(`✅ Recordatorio personal guardado: ${eventObj.client}`);
+                  }
+                })
+                .catch(e => console.warn('⚠️ Error guardando recordatorio personal:', e));
+
+                scheduleReminder(eventObj, prState.timing);
+              }
+
+              if (waFirstTiming) {
+                eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
+
+                fetch('/api/reminders/whatsapp', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    appointment_id: eventObj.id,
+                    recipient_phone: clientPhoneForWa,
+                    reminder_timing: waFirstTiming
+                  })
+                })
+                .then(r => r.json())
+                .then(data => {
+                  if (data.ok) {
+                    console.log(`✅ Recordatorio WA guardado: ${eventObj.client}`);
+                  }
+                })
+                .catch(e => console.warn('⚠️ Error guardando recordatorio WA:', e));
+
+                scheduleWaReminder(eventObj, waFirstTiming);
+              }
+
+              EVENTS.push(eventObj);
+              closeModal("event-modal");
+              refreshCals();
+              renderDashboard();
+            } else {
+              errEl.textContent = "Error al crear la cita en el servidor";
+              errEl.style.display = "";
+            }
+          })
+          .catch(e => {
+            console.error('Error creando cita:', e);
+            errEl.textContent = "Error de conexión al servidor";
+            errEl.style.display = "";
+          });
+          return;
         }
-        closeModal("event-modal");
-        refreshCals();
-        renderDashboard();
       }
 
       function populateGlobalFilter() {
@@ -7959,6 +8194,26 @@
           month: 'long' 
         });
 
+        // ✅ NUEVO: Guardar recordatorio en servidor
+        if (eventData.id && currentUser && currentUser.id) {
+          fetch('/api/reminders/personal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              appointment_id: eventData.id,
+              user_id: currentUser.id,
+              reminder_timing: reminderTiming
+            })
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              console.log(`✅ Recordatorio guardado en servidor: ${eventData.client}`);
+            }
+          })
+          .catch(e => console.warn('⚠️ Error guardando recordatorio en servidor:', e));
+        }
+
         // ✅ GUARDAR EN LOCALSTORAGE PARA PERSISTENCIA
         const remindersStorageKey = 'gestionpro_reminders';
         let savedReminders = [];
@@ -8164,6 +8419,26 @@ ${dateStr} a las ${eventData.time}`,
         const clientPhone  = eventData.clientPhone || lookupClientPhone(eventData.client);
         const phoneClean   = formatPhoneForWa(clientPhone);
         const message      = buildWaMessage(eventData);
+
+        // ✅ NUEVO: Guardar recordatorio en servidor
+        if (eventData.id && phoneClean) {
+          fetch('/api/reminders/whatsapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              appointment_id: eventData.id,
+              recipient_phone: phoneClean,
+              reminder_timing: reminderTiming
+            })
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              console.log(`✅ Recordatorio WA guardado en servidor: ${eventData.client}`);
+            }
+          })
+          .catch(e => console.warn('⚠️ Error guardando recordatorio WA:', e));
+        }
 
         // ── Timing 'now': envío inmediato ────────────────────
         if (reminderTiming === 'now' || timeUntil <= 0) {

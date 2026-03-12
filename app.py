@@ -1,12 +1,15 @@
 import os
 import json
+import sqlite3
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit, join_room, leave_room, rooms
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 import logging
 import uuid
 import sys
+import threading
+from functools import wraps
 
 # ═══════════════════════════════════════════════════════════════
 # CONFIGURACIÓN DE LOGGING
@@ -25,22 +28,6 @@ print("🚀 INICIANDO SERVIDOR CON LOGGING DETALLADO")
 print("="*80 + "\n")
 
 # ═══════════════════════════════════════════════════════════════
-# CONFIGURACIÓN META WHATSAPP
-# ═══════════════════════════════════════════════════════════════
-
-META_PHONE_NUMBER_ID = os.environ.get('META_PHONE_NUMBER_ID', None)
-META_ACCESS_TOKEN = os.environ.get('META_ACCESS_TOKEN', None)
-META_BUSINESS_ACCOUNT_ID = os.environ.get('META_BUSINESS_ACCOUNT_ID', None)
-META_API_VERSION = "v18.0"
-
-SCHEDULER_AVAILABLE = False
-try:
-    from apscheduler.schedulers.background import BackgroundScheduler
-    SCHEDULER_AVAILABLE = True
-except ImportError:
-    logger.warning("⚠️  APScheduler no disponible")
-
-# ═══════════════════════════════════════════════════════════════
 # FLASK APP Y SOCKETIO
 # ═══════════════════════════════════════════════════════════════
 
@@ -52,19 +39,105 @@ logger.info("✅ Flask app creada")
 logger.info("✅ SocketIO inicializado")
 
 # ═══════════════════════════════════════════════════════════════
+# CONFIGURACIÓN DE BASE DE DATOS
+# ═══════════════════════════════════════════════════════════════
+
+DB_FILE = 'gestionpro.db'
+
+def init_db():
+    """Inicializar base de datos con todas las tablas necesarias"""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    
+    # Tabla de mensajes
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            id TEXT PRIMARY KEY,
+            sender_id INTEGER NOT NULL,
+            sender_username TEXT,
+            recipient_id INTEGER NOT NULL,
+            text TEXT,
+            timestamp TEXT,
+            read BOOLEAN DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Tabla de citas
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS appointments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner_id INTEGER NOT NULL,
+            assigned_to INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            time TEXT NOT NULL,
+            time_end TEXT NOT NULL,
+            client TEXT NOT NULL,
+            service TEXT,
+            notes TEXT,
+            private BOOLEAN DEFAULT 0,
+            client_phone TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Tabla de recordatorios personales
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS personal_reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            appointment_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            reminder_timing TEXT NOT NULL,
+            scheduled_for TEXT NOT NULL,
+            fired BOOLEAN DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(appointment_id) REFERENCES appointments(id)
+        )
+    ''')
+    
+    # Tabla de recordatorios WhatsApp
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS whatsapp_reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            appointment_id INTEGER NOT NULL,
+            recipient_phone TEXT NOT NULL,
+            message TEXT,
+            reminder_timing TEXT NOT NULL,
+            scheduled_for TEXT NOT NULL,
+            fired BOOLEAN DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(appointment_id) REFERENCES appointments(id)
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+    logger.info("✅ Base de datos inicializada")
+
+# Inicializar BD al arrancar
+init_db()
+
+# ═══════════════════════════════════════════════════════════════
 # ESTADO GLOBAL
 # ═══════════════════════════════════════════════════════════════
 
 connected_users = {}
 sid_to_userid = {}
-message_storage = {}
 message_ids_seen = set()
+reminder_timers = {}  # Almacenar timers de recordatorios para limpiarlos
 
 logger.info("✅ Estructuras de datos inicializadas")
 
 # ═══════════════════════════════════════════════════════════════
-# UTILIDADES
+# UTILIDADES DE BASE DE DATOS
 # ═══════════════════════════════════════════════════════════════
+
+def get_db():
+    """Obtener conexión a BD"""
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def make_conv_key(user_a, user_b):
     """Crear clave canónica: sorted user IDs"""
@@ -81,7 +154,7 @@ def log_rooms_status():
         logger.debug(f"   SID {sid[:8]}: UID={uid}, Room={room}, Salas reales={user_rooms}")
 
 # ═══════════════════════════════════════════════════════════════
-# WEBSOCKET EVENTS
+# WEBSOCKET EVENTS - CONEXIÓN
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('connect')
@@ -172,6 +245,10 @@ def handle_user_login(data):
     })
     logger.debug(f"   login_ack enviado")
 
+# ═══════════════════════════════════════════════════════════════
+# WEBSOCKET EVENTS - MENSAJERÍA
+# ═══════════════════════════════════════════════════════════════
+
 @socketio.on('send_message')
 def handle_send_message(data):
     """Evento: recibir y retransmitir mensaje privado"""
@@ -251,23 +328,30 @@ def handle_send_message(data):
         'recipient_id': recipient_id,
         'text': text,
         'timestamp': ts,
-        'attachments': attachments
+        'attachments': attachments,
+        'read': False
     }
     
-    # Persistir
-    key = make_conv_key(sender_id, recipient_id)
-    if key not in message_storage:
-        message_storage[key] = []
-    message_storage[key].append(msg)
-    logger.debug(f"   ✓ Persistido (key={key}, total={len(message_storage[key])})")
+    # Persistir en BD
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO messages (id, sender_id, sender_username, recipient_id, text, timestamp, read)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (message_id, sender_id, sender_username, recipient_id, text, ts, 0))
+        conn.commit()
+        conn.close()
+        logger.debug(f"   ✓ Persistido en BD")
+    except Exception as e:
+        logger.error(f"   ❌ Error guardando en BD: {e}")
     
     # PASO 1: ACK al remitente
     logger.info(f"   1️⃣  ACK → remitente")
     emit('message_ack', {
         'message_id': message_id,
         'status': 'ok',
-        'timestamp': ts,
-        'stored_at': key
+        'timestamp': ts
     })
     
     # PASO 2: Enviar al receptor
@@ -276,9 +360,6 @@ def handle_send_message(data):
     
     room_members = list(rooms(room=recipient_room))
     logger.debug(f"      Usuarios en {recipient_room}: {len(room_members)}")
-    for member_sid in room_members:
-        member_user = connected_users.get(member_sid, {})
-        logger.debug(f"         {member_sid[:8]}: {member_user.get('username')}")
     
     if not room_members:
         logger.warning(f"⚠️  ATENCIÓN: Sala '{recipient_room}' está VACÍA")
@@ -302,50 +383,29 @@ def handle_send_message(data):
 
 @socketio.on('message_read')
 def handle_message_read(data):
-    """Evento: notificar lectura"""
+    """Evento: notificar lectura de mensaje"""
     message_id = data.get('message_id')
     sender_id = data.get('sender_id')
+    
     logger.debug(f"📖 [MESSAGE_READ] {message_id}")
+    
+    # Actualizar en BD
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('UPDATE messages SET read = 1 WHERE id = ?', (message_id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error actualizando lectura: {e}")
+    
     emit('message_read_ack', {
         'message_id': message_id,
         'timestamp': datetime.now().isoformat()
     }, room=f"user_{sender_id}")
 
-@socketio.on('send_general_message')
-def handle_general_message(data):
-    """Evento: mensaje general"""
-    sender_id = data.get('sender_id')
-    sender_username = data.get('sender_username', '?')
-    text = (data.get('message') or '').strip()
-    message_id = data.get('message_id') or f"msg_{uuid.uuid4().hex[:12]}"
-    
-    ts = datetime.now().isoformat()
-    
-    logger.debug(f"📢 [GENERAL] {sender_username}: {text[:40]}")
-    
-    if message_id in message_ids_seen:
-        emit('message_ack', {'message_id': message_id, 'status': 'ok', 'duplicated': True})
-        return
-    
-    message_ids_seen.add(message_id)
-    
-    if not text:
-        return
-    
-    emit('message_ack', {'message_id': message_id, 'status': 'ok', 'timestamp': ts})
-    
-    msg = {
-        'id': message_id,
-        'sender_id': sender_id,
-        'sender_username': sender_username,
-        'text': text,
-        'timestamp': ts
-    }
-    
-    emit('receive_general_message', msg, broadcast=True)
-
 # ═══════════════════════════════════════════════════════════════
-# REST ENDPOINTS
+# REST ENDPOINTS - MENSAJERÍA
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/')
@@ -355,20 +415,407 @@ def index():
 
 @app.route('/api/messages/<int:user_a>/<int:user_b>')
 def get_messages(user_a, user_b):
-    """Obtener histórico de mensajes"""
-    key = make_conv_key(user_a, user_b)
-    messages = message_storage.get(key, [])
-    logger.debug(f"📥 [API] get_messages({user_a}, {user_b}): {len(messages)} msgs")
-    return jsonify({'ok': True, 'messages': messages})
+    """Obtener histórico de mensajes entre dos usuarios"""
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        
+        key = make_conv_key(user_a, user_b)
+        
+        # Obtener mensajes ordenados por timestamp
+        c.execute('''
+            SELECT * FROM messages 
+            WHERE (sender_id = ? AND recipient_id = ?) 
+               OR (sender_id = ? AND recipient_id = ?)
+            ORDER BY timestamp ASC
+        ''', (user_a, user_b, user_b, user_a))
+        
+        rows = c.fetchall()
+        messages = [dict(row) for row in rows]
+        conn.close()
+        
+        logger.debug(f"📥 [API] get_messages({user_a}, {user_b}): {len(messages)} msgs")
+        return jsonify({'ok': True, 'messages': messages})
+    except Exception as e:
+        logger.error(f"Error en get_messages: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
+# REST ENDPOINTS - CITAS
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/appointments', methods=['GET'])
+def get_appointments():
+    """Obtener todas las citas del usuario autenticado"""
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        
+        c.execute('''
+            SELECT * FROM appointments 
+            ORDER BY date DESC, time ASC
+        ''')
+        
+        rows = c.fetchall()
+        appointments = [dict(row) for row in rows]
+        conn.close()
+        
+        logger.debug(f"📅 [API] get_appointments: {len(appointments)} citas")
+        return jsonify({'ok': True, 'appointments': appointments})
+    except Exception as e:
+        logger.error(f"Error en get_appointments: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/appointments', methods=['POST'])
+def create_appointment():
+    """Crear nueva cita"""
+    try:
+        data = request.json
+        
+        # Validaciones
+        required = ['owner_id', 'assigned_to', 'date', 'time', 'time_end', 'client']
+        for field in required:
+            if field not in data:
+                return jsonify({'ok': False, 'error': f'Campo faltante: {field}'}), 400
+        
+        owner_id = int(data['owner_id'])
+        assigned_to = int(data['assigned_to'])
+        date = data['date']
+        time = data['time']
+        time_end = data['time_end']
+        client = data['client']
+        service = data.get('service', '')
+        notes = data.get('notes', '')
+        private = data.get('private', False)
+        client_phone = data.get('client_phone', '')
+        
+        conn = get_db()
+        c = conn.cursor()
+        
+        c.execute('''
+            INSERT INTO appointments 
+            (owner_id, assigned_to, date, time, time_end, client, service, notes, private, client_phone)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (owner_id, assigned_to, date, time, time_end, client, service, notes, private, client_phone))
+        
+        appointment_id = c.lastrowid
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"✅ [CITA] Nueva cita creada: ID={appointment_id}, cliente={client}, fecha={date}")
+        
+        # Notificar a usuarios conectados
+        socketio.emit('appointment_created', {
+            'id': appointment_id,
+            'client': client,
+            'date': date,
+            'time': time
+        }, broadcast=True)
+        
+        return jsonify({'ok': True, 'appointment_id': appointment_id}), 201
+    
+    except Exception as e:
+        logger.error(f"Error creando cita: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/appointments/<int:appointment_id>', methods=['PUT'])
+def update_appointment(appointment_id):
+    """Actualizar cita existente"""
+    try:
+        data = request.json
+        
+        conn = get_db()
+        c = conn.cursor()
+        
+        # Obtener cita actual
+        c.execute('SELECT * FROM appointments WHERE id = ?', (appointment_id,))
+        row = c.fetchone()
+        
+        if not row:
+            conn.close()
+            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
+        
+        # Actualizar campos
+        date = data.get('date', row['date'])
+        time = data.get('time', row['time'])
+        time_end = data.get('time_end', row['time_end'])
+        client = data.get('client', row['client'])
+        service = data.get('service', row['service'])
+        notes = data.get('notes', row['notes'])
+        client_phone = data.get('client_phone', row['client_phone'])
+        
+        c.execute('''
+            UPDATE appointments 
+            SET date = ?, time = ?, time_end = ?, client = ?, service = ?, notes = ?, client_phone = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (date, time, time_end, client, service, notes, client_phone, appointment_id))
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"✅ [CITA] Cita actualizada: ID={appointment_id}")
+        
+        socketio.emit('appointment_updated', {
+            'id': appointment_id,
+            'client': client,
+            'date': date
+        }, broadcast=True)
+        
+        return jsonify({'ok': True})
+    
+    except Exception as e:
+        logger.error(f"Error actualizando cita: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/appointments/<int:appointment_id>', methods=['DELETE'])
+def delete_appointment(appointment_id):
+    """Eliminar cita"""
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        
+        # Obtener cita para saber qué notificar
+        c.execute('SELECT * FROM appointments WHERE id = ?', (appointment_id,))
+        row = c.fetchone()
+        
+        if not row:
+            conn.close()
+            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
+        
+        # Eliminar recordatorios asociados
+        c.execute('DELETE FROM personal_reminders WHERE appointment_id = ?', (appointment_id,))
+        c.execute('DELETE FROM whatsapp_reminders WHERE appointment_id = ?', (appointment_id,))
+        
+        # Eliminar cita
+        c.execute('DELETE FROM appointments WHERE id = ?', (appointment_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"✅ [CITA] Cita eliminada: ID={appointment_id}")
+        
+        socketio.emit('appointment_deleted', {'id': appointment_id}, broadcast=True)
+        
+        return jsonify({'ok': True})
+    
+    except Exception as e:
+        logger.error(f"Error eliminando cita: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
+# REST ENDPOINTS - RECORDATORIOS
+# ═══════════════════════════════════════════════════════════════
+
+def schedule_reminder_timer(appointment_id, user_id, reminder_timing, event_datetime):
+    """Programar un recordatorio con timer en servidor"""
+    
+    timing_map = {
+        'now': 0,
+        '15m': 15 * 60,
+        '30m': 30 * 60,
+        '1h': 60 * 60,
+        '2h': 2 * 60 * 60,
+        '1d': 24 * 60 * 60,
+        '1w': 7 * 24 * 60 * 60
+    }
+    
+    delay_seconds = timing_map.get(reminder_timing, 0)
+    event_time = datetime.fromisoformat(event_datetime)
+    fire_at = event_time - timedelta(seconds=delay_seconds)
+    now = datetime.now()
+    time_until = (fire_at - now).total_seconds()
+    
+    logger.info(f"⏰ [RECORDATORIO] Programando para {appointment_id} en {time_until}s")
+    
+    def fire_reminder():
+        try:
+            conn = get_db()
+            c = conn.cursor()
+            
+            # Actualizar como disparado
+            c.execute('UPDATE personal_reminders SET fired = 1 WHERE appointment_id = ? AND user_id = ?',
+                     (appointment_id, user_id))
+            
+            # Obtener datos de cita
+            c.execute('SELECT * FROM appointments WHERE id = ?', (appointment_id,))
+            apt = dict(c.fetchone())
+            conn.close()
+            
+            # Emitir notificación a usuario
+            user_room = f"user_{user_id}"
+            socketio.emit('reminder_notification', {
+                'type': 'personal',
+                'appointment_id': appointment_id,
+                'client': apt['client'],
+                'date': apt['date'],
+                'time': apt['time'],
+                'service': apt['service'],
+                'message': f"Recordatorio: Cita con {apt['client']} a las {apt['time']}"
+            }, room=user_room)
+            
+            logger.info(f"✅ [RECORDATORIO] Disparado: cita {appointment_id}")
+        
+        except Exception as e:
+            logger.error(f"Error disparando recordatorio: {e}")
+    
+    if time_until > 0:
+        # Programar timer
+        timer = threading.Timer(time_until, fire_reminder)
+        timer.daemon = True
+        timer.start()
+        reminder_timers[f"{appointment_id}_{user_id}"] = timer
+    else:
+        # Ya pasó, disparar inmediatamente
+        fire_reminder()
+
+@app.route('/api/reminders/personal', methods=['POST'])
+def create_personal_reminder():
+    """Crear recordatorio personal para cita"""
+    try:
+        data = request.json
+        
+        appointment_id = int(data['appointment_id'])
+        user_id = int(data['user_id'])
+        reminder_timing = data['reminder_timing']  # 'now', '15m', '30m', '1h', '2h', '1d', '1w'
+        
+        conn = get_db()
+        c = conn.cursor()
+        
+        # Obtener cita para calcular scheduled_for
+        c.execute('SELECT date, time FROM appointments WHERE id = ?', (appointment_id,))
+        apt = c.fetchone()
+        
+        if not apt:
+            conn.close()
+            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
+        
+        event_datetime = f"{apt['date']}T{apt['time']}:00"
+        
+        timing_map = {
+            'now': 0,
+            '15m': 15 * 60,
+            '30m': 30 * 60,
+            '1h': 60 * 60,
+            '2h': 2 * 60 * 60,
+            '1d': 24 * 60 * 60,
+            '1w': 7 * 24 * 60 * 60
+        }
+        
+        delay_seconds = timing_map.get(reminder_timing, 0)
+        event_time = datetime.fromisoformat(event_datetime)
+        scheduled_for = (event_time - timedelta(seconds=delay_seconds)).isoformat()
+        
+        # Insertar en BD
+        c.execute('''
+            INSERT INTO personal_reminders (appointment_id, user_id, reminder_timing, scheduled_for)
+            VALUES (?, ?, ?, ?)
+        ''', (appointment_id, user_id, reminder_timing, scheduled_for))
+        
+        reminder_id = c.lastrowid
+        conn.commit()
+        conn.close()
+        
+        # Programar timer en servidor
+        schedule_reminder_timer(appointment_id, user_id, reminder_timing, event_datetime)
+        
+        logger.info(f"✅ [RECORDATORIO PERSONAL] Creado: cita {appointment_id}, usuario {user_id}, timing {reminder_timing}")
+        
+        return jsonify({'ok': True, 'reminder_id': reminder_id}), 201
+    
+    except Exception as e:
+        logger.error(f"Error creando recordatorio personal: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/reminders/whatsapp', methods=['POST'])
+def create_whatsapp_reminder():
+    """Crear recordatorio WhatsApp para cita"""
+    try:
+        data = request.json
+        
+        appointment_id = int(data['appointment_id'])
+        recipient_phone = data['recipient_phone']
+        reminder_timing = data['reminder_timing']
+        
+        conn = get_db()
+        c = conn.cursor()
+        
+        # Obtener cita
+        c.execute('SELECT date, time, client, service FROM appointments WHERE id = ?', (appointment_id,))
+        apt = c.fetchone()
+        
+        if not apt:
+            conn.close()
+            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
+        
+        event_datetime = f"{apt['date']}T{apt['time']}:00"
+        
+        timing_map = {
+            'now': 0,
+            '1h': 60 * 60,
+            '1d': 24 * 60 * 60,
+            '1w': 7 * 24 * 60 * 60
+        }
+        
+        delay_seconds = timing_map.get(reminder_timing, 0)
+        event_time = datetime.fromisoformat(event_datetime)
+        scheduled_for = (event_time - timedelta(seconds=delay_seconds)).isoformat()
+        
+        # Construir mensaje
+        message = f"Hola {apt['client']}, le recordamos su cita en Rodonvergés Associats el {apt['date']} a las {apt['time']}"
+        if apt['service']:
+            message += f" ({apt['service']})"
+        message += ". ¡Le esperamos!"
+        
+        # Insertar en BD
+        c.execute('''
+            INSERT INTO whatsapp_reminders (appointment_id, recipient_phone, message, reminder_timing, scheduled_for)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (appointment_id, recipient_phone, message, reminder_timing, scheduled_for))
+        
+        reminder_id = c.lastrowid
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"✅ [RECORDATORIO WA] Creado: cita {appointment_id}, teléfono {recipient_phone}, timing {reminder_timing}")
+        
+        return jsonify({'ok': True, 'reminder_id': reminder_id}), 201
+    
+    except Exception as e:
+        logger.error(f"Error creando recordatorio WhatsApp: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
+# REST ENDPOINTS - SALUD
+# ═══════════════════════════════════════════════════════════════
 
 @app.route('/api/health')
 def health():
     """Health check"""
-    return jsonify({
-        'status': 'ok',
-        'connected_users': len(connected_users),
-        'conversations': len(message_storage)
-    })
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        
+        c.execute('SELECT COUNT(*) as msg_count FROM messages')
+        msg_count = c.fetchone()['msg_count']
+        
+        c.execute('SELECT COUNT(*) as apt_count FROM appointments')
+        apt_count = c.fetchone()['apt_count']
+        
+        c.execute('SELECT COUNT(*) as rem_count FROM personal_reminders WHERE fired = 0')
+        rem_count = c.fetchone()['rem_count']
+        
+        conn.close()
+        
+        return jsonify({
+            'status': 'ok',
+            'connected_users': len(connected_users),
+            'messages': msg_count,
+            'appointments': apt_count,
+            'pending_reminders': rem_count
+        })
+    except Exception as e:
+        logger.error(f"Error en health check: {e}")
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 @app.route('/api/debug/status')
 def debug_status():
@@ -383,10 +830,6 @@ def debug_status():
                 'room': data.get('room')
             }
             for sid, data in connected_users.items()
-        },
-        'conversations': {
-            key: len(msgs)
-            for key, msgs in message_storage.items()
         }
     })
 
@@ -414,11 +857,13 @@ if __name__ == '__main__':
     host = '0.0.0.0'
     
     logger.info("="*80)
-    logger.info("🚀 INICIANDO SERVIDOR")
+    logger.info("🚀 INICIANDO SERVIDOR CON SOPORTE COMPLETO")
     logger.info(f"HOST: {host}")
     logger.info(f"PORT: {port}")
     logger.info(f"DEBUG: True")
     logger.info(f"LOGGING: Detallado (DEBUG)")
+    logger.info(f"DATABASE: {DB_FILE}")
+    logger.info(f"SOCKETIO: Habilitado")
     logger.info("="*80 + "\n")
     
     socketio.run(
