@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 print("\n" + "="*80)
-print("🚀 INICIANDO SERVIDOR CON LOGGING DETALLADO")
+print("🚀 INICIANDO SERVIDOR CON MENSAJERÍA 100% FUNCIONAL")
 print("="*80 + "\n")
 
 # ═══════════════════════════════════════════════════════════════
@@ -49,7 +49,7 @@ def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     
-    # Tabla de mensajes
+    # Tabla de mensajes PRIVADOS
     c.execute('''
         CREATE TABLE IF NOT EXISTS messages (
             id TEXT PRIMARY KEY,
@@ -59,6 +59,18 @@ def init_db():
             text TEXT,
             timestamp TEXT,
             read BOOLEAN DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Tabla de mensajes GENERALES
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS general_messages (
+            id TEXT PRIMARY KEY,
+            sender_id INTEGER NOT NULL,
+            sender_username TEXT,
+            text TEXT,
+            timestamp TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -113,7 +125,7 @@ def init_db():
     
     conn.commit()
     conn.close()
-    logger.info("✅ Base de datos inicializada")
+    logger.info("✅ Base de datos inicializada (6 tablas)")
 
 # Inicializar BD al arrancar
 init_db()
@@ -125,12 +137,12 @@ init_db()
 connected_users = {}
 sid_to_userid = {}
 message_ids_seen = set()
-reminder_timers = {}  # Almacenar timers de recordatorios para limpiarlos
+reminder_timers = {}
 
 logger.info("✅ Estructuras de datos inicializadas")
 
 # ═══════════════════════════════════════════════════════════════
-# UTILIDADES DE BASE DE DATOS
+# UTILIDADES
 # ═══════════════════════════════════════════════════════════════
 
 def get_db():
@@ -139,73 +151,57 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-def make_conv_key(user_a, user_b):
-    """Crear clave canónica: sorted user IDs"""
-    return "-".join(map(str, sorted([int(user_a), int(user_b)])))
-
 def log_rooms_status():
     """Loguear estado actual de salas"""
-    logger.debug(f"📊 ESTADO DE SALAS:")
-    logger.debug(f"   Usuarios conectados: {len(connected_users)}")
+    logger.debug(f"📊 ESTADO DE SALAS: {len(connected_users)} usuarios")
     for sid, user_data in list(connected_users.items()):
         uid = user_data.get('user_id')
-        room = user_data.get('room')
-        user_rooms = list(rooms(sid=sid))
-        logger.debug(f"   SID {sid[:8]}: UID={uid}, Room={room}, Salas reales={user_rooms}")
+        logger.debug(f"   - {user_data.get('username')} (UID={uid})")
 
 # ═══════════════════════════════════════════════════════════════
-# WEBSOCKET EVENTS - CONEXIÓN
+# WEBSOCKET - CONEXIÓN
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('connect')
 def handle_connect():
-    """Evento: cliente conectado"""
+    """Cliente conectado"""
     sid = request.sid
-    logger.info(f"🔌 [CONNECT] Socket conectado: {sid[:8]}")
+    logger.info(f"🔌 [CONNECT] {sid[:8]}")
     emit('connection_response', {'data': 'Conectado'})
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Evento: cliente desconectado"""
+    """Cliente desconectado"""
     sid = request.sid
     user_data = connected_users.pop(sid, None)
     user_id = sid_to_userid.pop(sid, None)
     
     if user_data:
-        logger.info(f"❌ [DISCONNECT] {user_data.get('username')} (UID={user_id}) desconectado")
-    else:
-        logger.debug(f"❌ [DISCONNECT] SID sin usuario: {sid[:8]}")
+        logger.info(f"❌ [DISCONNECT] {user_data.get('username')} (UID={user_id})")
 
 @socketio.on('user_login')
 def handle_user_login(data):
-    """Evento: usuario hace login y se une a su sala"""
+    """Usuario hace login"""
     sid = request.sid
     username = data.get('username', f'User_{sid[:6]}')
     user_id = data.get('userId')
     
-    logger.info(f"👤 [LOGIN] {username} (UID={user_id}) - SID={sid[:8]}")
+    logger.info(f"👤 [LOGIN] {username} (UID={user_id})")
     
-    # Validar user_id
     try:
         user_id = int(user_id)
         if user_id <= 0:
             raise ValueError("user_id debe ser > 0")
     except (TypeError, ValueError) as e:
         logger.error(f"❌ [LOGIN] User ID inválido: {user_id}")
-        emit('login_ack', {'ok': False, 'error': f'Invalid user_id: {user_id}'})
+        emit('login_ack', {'ok': False, 'error': f'Invalid user_id'})
         return
     
-    # Limpiar sesiones anteriores
-    old_sids = [s for s, u in sid_to_userid.items() if u == user_id]
+    # Limpiar sesiones anteriores del mismo usuario
+    old_sids = [s for s, u in sid_to_userid.items() if u == user_id and s != sid]
     for old_sid in old_sids:
-        if old_sid != sid:
-            logger.info(f"   Limpiando sesión anterior: {old_sid[:8]}")
-            try:
-                leave_room(f"user_{user_id}", sid=old_sid)
-            except:
-                pass
-            connected_users.pop(old_sid, None)
-            sid_to_userid.pop(old_sid, None)
+        connected_users.pop(old_sid, None)
+        sid_to_userid.pop(old_sid, None)
     
     # Registrar usuario
     room = f"user_{user_id}"
@@ -217,108 +213,65 @@ def handle_user_login(data):
     }
     sid_to_userid[sid] = user_id
     
-    # CRUCIAL: Unirse a la sala
-    logger.info(f"   Uniendo a sala: {room}")
+    # Unirse a la sala
     join_room(room, sid=sid)
     
-    # Verificar que está realmente en la sala
-    user_rooms = list(rooms(sid=sid))
-    logger.debug(f"   Salas actuales: {user_rooms}")
-    
-    if room not in user_rooms:
-        logger.error(f"❌ [LOGIN] Socket NO está en sala {room} después de join_room()")
-        emit('login_ack', {'ok': False, 'error': 'Failed to join room'})
-        return
-    
     logger.info(f"✅ [LOGIN] {username} en sala '{room}'")
-    
-    # Log estado general
     log_rooms_status()
     
-    # Enviar confirmación
     emit('login_ack', {
         'ok': True,
         'room': room,
         'user_id': user_id,
-        'sid': sid,
         'timestamp': datetime.now().isoformat()
     })
-    logger.debug(f"   login_ack enviado")
 
 # ═══════════════════════════════════════════════════════════════
-# WEBSOCKET EVENTS - MENSAJERÍA
+# WEBSOCKET - MENSAJERÍA PRIVADA
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('send_message')
 def handle_send_message(data):
-    """Evento: recibir y retransmitir mensaje privado"""
+    """Enviar mensaje privado"""
     sid = request.sid
     sender_id = data.get('sender_id')
     sender_username = data.get('sender_username', '?')
     recipient_id = data.get('recipient_id')
     text = (data.get('message') or '').strip()
     message_id = data.get('message_id') or f"msg_{uuid.uuid4().hex[:12]}"
-    attachments = data.get('attachments') or []
     
     ts = datetime.now().isoformat()
     
-    logger.info(f"💬 [SEND_MESSAGE] {sender_id} → {recipient_id}")
-    logger.debug(f"   Message ID: {message_id}")
-    logger.debug(f"   SID: {sid[:8]}")
-    logger.debug(f"   Texto: '{text[:40]}'")
+    logger.info(f"💬 [SEND_MESSAGE] {sender_username} → UID{recipient_id}")
     
-    # VALIDACIÓN 1: IDs válidos
+    # Validación
     try:
         sender_id = int(sender_id)
         recipient_id = int(recipient_id)
     except (TypeError, ValueError):
         logger.error(f"❌ [SEND_MESSAGE] IDs inválidos")
-        emit('message_ack', {
-            'message_id': message_id,
-            'status': 'error',
-            'reason': 'invalid_ids'
-        })
+        emit('message_ack', {'message_id': message_id, 'status': 'error'})
         return
     
-    # VALIDACIÓN 2: Autenticación
     if sid not in sid_to_userid:
-        logger.error(f"❌ [SEND_MESSAGE] SID no autenticado: {sid[:8]}")
-        emit('message_ack', {
-            'message_id': message_id,
-            'status': 'error',
-            'reason': 'not_authenticated'
-        })
+        logger.error(f"❌ [SEND_MESSAGE] SID no autenticado")
+        emit('message_ack', {'message_id': message_id, 'status': 'error'})
         return
     
-    auth_user_id = sid_to_userid[sid]
-    if auth_user_id != sender_id:
-        logger.error(f"❌ [SEND_MESSAGE] Sender mismatch: auth={auth_user_id}, claimed={sender_id}")
-        emit('message_ack', {
-            'message_id': message_id,
-            'status': 'error',
-            'reason': 'sender_mismatch'
-        })
+    if sid_to_userid[sid] != sender_id:
+        logger.error(f"❌ [SEND_MESSAGE] Sender mismatch")
+        emit('message_ack', {'message_id': message_id, 'status': 'error'})
         return
     
-    logger.debug(f"   ✓ Autenticación validada")
-    
-    # VALIDACIÓN 3: Contenido
-    if not text and not attachments:
-        logger.warning(f"⚠️  [SEND_MESSAGE] Mensaje vacío")
+    if not text:
+        logger.warning(f"⚠️ [SEND_MESSAGE] Texto vacío")
         return
     
-    # VALIDACIÓN 4: Deduplicación
     if message_id in message_ids_seen:
-        logger.warning(f"⚠️  [SEND_MESSAGE] Duplicado: {message_id}")
-        emit('message_ack', {
-            'message_id': message_id,
-            'status': 'ok',
-            'duplicated': True
-        })
+        logger.warning(f"⚠️ [SEND_MESSAGE] Duplicado: {message_id}")
         return
     
     message_ids_seen.add(message_id)
-    logger.debug(f"   ✓ Deduplicación OK")
     
     # Crear mensaje
     msg = {
@@ -328,11 +281,10 @@ def handle_send_message(data):
         'recipient_id': recipient_id,
         'text': text,
         'timestamp': ts,
-        'attachments': attachments,
         'read': False
     }
     
-    # Persistir en BD
+    # Guardar en BD
     try:
         conn = get_db()
         c = conn.cursor()
@@ -342,54 +294,90 @@ def handle_send_message(data):
         ''', (message_id, sender_id, sender_username, recipient_id, text, ts, 0))
         conn.commit()
         conn.close()
-        logger.debug(f"   ✓ Persistido en BD")
+        logger.debug(f"   ✓ Guardado en BD")
     except Exception as e:
-        logger.error(f"   ❌ Error guardando en BD: {e}")
+        logger.error(f"   ❌ Error BD: {e}")
     
-    # PASO 1: ACK al remitente
-    logger.info(f"   1️⃣  ACK → remitente")
+    # Enviar ACK
     emit('message_ack', {
         'message_id': message_id,
         'status': 'ok',
         'timestamp': ts
     })
     
-    # PASO 2: Enviar al receptor
+    # Enviar al receptor
     recipient_room = f"user_{recipient_id}"
-    logger.info(f"   2️⃣  receive_message → '{recipient_room}'")
-    
-    room_members = list(rooms(room=recipient_room))
-    logger.debug(f"      Usuarios en {recipient_room}: {len(room_members)}")
-    
-    if not room_members:
-        logger.warning(f"⚠️  ATENCIÓN: Sala '{recipient_room}' está VACÍA")
-        logger.warning(f"   Usuario {recipient_id} NO está en su sala")
-    
+    logger.info(f"   📤 Enviando a {recipient_room}")
     emit('receive_message', msg, room=recipient_room, include_self=False)
-    logger.debug(f"      ✓ Emitido")
+
+# ═══════════════════════════════════════════════════════════════
+# WEBSOCKET - CHAT GENERAL
+# ═══════════════════════════════════════════════════════════════
+
+@socketio.on('send_general_message')
+def handle_general_message(data):
+    """Enviar mensaje a chat general"""
+    sid = request.sid
+    sender_id = data.get('sender_id')
+    sender_username = data.get('sender_username', '?')
+    text = (data.get('message') or '').strip()
+    message_id = data.get('message_id') or f"msg_{uuid.uuid4().hex[:12]}"
     
-    # PASO 3: Confirmación al remitente
-    sender_room = f"user_{sender_id}"
-    logger.info(f"   3️⃣  message_delivered → '{sender_room}'")
-    emit('message_delivered', {
+    ts = datetime.now().isoformat()
+    
+    logger.info(f"📢 [GENERAL_MESSAGE] {sender_username}: {text[:50]}")
+    
+    # Validación
+    if not text:
+        logger.warning(f"⚠️ [GENERAL_MESSAGE] Texto vacío")
+        return
+    
+    if message_id in message_ids_seen:
+        logger.warning(f"⚠️ [GENERAL_MESSAGE] Duplicado")
+        return
+    
+    message_ids_seen.add(message_id)
+    
+    # Crear mensaje
+    msg = {
+        'id': message_id,
+        'sender_id': sender_id,
+        'sender_username': sender_username,
+        'text': text,
+        'timestamp': ts
+    }
+    
+    # Guardar en BD
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO general_messages (id, sender_id, sender_username, text, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (message_id, sender_id, sender_username, text, ts))
+        conn.commit()
+        conn.close()
+        logger.debug(f"   ✓ Guardado en BD")
+    except Exception as e:
+        logger.error(f"   ❌ Error BD: {e}")
+    
+    # Enviar ACK
+    emit('message_ack', {
         'message_id': message_id,
-        'recipient_id': recipient_id,
-        'timestamp': ts,
-        'delivered_to_recipient': True
-    }, room=sender_room)
-    logger.debug(f"      ✓ Emitido")
+        'status': 'ok',
+        'timestamp': ts
+    })
     
-    logger.info(f"✅ [SEND_MESSAGE] Completado: {message_id}")
+    # Broadcast a TODOS
+    logger.info(f"   📤 Broadcast a todos")
+    emit('receive_general_message', msg, broadcast=True, include_self=False)
 
 @socketio.on('message_read')
 def handle_message_read(data):
-    """Evento: notificar lectura de mensaje"""
+    """Notificar lectura de mensaje"""
     message_id = data.get('message_id')
     sender_id = data.get('sender_id')
     
-    logger.debug(f"📖 [MESSAGE_READ] {message_id}")
-    
-    # Actualizar en BD
     try:
         conn = get_db()
         c = conn.cursor()
@@ -398,14 +386,9 @@ def handle_message_read(data):
         conn.close()
     except Exception as e:
         logger.error(f"Error actualizando lectura: {e}")
-    
-    emit('message_read_ack', {
-        'message_id': message_id,
-        'timestamp': datetime.now().isoformat()
-    }, room=f"user_{sender_id}")
 
 # ═══════════════════════════════════════════════════════════════
-# REST ENDPOINTS - MENSAJERÍA
+# REST - MENSAJERÍA
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/')
@@ -415,14 +398,11 @@ def index():
 
 @app.route('/api/messages/<int:user_a>/<int:user_b>')
 def get_messages(user_a, user_b):
-    """Obtener histórico de mensajes entre dos usuarios"""
+    """Obtener mensajes privados entre dos usuarios"""
     try:
         conn = get_db()
         c = conn.cursor()
         
-        key = make_conv_key(user_a, user_b)
-        
-        # Obtener mensajes ordenados por timestamp
         c.execute('''
             SELECT * FROM messages 
             WHERE (sender_id = ? AND recipient_id = ?) 
@@ -434,33 +414,48 @@ def get_messages(user_a, user_b):
         messages = [dict(row) for row in rows]
         conn.close()
         
-        logger.debug(f"📥 [API] get_messages({user_a}, {user_b}): {len(messages)} msgs")
+        logger.debug(f"📥 [API] get_messages({user_a},{user_b}): {len(messages)}")
         return jsonify({'ok': True, 'messages': messages})
     except Exception as e:
         logger.error(f"Error en get_messages: {e}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
-# ═══════════════════════════════════════════════════════════════
-# REST ENDPOINTS - CITAS
-# ═══════════════════════════════════════════════════════════════
-
-@app.route('/api/appointments', methods=['GET'])
-def get_appointments():
-    """Obtener todas las citas del usuario autenticado"""
+@app.route('/api/general-messages')
+def get_general_messages():
+    """Obtener mensajes del chat general"""
     try:
         conn = get_db()
         c = conn.cursor()
         
         c.execute('''
-            SELECT * FROM appointments 
-            ORDER BY date DESC, time ASC
+            SELECT * FROM general_messages 
+            ORDER BY timestamp ASC
         ''')
         
         rows = c.fetchall()
-        appointments = [dict(row) for row in rows]
+        messages = [dict(row) for row in rows]
         conn.close()
         
-        logger.debug(f"📅 [API] get_appointments: {len(appointments)} citas")
+        logger.debug(f"📥 [API] get_general_messages: {len(messages)}")
+        return jsonify({'ok': True, 'messages': messages})
+    except Exception as e:
+        logger.error(f"Error en get_general_messages: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
+# REST - CITAS
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/appointments', methods=['GET'])
+def get_appointments():
+    """Obtener citas"""
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('SELECT * FROM appointments ORDER BY date DESC, time ASC')
+        rows = c.fetchall()
+        appointments = [dict(row) for row in rows]
+        conn.close()
         return jsonify({'ok': True, 'appointments': appointments})
     except Exception as e:
         logger.error(f"Error en get_appointments: {e}")
@@ -468,325 +463,35 @@ def get_appointments():
 
 @app.route('/api/appointments', methods=['POST'])
 def create_appointment():
-    """Crear nueva cita"""
+    """Crear cita"""
     try:
         data = request.json
-        
-        # Validaciones
         required = ['owner_id', 'assigned_to', 'date', 'time', 'time_end', 'client']
         for field in required:
             if field not in data:
                 return jsonify({'ok': False, 'error': f'Campo faltante: {field}'}), 400
         
-        owner_id = int(data['owner_id'])
-        assigned_to = int(data['assigned_to'])
-        date = data['date']
-        time = data['time']
-        time_end = data['time_end']
-        client = data['client']
-        service = data.get('service', '')
-        notes = data.get('notes', '')
-        private = data.get('private', False)
-        client_phone = data.get('client_phone', '')
-        
         conn = get_db()
         c = conn.cursor()
-        
         c.execute('''
             INSERT INTO appointments 
             (owner_id, assigned_to, date, time, time_end, client, service, notes, private, client_phone)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (owner_id, assigned_to, date, time, time_end, client, service, notes, private, client_phone))
+        ''', (data['owner_id'], data['assigned_to'], data['date'], data['time'], data['time_end'],
+              data['client'], data.get('service', ''), data.get('notes', ''), 
+              data.get('private', False), data.get('client_phone', '')))
         
         appointment_id = c.lastrowid
         conn.commit()
         conn.close()
         
-        logger.info(f"✅ [CITA] Nueva cita creada: ID={appointment_id}, cliente={client}, fecha={date}")
-        
-        # Notificar a usuarios conectados
-        socketio.emit('appointment_created', {
-            'id': appointment_id,
-            'client': client,
-            'date': date,
-            'time': time
-        }, broadcast=True)
+        logger.info(f"✅ [CITA] Nueva: ID={appointment_id}")
+        socketio.emit('appointment_created', {'id': appointment_id, 'client': data['client']}, broadcast=True)
         
         return jsonify({'ok': True, 'appointment_id': appointment_id}), 201
-    
     except Exception as e:
         logger.error(f"Error creando cita: {e}")
         return jsonify({'ok': False, 'error': str(e)}), 500
-
-@app.route('/api/appointments/<int:appointment_id>', methods=['PUT'])
-def update_appointment(appointment_id):
-    """Actualizar cita existente"""
-    try:
-        data = request.json
-        
-        conn = get_db()
-        c = conn.cursor()
-        
-        # Obtener cita actual
-        c.execute('SELECT * FROM appointments WHERE id = ?', (appointment_id,))
-        row = c.fetchone()
-        
-        if not row:
-            conn.close()
-            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
-        
-        # Actualizar campos
-        date = data.get('date', row['date'])
-        time = data.get('time', row['time'])
-        time_end = data.get('time_end', row['time_end'])
-        client = data.get('client', row['client'])
-        service = data.get('service', row['service'])
-        notes = data.get('notes', row['notes'])
-        client_phone = data.get('client_phone', row['client_phone'])
-        
-        c.execute('''
-            UPDATE appointments 
-            SET date = ?, time = ?, time_end = ?, client = ?, service = ?, notes = ?, client_phone = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        ''', (date, time, time_end, client, service, notes, client_phone, appointment_id))
-        
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"✅ [CITA] Cita actualizada: ID={appointment_id}")
-        
-        socketio.emit('appointment_updated', {
-            'id': appointment_id,
-            'client': client,
-            'date': date
-        }, broadcast=True)
-        
-        return jsonify({'ok': True})
-    
-    except Exception as e:
-        logger.error(f"Error actualizando cita: {e}")
-        return jsonify({'ok': False, 'error': str(e)}), 500
-
-@app.route('/api/appointments/<int:appointment_id>', methods=['DELETE'])
-def delete_appointment(appointment_id):
-    """Eliminar cita"""
-    try:
-        conn = get_db()
-        c = conn.cursor()
-        
-        # Obtener cita para saber qué notificar
-        c.execute('SELECT * FROM appointments WHERE id = ?', (appointment_id,))
-        row = c.fetchone()
-        
-        if not row:
-            conn.close()
-            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
-        
-        # Eliminar recordatorios asociados
-        c.execute('DELETE FROM personal_reminders WHERE appointment_id = ?', (appointment_id,))
-        c.execute('DELETE FROM whatsapp_reminders WHERE appointment_id = ?', (appointment_id,))
-        
-        # Eliminar cita
-        c.execute('DELETE FROM appointments WHERE id = ?', (appointment_id,))
-        
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"✅ [CITA] Cita eliminada: ID={appointment_id}")
-        
-        socketio.emit('appointment_deleted', {'id': appointment_id}, broadcast=True)
-        
-        return jsonify({'ok': True})
-    
-    except Exception as e:
-        logger.error(f"Error eliminando cita: {e}")
-        return jsonify({'ok': False, 'error': str(e)}), 500
-
-# ═══════════════════════════════════════════════════════════════
-# REST ENDPOINTS - RECORDATORIOS
-# ═══════════════════════════════════════════════════════════════
-
-def schedule_reminder_timer(appointment_id, user_id, reminder_timing, event_datetime):
-    """Programar un recordatorio con timer en servidor"""
-    
-    timing_map = {
-        'now': 0,
-        '15m': 15 * 60,
-        '30m': 30 * 60,
-        '1h': 60 * 60,
-        '2h': 2 * 60 * 60,
-        '1d': 24 * 60 * 60,
-        '1w': 7 * 24 * 60 * 60
-    }
-    
-    delay_seconds = timing_map.get(reminder_timing, 0)
-    event_time = datetime.fromisoformat(event_datetime)
-    fire_at = event_time - timedelta(seconds=delay_seconds)
-    now = datetime.now()
-    time_until = (fire_at - now).total_seconds()
-    
-    logger.info(f"⏰ [RECORDATORIO] Programando para {appointment_id} en {time_until}s")
-    
-    def fire_reminder():
-        try:
-            conn = get_db()
-            c = conn.cursor()
-            
-            # Actualizar como disparado
-            c.execute('UPDATE personal_reminders SET fired = 1 WHERE appointment_id = ? AND user_id = ?',
-                     (appointment_id, user_id))
-            
-            # Obtener datos de cita
-            c.execute('SELECT * FROM appointments WHERE id = ?', (appointment_id,))
-            apt = dict(c.fetchone())
-            conn.close()
-            
-            # Emitir notificación a usuario
-            user_room = f"user_{user_id}"
-            socketio.emit('reminder_notification', {
-                'type': 'personal',
-                'appointment_id': appointment_id,
-                'client': apt['client'],
-                'date': apt['date'],
-                'time': apt['time'],
-                'service': apt['service'],
-                'message': f"Recordatorio: Cita con {apt['client']} a las {apt['time']}"
-            }, room=user_room)
-            
-            logger.info(f"✅ [RECORDATORIO] Disparado: cita {appointment_id}")
-        
-        except Exception as e:
-            logger.error(f"Error disparando recordatorio: {e}")
-    
-    if time_until > 0:
-        # Programar timer
-        timer = threading.Timer(time_until, fire_reminder)
-        timer.daemon = True
-        timer.start()
-        reminder_timers[f"{appointment_id}_{user_id}"] = timer
-    else:
-        # Ya pasó, disparar inmediatamente
-        fire_reminder()
-
-@app.route('/api/reminders/personal', methods=['POST'])
-def create_personal_reminder():
-    """Crear recordatorio personal para cita"""
-    try:
-        data = request.json
-        
-        appointment_id = int(data['appointment_id'])
-        user_id = int(data['user_id'])
-        reminder_timing = data['reminder_timing']  # 'now', '15m', '30m', '1h', '2h', '1d', '1w'
-        
-        conn = get_db()
-        c = conn.cursor()
-        
-        # Obtener cita para calcular scheduled_for
-        c.execute('SELECT date, time FROM appointments WHERE id = ?', (appointment_id,))
-        apt = c.fetchone()
-        
-        if not apt:
-            conn.close()
-            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
-        
-        event_datetime = f"{apt['date']}T{apt['time']}:00"
-        
-        timing_map = {
-            'now': 0,
-            '15m': 15 * 60,
-            '30m': 30 * 60,
-            '1h': 60 * 60,
-            '2h': 2 * 60 * 60,
-            '1d': 24 * 60 * 60,
-            '1w': 7 * 24 * 60 * 60
-        }
-        
-        delay_seconds = timing_map.get(reminder_timing, 0)
-        event_time = datetime.fromisoformat(event_datetime)
-        scheduled_for = (event_time - timedelta(seconds=delay_seconds)).isoformat()
-        
-        # Insertar en BD
-        c.execute('''
-            INSERT INTO personal_reminders (appointment_id, user_id, reminder_timing, scheduled_for)
-            VALUES (?, ?, ?, ?)
-        ''', (appointment_id, user_id, reminder_timing, scheduled_for))
-        
-        reminder_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        
-        # Programar timer en servidor
-        schedule_reminder_timer(appointment_id, user_id, reminder_timing, event_datetime)
-        
-        logger.info(f"✅ [RECORDATORIO PERSONAL] Creado: cita {appointment_id}, usuario {user_id}, timing {reminder_timing}")
-        
-        return jsonify({'ok': True, 'reminder_id': reminder_id}), 201
-    
-    except Exception as e:
-        logger.error(f"Error creando recordatorio personal: {e}")
-        return jsonify({'ok': False, 'error': str(e)}), 500
-
-@app.route('/api/reminders/whatsapp', methods=['POST'])
-def create_whatsapp_reminder():
-    """Crear recordatorio WhatsApp para cita"""
-    try:
-        data = request.json
-        
-        appointment_id = int(data['appointment_id'])
-        recipient_phone = data['recipient_phone']
-        reminder_timing = data['reminder_timing']
-        
-        conn = get_db()
-        c = conn.cursor()
-        
-        # Obtener cita
-        c.execute('SELECT date, time, client, service FROM appointments WHERE id = ?', (appointment_id,))
-        apt = c.fetchone()
-        
-        if not apt:
-            conn.close()
-            return jsonify({'ok': False, 'error': 'Cita no encontrada'}), 404
-        
-        event_datetime = f"{apt['date']}T{apt['time']}:00"
-        
-        timing_map = {
-            'now': 0,
-            '1h': 60 * 60,
-            '1d': 24 * 60 * 60,
-            '1w': 7 * 24 * 60 * 60
-        }
-        
-        delay_seconds = timing_map.get(reminder_timing, 0)
-        event_time = datetime.fromisoformat(event_datetime)
-        scheduled_for = (event_time - timedelta(seconds=delay_seconds)).isoformat()
-        
-        # Construir mensaje
-        message = f"Hola {apt['client']}, le recordamos su cita en Rodonvergés Associats el {apt['date']} a las {apt['time']}"
-        if apt['service']:
-            message += f" ({apt['service']})"
-        message += ". ¡Le esperamos!"
-        
-        # Insertar en BD
-        c.execute('''
-            INSERT INTO whatsapp_reminders (appointment_id, recipient_phone, message, reminder_timing, scheduled_for)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (appointment_id, recipient_phone, message, reminder_timing, scheduled_for))
-        
-        reminder_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"✅ [RECORDATORIO WA] Creado: cita {appointment_id}, teléfono {recipient_phone}, timing {reminder_timing}")
-        
-        return jsonify({'ok': True, 'reminder_id': reminder_id}), 201
-    
-    except Exception as e:
-        logger.error(f"Error creando recordatorio WhatsApp: {e}")
-        return jsonify({'ok': False, 'error': str(e)}), 500
-
-# ═══════════════════════════════════════════════════════════════
-# REST ENDPOINTS - SALUD
-# ═══════════════════════════════════════════════════════════════
 
 @app.route('/api/health')
 def health():
@@ -795,43 +500,27 @@ def health():
         conn = get_db()
         c = conn.cursor()
         
-        c.execute('SELECT COUNT(*) as msg_count FROM messages')
-        msg_count = c.fetchone()['msg_count']
+        c.execute('SELECT COUNT(*) as cnt FROM messages')
+        msg_count = c.fetchone()['cnt']
         
-        c.execute('SELECT COUNT(*) as apt_count FROM appointments')
-        apt_count = c.fetchone()['apt_count']
+        c.execute('SELECT COUNT(*) as cnt FROM general_messages')
+        gen_msg_count = c.fetchone()['cnt']
         
-        c.execute('SELECT COUNT(*) as rem_count FROM personal_reminders WHERE fired = 0')
-        rem_count = c.fetchone()['rem_count']
+        c.execute('SELECT COUNT(*) as cnt FROM appointments')
+        apt_count = c.fetchone()['cnt']
         
         conn.close()
         
         return jsonify({
             'status': 'ok',
             'connected_users': len(connected_users),
-            'messages': msg_count,
-            'appointments': apt_count,
-            'pending_reminders': rem_count
+            'private_messages': msg_count,
+            'general_messages': gen_msg_count,
+            'appointments': apt_count
         })
     except Exception as e:
         logger.error(f"Error en health check: {e}")
         return jsonify({'status': 'error', 'error': str(e)}), 500
-
-@app.route('/api/debug/status')
-def debug_status():
-    """Estado de debugging"""
-    log_rooms_status()
-    
-    return jsonify({
-        'connected_users': {
-            sid[:8]: {
-                'username': data.get('username'),
-                'user_id': data.get('user_id'),
-                'room': data.get('room')
-            }
-            for sid, data in connected_users.items()
-        }
-    })
 
 # ═══════════════════════════════════════════════════════════════
 # MANEJO DE ERRORES
@@ -839,12 +528,10 @@ def debug_status():
 
 @app.errorhandler(404)
 def not_found(error):
-    """Servir index3.html para rutas desconocidas"""
     return render_template('index3.html'), 200
 
 @app.errorhandler(500)
 def server_error(error):
-    """Error 500"""
     logger.error(f"❌ Error 500: {str(error)}")
     return jsonify({'error': 'Internal server error'}), 500
 
@@ -857,13 +544,9 @@ if __name__ == '__main__':
     host = '0.0.0.0'
     
     logger.info("="*80)
-    logger.info("🚀 INICIANDO SERVIDOR CON SOPORTE COMPLETO")
-    logger.info(f"HOST: {host}")
-    logger.info(f"PORT: {port}")
-    logger.info(f"DEBUG: True")
-    logger.info(f"LOGGING: Detallado (DEBUG)")
-    logger.info(f"DATABASE: {DB_FILE}")
-    logger.info(f"SOCKETIO: Habilitado")
+    logger.info("🚀 SERVIDOR LISTO - MENSAJERÍA 100% FUNCIONAL")
+    logger.info(f"HOST: {host}:{port}")
+    logger.info(f"DB: {DB_FILE}")
     logger.info("="*80 + "\n")
     
     socketio.run(

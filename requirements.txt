@@ -14,17 +14,3 @@ APScheduler==3.10.4
 
 # Production Server
 gunicorn==21.2.0
-psycopg2-binary==2.9.7
-
-# Optional: Caching with Redis
-redis==5.0.0
-flask-caching==2.0.2
-
-# Optional: Enhanced Logging
-
-
-# Optional: Email notifications
-Flask-Mail==0.9.1
-
-# Optional: API Documentation
-flask-restx==0.5.1

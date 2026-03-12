@@ -4281,6 +4281,13 @@
 
       async function loadAllHistories() {
         if (!currentUser) return;
+        
+        console.log('📥 [LOAD] Cargando todos los mensajes...');
+        
+        // Cargar chat general
+        await loadGeneralChatHistory();
+        
+        // Cargar mensajes privados
         const others = USERS.filter(function(u) { return u.id !== currentUser.id; });
         for (const u of others) {
           await loadHistory(u.id);
@@ -4516,22 +4523,65 @@
 
       // CONVS vacío — se carga desde el servidor en loadAllHistories()
 
-      let GENERAL_CHAT = [
-        {
-          id: 1,
-          userId: 1,
-          text: "Buenos días a todos. Recordad que hoy tenemos reunión de equipo a las 10h.",
-          time: "08:45",
-          date: dOff(0),
-        },
-        {
-          id: 2,
-          userId: 2,
-          text: "Anotado, gracias por el aviso!",
-          time: "08:52",
-          date: dOff(0),
-        },
-      ];
+      let GENERAL_CHAT = [];
+      
+      // ═══════════════════════════════════════════
+      //  CARGAR MENSAJES HISTÓRICOS
+      // ═══════════════════════════════════════════
+      
+      async function loadGeneralChatHistory() {
+        try {
+          console.log('📥 [LOAD] Cargando mensajes generales...');
+          const res = await fetch('/api/general-messages');
+          const data = await res.json();
+          
+          if (data.ok && Array.isArray(data.messages)) {
+            GENERAL_CHAT = [];
+            data.messages.forEach(msg => {
+              const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : '00:00';
+              const date = msg.timestamp ? msg.timestamp.split('T')[0] : '2000-01-01';
+              GENERAL_CHAT.push({
+                id: msg.id,
+                userId: Number(msg.sender_id),
+                text: msg.text,
+                time: time,
+                date: date,
+                username: msg.sender_username
+              });
+            });
+            console.log(`✅ [LOAD] ${GENERAL_CHAT.length} mensajes generales`);
+            renderGeneralChat();
+          }
+        } catch(e) {
+          console.warn('⚠️ Error cargando generales:', e);
+        }
+      }
+      
+      async function loadPrivateMessageHistory(otherId) {
+        try {
+          const res = await fetch(`/api/messages/${currentUser.id}/${otherId}`);
+          const data = await res.json();
+          
+          if (data.ok && Array.isArray(data.messages)) {
+            const arr = convData(otherId);
+            arr.length = 0;
+            
+            data.messages.forEach(msg => {
+              const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : '00:00';
+              arr.push({
+                id: msg.id,
+                mine: Number(msg.sender_id) === currentUser.id,
+                text: msg.text,
+                time: time,
+                read: msg.read ? true : false
+              });
+            });
+            console.log(`📥 [LOAD] ${arr.length} mensajes privados con UID${otherId}`);
+          }
+        } catch(e) {
+          console.warn(`⚠️ Error cargando privados:`, e);
+        }
+      }
       let nextGchatId = 100;
 
       // ══════════════════════════════════════════
@@ -7487,8 +7537,9 @@
           : [];
         
         const msgObj = {
-          id: nextGchatId++,
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           userId: currentUser.id,
+          username: currentUser.name,
           text,
           time: nowTime(),
           date: todayStr(),
@@ -7503,16 +7554,16 @@
         
         // ✅ ENVIAR AL CHAT GENERAL VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
-          console.log('📤 [Socket] Enviando mensaje al chat general');
+          console.log('📤 [Socket] Enviando al chat general');
           socket.emit('send_general_message', {
             message: text,
             sender_username: currentUser.name,
-            sender_id: currentUser.id,    // ✅ FIX: enviar user_id real para identificación correcta
+            sender_id: Number(currentUser.id),
             message_id: msgObj.id,
             attachments: attachments
           });
         } else {
-          console.warn('⚠️ Socket no conectado, mensaje solo guardado localmente');
+          console.warn('⚠️ Socket no conectado');
         }
       }
 
