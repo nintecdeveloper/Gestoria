@@ -177,6 +177,7 @@ socketio = SocketIO(
 # Almacenar usuarios conectados en tiempo real
 connected_users = {}  # {sid: {username, sid, connected_at}}
 username_to_sid = {}  # {username: sid} - MAPEO PARA ENCONTRAR USUARIOS
+sid_to_userid = {}  # {sid: user_id} - MAPEO PARA OBTENER USER ID DEL USUARIO
 active_chats = {}
 message_storage = {}  # {conv_id: [messages]} - ALMACENAR MENSAJES EN SERVIDOR
 
@@ -221,30 +222,40 @@ def handle_connect(auth):
 @socketio.on('disconnect')
 def handle_disconnect():
     """Usuario se desconecta del socket"""
-    user_id = request.sid
-    if user_id in connected_users:
-        username = connected_users[user_id].get('username', 'Usuario')
-        del connected_users[user_id]
+    socket_sid = request.sid
+    if socket_sid in connected_users:
+        username = connected_users[socket_sid].get('username', 'Usuario')
+        del connected_users[socket_sid]
         # LIMPIAR MAPEO USERNAME-SID
         if username in username_to_sid:
             del username_to_sid[username]
+        # ✅ LIMPIAR MAPEO SID-USERID
+        if socket_sid in sid_to_userid:
+            del sid_to_userid[socket_sid]
         logger.info(f"❌ [Socket] {username} desconectado")
     else:
-        logger.info(f"❌ [Socket] Usuario desconectado: {user_id}")
+        logger.info(f"❌ [Socket] Usuario desconectado: {socket_sid}")
 
 @socketio.on('user_login')
 def handle_user_login(data):
     """Registra un usuario como conectado"""
-    user_id = request.sid
-    username = data.get('username', f'User_{user_id[:8]}')
-    connected_users[user_id] = {
+    socket_sid = request.sid
+    username = data.get('username', f'User_{socket_sid[:8]}')
+    user_id = data.get('userId', None)  # ✅ Obtener ID real del usuario
+    
+    connected_users[socket_sid] = {
         'username': username,
-        'sid': user_id,
+        'sid': socket_sid,
+        'user_id': user_id,  # ✅ Guardar user_id real
         'connected_at': datetime.now().isoformat()
     }
     # MAPEAR USERNAME A SID PARA BÚSQUEDA RÁPIDA
-    username_to_sid[username] = user_id
-    logger.info(f"✅ [Chat] {username} conectado (SID: {user_id})")
+    username_to_sid[username] = socket_sid
+    # ✅ MAPEAR SID A USER_ID PARA OBTENER ID DEL USUARIO
+    if user_id:
+        sid_to_userid[socket_sid] = user_id
+    
+    logger.info(f"✅ [Chat] {username} conectado (SID: {socket_sid}, UserID: {user_id})")
     
     # Notificar a todos que hay un nuevo usuario online
     socketio.emit('user_status_update', {
@@ -257,9 +268,11 @@ def handle_user_login(data):
 @socketio.on('send_message')
 def handle_message(data):
     """Recibe un mensaje privado y lo retransmite"""
-    sender_id = request.sid
+    socket_sid = request.sid
     sender_username = data.get('sender_username', 'Usuario')
-    recipient_username = data.get('recipient_username', '')  # NOMBRE DE USUARIO, NO ID
+    sender_user_id = data.get('sender_id', None)  # ✅ Obtener user_id del frontend
+    recipient_username = data.get('recipient_username', '')
+    recipient_user_id = data.get('recipient_id', None)  # ✅ Obtener recipient user_id
     message_text = data.get('message', '')
     message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
     conv_id = data.get('conv_id', f'{sender_username}_{recipient_username}')
@@ -271,7 +284,7 @@ def handle_message(data):
     # Crear objeto de mensaje
     message_obj = {
         'id': message_id,
-        'sender_id': sender_id,
+        'sender_id': sender_user_id,  # ✅ Usar user_id real, no SID
         'sender_username': sender_username,
         'recipient_username': recipient_username,
         'text': message_text,
@@ -301,8 +314,22 @@ def handle_message(data):
             'timestamp': datetime.now().isoformat()
         }, room=recipient_sid)
         logger.info(f"🔔 [Notificación Enviada] A {recipient_username}")
+        
+        # ✅ ENVIAR CONFIRMACIÓN AL REMITENTE CON TIMESTAMP
+        socketio.emit('message_ack', {
+            'message_id': message_id,
+            'status': 'delivered',
+            'timestamp': datetime.now().isoformat()
+        }, room=socket_sid)
     else:
         logger.warning(f"⚠️ [Mensaje No Entregado] {recipient_username} no conectado")
+        # ✅ NOTIFICAR AL REMITENTE QUE NO SE ENTREGÓ
+        socketio.emit('message_ack', {
+            'message_id': message_id,
+            'status': 'failed',
+            'reason': 'user_not_connected',
+            'timestamp': datetime.now().isoformat()
+        }, room=socket_sid)
     
     # CONFIRMAR AL REMITENTE
     socketio.emit('message_sent', {

@@ -4279,30 +4279,30 @@
         // ✅ RECIBIR MENSAJES PRIVADOS
         socket.on('receive_message', function(msg) {
           console.log('📨 [Socket] Mensaje privado recibido:', msg);
-          const sender = msg.sender_username;
-          const convId = sender;  // LA CLAVE ES EL USERNAME DEL REMITENTE
+          const sender_username = msg.sender_username;
+          const sender_user_id = msg.sender_id;  // ✅ Usar user_id real
           
-          // Crear conversación si no existe
-          if (!CONVS[convId]) {
-            CONVS[convId] = {
-              participant: sender,
-              messages: []
-            };
+          // Crear conversación usando convKey (igual que en envío)
+          const k = convKey(currentUser.id, sender_user_id);
+          if (!CONVS[k]) {
+            CONVS[k] = [];
           }
           
           // Agregar mensaje
-          CONVS[convId].messages.push({
+          CONVS[k].push({
             mine: false,
             text: msg.text,
             time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
-            read: false
+            read: false,
+            id: msg.id
           });
           
-          console.log('✅ [Socket] Mensaje agregado a conversación con', sender);
+          console.log('✅ [Socket] Mensaje agregado a conversación con', sender_username);
           
           // Actualizar UI si está abierto
-          if (activeConvId === convId) {
-            renderMsgs(convId);
+          // activeConvId es el user_id del otro usuario
+          if (activeConvId === sender_user_id) {
+            renderMsgs(activeConvId);
           }
           
           buildMsgList(document.getElementById("msg-search-inp").value);
@@ -4312,6 +4312,17 @@
         socket.on('message_notification', function(notif) {
           console.log('🔔 [Socket] Notificación de mensaje:', notif);
           showNotification('📨 Nuevo mensaje', `De: ${notif.from}`);
+        });
+        
+        // ✅ RECIBIR CONFIRMACIÓN DE ENTREGA DE MENSAJE
+        socket.on('message_ack', function(ack) {
+          console.log('📬 [Socket] Confirmación de mensaje:', ack);
+          if (ack.status === 'delivered') {
+            console.log('✅ Mensaje entregado:', ack.message_id);
+          } else if (ack.status === 'failed') {
+            console.warn('⚠️ Mensaje no entregado:', ack.message_id, ack.reason);
+            showNotification('⚠️ Advertencia', 'El usuario no está conectado');
+          }
         });
         
         // ✅ RECIBIR MENSAJES DEL CHAT GENERAL
@@ -5718,7 +5729,9 @@
                 timing: prState.timing,
                 label: prState.label
               };
-              requestNotificationPermission();
+              if ('Notification' in window && Notification.permission !== 'granted') {
+            Notification.requestPermission();
+          }
               scheduleReminder(ev, prState.timing);
             } else {
               delete ev.prReminder;
@@ -5755,7 +5768,9 @@
             };
             
             // Programar notificación
-            requestNotificationPermission();
+            if ('Notification' in window && Notification.permission !== 'granted') {
+            Notification.requestPermission();
+          }
             scheduleReminder(eventObj, prState.timing);
           }
           
@@ -6360,7 +6375,9 @@
             timing: prState.timing,
             label: prState.label
           };
-          requestNotificationPermission();
+          if ('Notification' in window && Notification.permission !== 'granted') {
+            Notification.requestPermission();
+          }
           scheduleReminder(eventObj, prState.timing);
         }
 
@@ -7559,11 +7576,17 @@
         
         // ✅ ENVIAR VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
-          console.log('📤 [Socket] Enviando mensaje privado a:', activeConvId);
+          // Obtener el usuario receptor usando activeConvId (que es el user_id)
+          const recipient = USERS.find(u => u.id === activeConvId);
+          const recipient_username = recipient ? recipient.name : '';
+          
+          console.log('📤 [Socket] Enviando mensaje privado a:', recipient_username, '(ID:', activeConvId + ')');
           socket.emit('send_message', {
             message: text,
             sender_username: currentUser.name,
-            recipient_username: activeConvId,  // ✅ ENVIAR USERNAME, NO ID
+            sender_id: currentUser.id,  // ✅ Enviar user_id real del remitente
+            recipient_username: recipient_username,
+            recipient_id: activeConvId,  // ✅ Enviar user_id real del receptor
             conv_id: activeConvId,
             message_id: msgObj.id,
             attachments: attachments
@@ -7882,7 +7905,9 @@
         }
 
         if (Notification.permission === 'default') {
-          requestNotificationPermission();
+          if ('Notification' in window && Notification.permission !== 'granted') {
+            Notification.requestPermission();
+          }
           return;
         }
 
@@ -8491,7 +8516,9 @@ ${dateStr} a las ${eventData.time}`,
       // (Se pide después de 1 segundo para no ser intrusivo)
       setTimeout(() => {
         if (Notification.permission === 'default') {
-          requestNotificationPermission();
+          if ('Notification' in window && Notification.permission !== 'granted') {
+            Notification.requestPermission();
+          }
         }
       }, 1000);
       
