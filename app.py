@@ -424,26 +424,38 @@ def handle_broadcast_notification(data):
 def get_messages(conv_id):
     """
     Recupera el histórico de mensajes de una conversación.
-    Permite que el usuario vea los mensajes previos al reconectar.
-    
-    URL: GET /api/messages/username_receptor
-    Respuesta: { 'ok': true, 'messages': [...], 'conv_id': 'username' }
+    conv_id puede ser 'userA_userB' o 'userB_userA' (bidireccional).
     """
-    if not conv_id or conv_id not in message_storage:
-        return jsonify({
-            'ok': False,
-            'error': 'Conversación no encontrada',
-            'messages': []
-        }), 404
-    
-    messages = message_storage[conv_id]
-    logger.info(f"📥 [Mensajes] Recuperando {len(messages)} mensajes de {conv_id}")
-    
-    return jsonify({
-        'ok': True,
-        'conv_id': conv_id,
-        'messages': messages
-    })
+    if not conv_id:
+        return jsonify({'ok': False, 'error': 'conv_id requerido', 'messages': []}), 400
+
+    # Buscar en ambas direcciones (userA_userB o userB_userA)
+    messages = message_storage.get(conv_id)
+    resolved_id = conv_id
+    if messages is None:
+        parts = conv_id.split('_', 1)
+        if len(parts) == 2:
+            alt_id = f"{parts[1]}_{parts[0]}"
+            messages = message_storage.get(alt_id)
+            resolved_id = alt_id if messages is not None else conv_id
+
+    if messages is None:
+        return jsonify({'ok': True, 'conv_id': conv_id, 'messages': []})
+
+    logger.info(f"📥 [Mensajes] Recuperando {len(messages)} mensajes de {resolved_id}")
+    return jsonify({'ok': True, 'conv_id': resolved_id, 'messages': messages})
+
+
+@app.route('/api/messages/<conv_id>/read', methods=['POST'])
+def mark_messages_read(conv_id):
+    """Marca todos los mensajes de una conversación como leídos."""
+    messages = message_storage.get(conv_id, [])
+    reader = request.get_json(silent=True, force=True) or {}
+    reader_username = reader.get('username', '')
+    for m in messages:
+        if m.get('recipient_username') == reader_username:
+            m['read'] = True
+    return jsonify({'ok': True})
 
 # ═══════════════════════════════════════════════════════════════
 # API WHATSAPP — ENVÍO AUTOMÁTICO VÍA META
