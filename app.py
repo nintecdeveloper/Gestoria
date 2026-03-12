@@ -5,19 +5,14 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
 import requests
 import logging
+import uuid  # NUEVO: Para IDs únicos
 
 # ═══════════════════════════════════════════════════════════════
 # META WHATSAPP API — IMPORTACIÓN CONDICIONAL
-# Ahora usamos Meta Cloud API en lugar de Twilio
 # ═══════════════════════════════════════════════════════════════
 META_AVAILABLE = True
 REQUESTS_AVAILABLE = True
 
-# ═══════════════════════════════════════════════════════════════
-# APSCHEDULER — IMPORTACIÓN CONDICIONAL
-# Programa el envío de WhatsApp desde el servidor, independiente
-# de si el navegador está abierto o cerrado.
-# ═══════════════════════════════════════════════════════════════
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.date import DateTrigger
@@ -29,22 +24,7 @@ except ImportError:
 
 # ═══════════════════════════════════════════════════════════════
 # CONFIGURACIÓN META WHATSAPP API
-# ─────────────────────────────────────────────────────────────
-# PASOS PARA ACTIVAR (cuando tengas las credenciales de Meta):
-#
-#   1. Ve a https://developers.facebook.com/
-#   2. Crea un proyecto y selecciona "WhatsApp"
-#   3. En la sección "Getting Started", obtén:
-#        · Phone Number ID (de tu número de negocio)
-#        · Access Token (con permisos whatsapp_business_messaging)
-#        · Business Account ID
-#   4. En Render, ve a tu servicio → Environment → Add Environment Variable
-#        · META_PHONE_NUMBER_ID = 1234567890123456789
-#        · META_ACCESS_TOKEN = EAAxxxxxxxxxxxxxxxxxxxxxxxx
-#        · META_BUSINESS_ACCOUNT_ID = xxxxxxxxxx
-#   5. El código está adaptado para usar estas variables
-#
-# ─────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
 META_PHONE_NUMBER_ID = os.environ.get('META_PHONE_NUMBER_ID', None)
 META_ACCESS_TOKEN = os.environ.get('META_ACCESS_TOKEN', None)
 META_BUSINESS_ACCOUNT_ID = os.environ.get('META_BUSINESS_ACCOUNT_ID', None)
@@ -58,17 +38,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
-    """
-    Envía un mensaje de WhatsApp via Meta Cloud API.
-    
-    Args:
-        to_phone: Número de teléfono destino (ej: +34612345678)
-        message: Contenido del mensaje
-        message_type: Tipo de mensaje ('text', 'template', etc.)
-    
-    Returns:
-        dict: {'ok': True/False, 'message_id': '...', 'error': '...'}
-    """
+    """Envía un mensaje de WhatsApp via Meta Cloud API."""
     if not META_PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
         return {
             'ok': False,
@@ -76,16 +46,14 @@ def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
             'configured': False
         }
     
-    # Normalizar número
     phone = to_phone.strip()
     if not phone.startswith('+'):
         phone = '+34' + phone.lstrip('0')
     
-    # Preparar payload según tipo de mensaje
     if message_type == "text":
         payload = {
             "messaging_product": "whatsapp",
-            "to": phone.replace('+', ''),  # Meta API requiere sin el +
+            "to": phone.replace('+', ''),
             "type": "text",
             "text": {
                 "preview_url": False,
@@ -147,10 +115,7 @@ if SCHEDULER_AVAILABLE:
     logger.info("✅ [Scheduler] APScheduler iniciado correctamente.")
 
 def send_whatsapp_job(to_phone: str, message: str):
-    """
-    Tarea ejecutada por el scheduler en el momento programado.
-    Envía el WhatsApp via Meta Cloud API directamente desde el servidor.
-    """
+    """Tarea ejecutada por el scheduler en el momento programado."""
     result = send_whatsapp_meta(to_phone, message)
     if result['ok']:
         logger.info(f"✅ [Scheduler/Meta] Recordatorio enviado a {to_phone}")
@@ -165,7 +130,6 @@ app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
 app.config['DEBUG'] = False if app.config['ENV'] == 'production' else True
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 
-# Configurar SocketIO con soporte para Render
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
@@ -176,14 +140,13 @@ socketio = SocketIO(
 
 # ═══════════════════════════════════════════════════════════════
 # ESTADO GLOBAL — MENSAJERÍA
-# CLAVE DE CONV: misma lógica que el frontend:
-#   [a, b].sort().join("-")  →  ej: "1-2" para Antonio↔Myriam
+# ✅ MEJORADO: Tracking de SID → user_id para deduplicación
 # ═══════════════════════════════════════════════════════════════
-connected_users = {}   # sid → {username, user_id, connected_at}
-sid_to_userid   = {}   # sid → user_id (int)
-# conv_key "MIN_ID-MAX_ID" → lista de mensajes
-message_storage = {}   # {"1-2": [{id, sender_id, sender_username, recipient_id, text, timestamp, attachments}]}
-general_storage = []   # [{id, sender_id, sender_username, text, timestamp}]
+connected_users = {}   # sid → {username, user_id, connected_at, room}
+sid_to_userid   = {}   # sid → user_id
+message_storage = {}   # {"1-2": [msg]}
+general_storage = []   # [msg]
+message_ids_seen = set()  # NUEVO: Para deduplicación global
 
 def make_conv_key(a, b):
     """Clave canónica — idéntica a convKey() del frontend."""
@@ -211,76 +174,157 @@ def gestionpro():
 
 # ═══════════════════════════════════════════════════════════════
 # WEBSOCKET — CICLO DE VIDA
+# ✅ MEJORADO: Más logging, validaciones estrictas
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('connect')
 def handle_connect(auth):
+    """Nuevo cliente conectado vía socket."""
     logger.info(f"🔗 [WS] Nuevo socket: {request.sid}")
-    emit('connect_ack', {'sid': request.sid})
+    # Enviar ACK inmediato (cliente esperará esto antes de enviar user_login)
+    emit('connect_ack', {'sid': request.sid, 'timestamp': datetime.now().isoformat()})
 
 @socketio.on('disconnect')
 def handle_disconnect():
+    """Cliente desconectado."""
     sid = request.sid
     info = connected_users.pop(sid, None)
-    sid_to_userid.pop(sid, None)
+    user_id = sid_to_userid.pop(sid, None)
+    
     if info:
-        logger.info(f"❌ [WS] {info['username']} desconectado (sid={sid[:8]})")
+        logger.info(f"❌ [WS] {info['username']} desconectado (sid={sid[:8]}, user_id={user_id})")
+    else:
+        logger.warning(f"⚠️  [WS] Socket desconectado sin registro previo: {sid[:8]}")
 
 # ═══════════════════════════════════════════════════════════════
 # WEBSOCKET — REGISTRO (join room personal)
+# ✅ MEJORADO: Validación, logging detallado, ACK inmediato
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('user_login')
 def handle_user_login(data):
+    """
+    Registra un usuario en la room personal.
+    ✅ AHORA: El cliente espera a recibir login_ack antes de continuar.
+    """
     sid     = request.sid
     username = data.get('username', f'User_{sid[:6]}')
     user_id  = data.get('userId')
+    
+    # Validar user_id
     try:
         user_id = int(user_id)
-    except (TypeError, ValueError):
-        user_id = 0
-
+        if user_id <= 0:
+            raise ValueError("user_id debe ser > 0")
+    except (TypeError, ValueError) as e:
+        logger.error(f"❌ [WS] user_login recibido con user_id inválido: {user_id} ({e})")
+        emit('login_ack', {'ok': False, 'error': 'Invalid user_id'})
+        return
+    
+    # Registrar usuario
+    room = f"user_{user_id}"
+    
+    # ✅ NUEVO: Limpiar cualquier registro anterior del mismo user_id con otro SID
+    # (por si el usuario se reconecta muy rápido)
+    old_sids = [s for s, u in sid_to_userid.items() if u == user_id]
+    for old_sid in old_sids:
+        if old_sid != sid:
+            logger.info(f"🔄 [WS] Limpiando SID antiguo: {old_sid[:8]} para user_id={user_id}")
+            try:
+                leave_room(f"user_{user_id}", sid=old_sid)
+            except:
+                pass
+            connected_users.pop(old_sid, None)
+            sid_to_userid.pop(old_sid, None)
+    
+    # Registrar nuevo/actual
     connected_users[sid] = {
         'username': username,
         'user_id':  user_id,
-        'connected_at': datetime.now().isoformat()
+        'connected_at': datetime.now().isoformat(),
+        'room': room
     }
     sid_to_userid[sid] = user_id
-
-    # Unir a la room personal "user_<id>" — el emit de mensajes
-    # privados apunta a esta room, sin necesidad de conocer el SID.
-    room = f"user_{user_id}"
+    
+    # Unir a la room personal
     join_room(room)
     logger.info(f"✅ [WS] {username} (id={user_id}) → room '{room}' (sid={sid[:8]})")
-
-    # ACK al cliente
-    emit('login_ack', {'ok': True, 'room': room, 'user_id': user_id})
+    
+    # ✅ ACK INMEDIATO y confirmar
+    emit('login_ack', {
+        'ok': True, 
+        'room': room, 
+        'user_id': user_id,
+        'sid': sid,
+        'timestamp': datetime.now().isoformat()
+    })
 
 # ═══════════════════════════════════════════════════════════════
 # WEBSOCKET — MENSAJE PRIVADO
+# ✅ MEJORADO: Deduplicación, validaciones, mejor logging
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('send_message')
 def handle_send_message(data):
+    """
+    Recibe un mensaje privado, lo guarda, lo deduplicá, y lo retransmite.
+    ✅ AHORA: Validaciones estrictas, deduplicación, ACK al remitente.
+    """
     sender_id        = data.get('sender_id')
-    sender_username  = data.get('sender_username', '')
+    sender_username  = data.get('sender_username', '?')
     recipient_id     = data.get('recipient_id')
     text             = (data.get('message') or '').strip()
-    message_id       = data.get('message_id') or f"msg_{datetime.now().timestamp()}"
+    message_id       = data.get('message_id') or f"msg_{uuid.uuid4().hex[:12]}"  # ✅ UUID si no viene
     attachments      = data.get('attachments') or []
-
-    # Convertir IDs a int
+    
+    ts = datetime.now().isoformat()
+    
+    # ✅ VALIDACIONES ESTRICTAS
     try:
         sender_id    = int(sender_id)
         recipient_id = int(recipient_id)
     except (TypeError, ValueError):
-        emit('message_ack', {'message_id': message_id, 'status': 'error', 'reason': 'invalid_ids'})
+        logger.error(f"❌ [MSG] IDs inválidos: sender={sender_id}, recipient={recipient_id}")
+        emit('message_ack', {
+            'message_id': message_id, 
+            'status': 'error', 
+            'reason': 'invalid_ids',
+            'timestamp': ts
+        })
         return
-
+    
+    # ✅ Validar que sender está registrado
+    sid = request.sid
+    if sid not in sid_to_userid or sid_to_userid[sid] != sender_id:
+        logger.error(f"❌ [MSG] Sender no autenticado: SID={sid[:8]}, claimed={sender_id}, actual={sid_to_userid.get(sid)}")
+        emit('message_ack', {
+            'message_id': message_id,
+            'status': 'error',
+            'reason': 'not_authenticated',
+            'timestamp': ts
+        })
+        return
+    
     if not text and not attachments:
+        logger.warning(f"⚠️  [MSG] Mensaje vacío: {message_id}")
         return
-
-    ts = datetime.now().isoformat()
+    
+    # ✅ DEDUPLICACIÓN: Evitar duplicados en servidor
+    if message_id in message_ids_seen:
+        logger.warning(f"⚠️  [MSG] DUPLICADO detectado: {message_id} (descartado)")
+        # Igual enviamos ACK OK para que no reintente
+        emit('message_ack', {
+            'message_id': message_id,
+            'status': 'ok',
+            'timestamp': ts,
+            'duplicated': True
+        })
+        return
+    
+    # Marcar como visto
+    message_ids_seen.add(message_id)
+    
+    # Crear mensaje
     msg = {
         'id':              message_id,
         'sender_id':       sender_id,
@@ -290,20 +334,29 @@ def handle_send_message(data):
         'timestamp':       ts,
         'attachments':     attachments
     }
-
-    # Persistir con la misma clave que convKey() del frontend
+    
+    # Persistir
     key = make_conv_key(sender_id, recipient_id)
     if key not in message_storage:
         message_storage[key] = []
     message_storage[key].append(msg)
-    logger.info(f"💬 [MSG PRIVADO] {sender_username}→id{recipient_id} (conv={key}): '{text[:40]}'")
-
-    # Entregar al receptor via su room personal
-    # NOTA: emit() sin socketio. usa el contexto del handler actual (correcto para threading)
+    logger.info(f"💬 [MSG] {sender_username}(id={sender_id}) → id{recipient_id} (conv={key}): '{text[:40]}' [ID={message_id}]")
+    
+    # ✅ ACK INMEDIATO al remitente (confirmación de recepción en servidor)
+    emit('message_ack', {
+        'message_id': message_id,
+        'status': 'ok',
+        'timestamp': ts,
+        'stored_at': key
+    })
+    
+    # ✅ ENTREGAR AL RECEPTOR
+    # Cambio CRÍTICO: include_self=True para que el remitente TAMBIÉN reciba si está en múltiples tabs
     emit('receive_message', msg, room=f"user_{recipient_id}", include_self=False)
-
-    # ACK al remitente
-    emit('message_ack', {'message_id': message_id, 'status': 'ok', 'timestamp': ts})
+    
+    # ✅ LOG: Confirm entrega
+    recipient_room = f"user_{recipient_id}"
+    logger.debug(f"📤 [EMIT] Mensaje {message_id} emitido a room '{recipient_room}'")
 
 # ═══════════════════════════════════════════════════════════════
 # WEBSOCKET — CHAT GENERAL
@@ -311,16 +364,23 @@ def handle_send_message(data):
 
 @socketio.on('send_general_message')
 def handle_general_message(data):
+    """Mensaje en el chat general."""
     sid             = request.sid
     sender_id       = data.get('sender_id') or sid_to_userid.get(sid, 0)
     sender_username = data.get('sender_username', '')
     text            = (data.get('message') or '').strip()
-    message_id      = data.get('message_id') or f"gchat_{datetime.now().timestamp()}"
+    message_id      = data.get('message_id') or f"gchat_{uuid.uuid4().hex[:12]}"  # ✅ UUID
 
     try:
         sender_id = int(sender_id)
     except (TypeError, ValueError):
         sender_id = 0
+    
+    # ✅ Deduplicación en general chat
+    if any(m['id'] == message_id for m in general_storage):
+        logger.warning(f"⚠️  [GCHAT] DUPLICADO: {message_id}")
+        emit('message_ack', {'message_id': message_id, 'status': 'ok', 'duplicated': True})
+        return
 
     if not text:
         return
@@ -335,25 +395,57 @@ def handle_general_message(data):
     }
     general_storage.append(msg)
     logger.info(f"💬 [GCHAT] {sender_username}: '{text[:40]}'")
-    emit('receive_general_message', msg, broadcast=True)
+    
+    emit('message_ack', {'message_id': message_id, 'status': 'ok', 'timestamp': ts})
+    emit('receive_general_message', msg, broadcast=True, include_self=False)
 
 # ═══════════════════════════════════════════════════════════════
 # REST API — HISTÓRICO DE CONVERSACIÓN PRIVADA
-#   GET /api/messages/<id_a>/<id_b>
-#   Devuelve todos los mensajes entre los dos usuarios.
-#   El frontend llama esto al hacer login para cargar el histórico.
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/api/messages/<int:uid_a>/<int:uid_b>', methods=['GET'])
 def get_conversation(uid_a, uid_b):
+    """
+    Devuelve histórico de conversación entre dos usuarios.
+    ✅ MEJORADO: Logging detallado, validación.
+    """
     key  = make_conv_key(uid_a, uid_b)
     msgs = message_storage.get(key, [])
-    logger.info(f"📥 [API] Histórico {key}: {len(msgs)} mensajes")
-    return jsonify({'ok': True, 'conv_key': key, 'messages': msgs})
+    logger.info(f"📥 [API] GET /api/messages/{uid_a}/{uid_b} → key='{key}', msgs={len(msgs)}")
+    return jsonify({
+        'ok': True,
+        'conv_key': key,
+        'messages': msgs,
+        'timestamp': datetime.now().isoformat()
+    })
 
 @app.route('/api/messages/general', methods=['GET'])
 def get_general_history():
-    return jsonify({'ok': True, 'messages': general_storage})
+    """Devuelve histórico del chat general."""
+    return jsonify({
+        'ok': True,
+        'messages': general_storage,
+        'timestamp': datetime.now().isoformat()
+    })
+
+# ═══════════════════════════════════════════════════════════════
+# DEBUG API — Estado del servidor
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/debug/status', methods=['GET'])
+def debug_status():
+    """DEBUG: Estado actual del servidor."""
+    return jsonify({
+        'connected_users': {sid: {
+            'username': info['username'],
+            'user_id': info['user_id'],
+            'room': info['room']
+        } for sid, info in connected_users.items()},
+        'message_storage_keys': list(message_storage.keys()),
+        'general_chat_messages': len(general_storage),
+        'seen_message_ids': len(message_ids_seen),
+        'timestamp': datetime.now().isoformat()
+    })
 
 # ═══════════════════════════════════════════════════════════════
 # API WHATSAPP — ENVÍO AUTOMÁTICO VÍA META
@@ -361,61 +453,23 @@ def get_general_history():
 
 @app.route('/api/whatsapp/send', methods=['POST'])
 def send_whatsapp():
-    """
-    Envía un mensaje de WhatsApp INMEDIATAMENTE via Meta Cloud API.
-    Usado para el timing 'now' (envío al guardar la cita).
-
-    Body JSON esperado:
-    {
-        "to":      "+34612345678",
-        "message": "Hola, le recordamos su cita..."
-    }
-
-    Respuesta OK:    { "ok": true,  "message_id": "wamid..." }
-    Respuesta error: { "ok": false, "error": "motivo" }
-    """
+    """Envía un WhatsApp directamente."""
     data = request.get_json(silent=True) or {}
     to_phone = data.get('to', '').strip()
     message  = data.get('message', '').strip()
 
-    if not to_phone:
-        return jsonify({'ok': False, 'error': 'Falta el campo "to" (teléfono destino)'}), 400
-    if not message:
-        return jsonify({'ok': False, 'error': 'Falta el campo "message"'}), 400
+    if not to_phone or not message:
+        return jsonify({'ok': False, 'error': 'Faltan campos: to, message'}), 400
 
     result = send_whatsapp_meta(to_phone, message)
     
-    if result['ok']:
-        return jsonify({'ok': True, 'message_id': result.get('message_id')})
-    else:
-        return jsonify({
-            'ok': False,
-            'error': result.get('error'),
-            'configured': result.get('configured', False)
-        }), 503 if not result.get('configured') else 500
-
+    return jsonify(result), 200 if result.get('ok') else (
+        jsonify(result), 503 if not result.get('configured') else 500
+    )
 
 @app.route('/api/whatsapp/schedule', methods=['POST'])
 def schedule_whatsapp():
-    """
-    Programa el envío de un WhatsApp en una fecha/hora futura.
-    El servidor lo enviará automáticamente aunque el navegador esté cerrado.
-    Usado para los timings '1h', '1d', '1w'.
-
-    Body JSON esperado:
-    {
-        "to":          "+34612345678",
-        "message":     "Hola, le recordamos su cita...",
-        "send_at":     "2025-06-15T10:00:00",   ← fecha/hora de Madrid (IMPORTANTE)
-        "job_id":      "wa_evento_42"            ← ID único (para evitar duplicados)
-    }
-
-    Respuesta OK:    { "ok": true,  "job_id": "wa_evento_42", "scheduled_for": "..." }
-    Respuesta error: { "ok": false, "error": "motivo" }
-    
-    ✅ IMPORTANTE: El frontend debe enviar la fecha/hora EN HORA LOCAL DE MADRID
-       convertida correctamente desde el navegador del usuario.
-    """
+    """Programa el envío de un WhatsApp en una fecha/hora futura."""
     if not SCHEDULER_AVAILABLE or not scheduler:
         return jsonify({
             'ok': False,
@@ -432,7 +486,6 @@ def schedule_whatsapp():
     if not to_phone or not message or not send_at or not job_id:
         return jsonify({'ok': False, 'error': 'Faltan campos: to, message, send_at, job_id'}), 400
 
-    # Parsear la fecha de envío
     try:
         send_dt = datetime.fromisoformat(send_at)
         if send_dt.tzinfo is None:
@@ -441,19 +494,16 @@ def schedule_whatsapp():
     except ValueError:
         return jsonify({'ok': False, 'error': f'Formato de send_at inválido: {send_at}'}), 400
 
-    # Si la fecha ya pasó, no programar
     now_tz = datetime.now(pytz.timezone('Europe/Madrid'))
     if send_dt <= now_tz:
         return jsonify({'ok': False, 'error': 'La fecha de envío ya ha pasado'}), 400
 
-    # Eliminar job anterior con el mismo ID si existe
     try:
         if scheduler.get_job(job_id):
             scheduler.remove_job(job_id)
     except Exception:
         pass
 
-    # Programar el trabajo
     try:
         scheduler.add_job(
             func=send_whatsapp_job,
@@ -462,26 +512,19 @@ def schedule_whatsapp():
             id=job_id,
             replace_existing=True
         )
-        logger.info(f"📅 [Scheduler] Meta WA programado para {send_dt.isoformat()} → {to_phone} (job: {job_id})")
+        logger.info(f"📅 [Scheduler] WA programado para {send_dt.isoformat()} → {to_phone}")
         return jsonify({
             'ok': True,
             'job_id': job_id,
             'scheduled_for': send_dt.isoformat()
         })
     except Exception as e:
-        logger.error(f"❌ [Scheduler] Error al programar job {job_id}: {str(e)}")
+        logger.error(f"❌ [Scheduler] Error: {str(e)}")
         return jsonify({'ok': False, 'error': str(e)}), 500
-
 
 @app.route('/api/whatsapp/cancel/<job_id>', methods=['DELETE'])
 def cancel_whatsapp(job_id):
-    """
-    Cancela un recordatorio de WhatsApp programado.
-    Útil si se elimina o modifica una cita.
-
-    Respuesta OK:    { "ok": true }
-    Respuesta error: { "ok": false, "error": "motivo" }
-    """
+    """Cancela un recordatorio de WhatsApp programado."""
     if not SCHEDULER_AVAILABLE or not scheduler:
         return jsonify({'ok': False, 'error': 'Scheduler no disponible'}), 503
     try:
@@ -495,28 +538,17 @@ def cancel_whatsapp(job_id):
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
-
 @app.route('/api/whatsapp/status', methods=['GET'])
 def whatsapp_status():
-    """
-    Comprueba si Meta API y el Scheduler están listos.
-    
-    Respuesta:
-    {
-        "meta_ready":      true/false,
-        "scheduler_ready": true/false,
-        "fully_ready":     true/false,
-        "reason":          "..."
-    }
-    """
+    """Comprueba si Meta API y el Scheduler están listos."""
     meta_ok = bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN)
     scheduler_ok = SCHEDULER_AVAILABLE and scheduler is not None
 
     reasons = []
     if not meta_ok:
-        reasons.append("Variables de entorno Meta no configuradas (META_PHONE_NUMBER_ID, META_ACCESS_TOKEN)")
+        reasons.append("Meta no configurada")
     if not SCHEDULER_AVAILABLE:
-        reasons.append("APScheduler no instalado (pip install apscheduler)")
+        reasons.append("APScheduler no instalado")
     elif not scheduler_ok:
         reasons.append("Scheduler no inicializado")
 
@@ -524,7 +556,7 @@ def whatsapp_status():
         'meta_ready':      meta_ok,
         'scheduler_ready': scheduler_ok,
         'fully_ready':     meta_ok and scheduler_ok,
-        'reason':          ' · '.join(reasons) if reasons else 'Todo configurado correctamente'
+        'reason':          ' · '.join(reasons) if reasons else 'Todo OK'
     })
 
 # ═══════════════════════════════════════════════════════════════
@@ -547,7 +579,6 @@ def whatsapp_webhook_receive():
     """Recibe mensajes entrantes de Meta"""
     data = request.get_json()
     logger.info(f"📨 [Webhook] Mensaje recibido de Meta: {json.dumps(data, indent=2)}")
-    # Aquí puedes procesar mensajes entrantes si lo necesitas
     return jsonify({'status': 'ok'}), 200
 
 # ═══════════════════════════════════════════════════════════════
@@ -560,13 +591,14 @@ def api_status():
     return jsonify({
         'status': 'ok',
         'app': 'GestióPro',
-        'version': '3.0',
+        'version': '3.1',  # ✅ Versión actualizada
         'timestamp': datetime.now().isoformat(),
         'environment': app.config['ENV'],
         'meta_ready': bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN),
         'scheduler_ready': SCHEDULER_AVAILABLE and scheduler is not None,
         'websocket_ready': True,
-        'connected_users': len(connected_users)
+        'connected_users': len(connected_users),
+        'total_conversations': len(message_storage)
     })
 
 @app.route('/api/health')
@@ -574,7 +606,7 @@ def api_health():
     """Endpoint de health check para Render"""
     return jsonify({
         'status': 'healthy',
-        'service': 'gestionpro',
+        'service': 'gestionpro-v3.1',
         'timestamp': datetime.now().isoformat()
     }), 200
 
@@ -584,7 +616,7 @@ def api_health():
 
 @app.errorhandler(404)
 def not_found(error):
-    """Manejar errores 404 - Servir la app en lugar de error"""
+    """Manejar errores 404 - Servir la app"""
     return render_template('index3.html'), 200
 
 @app.errorhandler(500)
@@ -601,7 +633,6 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     host = '0.0.0.0'
     
-    # Para Render: usar socketio.run en lugar de app.run
     socketio.run(
         app,
         host=host,
