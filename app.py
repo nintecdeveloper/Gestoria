@@ -238,26 +238,36 @@ def handle_disconnect():
 
 @socketio.on('user_login')
 def handle_user_login(data):
-    """Registra un usuario como conectado"""
+    """Registra un usuario como conectado y lo une a su room personal"""
     socket_sid = request.sid
     username = data.get('username', f'User_{socket_sid[:8]}')
-    user_id = data.get('userId', None)  # ✅ Obtener ID real del usuario
-    
+    user_id = data.get('userId', None)
+
     connected_users[socket_sid] = {
         'username': username,
         'sid': socket_sid,
-        'user_id': user_id,  # ✅ Guardar user_id real
+        'user_id': user_id,
         'connected_at': datetime.now().isoformat()
     }
-    # MAPEAR USERNAME A SID PARA BÚSQUEDA RÁPIDA
     username_to_sid[username] = socket_sid
-    # ✅ MAPEAR SID A USER_ID PARA OBTENER ID DEL USUARIO
     if user_id:
         sid_to_userid[socket_sid] = user_id
-    
+
+    # ══════════════════════════════════════════════════════
+    # SOLUCIÓN DEFINITIVA: cada usuario entra en su propia
+    # room identificada por su user_id (ej: room "2" para Myriam).
+    # Así el emit llega aunque haya múltiples workers/procesos,
+    # y sin depender del mapeo en memoria username_to_sid.
+    # ══════════════════════════════════════════════════════
+    if user_id is not None:
+        room_name = f"user_{user_id}"
+        join_room(room_name)
+        logger.info(f"✅ [Chat] {username} unido a room '{room_name}' (SID: {socket_sid})")
+
     logger.info(f"✅ [Chat] {username} conectado (SID: {socket_sid}, UserID: {user_id})")
-    
-    # Notificar a todos que hay un nuevo usuario online
+
+    emit('login_ack', {'status': 'ok', 'room': f"user_{user_id}"})
+
     socketio.emit('user_status_update', {
         'user_id': user_id,
         'username': username,
@@ -267,128 +277,86 @@ def handle_user_login(data):
 
 @socketio.on('send_message')
 def handle_message(data):
-    """Recibe un mensaje privado y lo retransmite"""
+    """Recibe un mensaje privado y lo entrega al receptor via su room personal"""
     socket_sid = request.sid
     sender_username = data.get('sender_username', 'Usuario')
-    sender_user_id = data.get('sender_id', None)  # user_id real del frontend
+    sender_user_id = data.get('sender_id', None)
     recipient_username = data.get('recipient_username', '')
-    recipient_user_id = data.get('recipient_id', None)  # user_id real del receptor
+    recipient_user_id = data.get('recipient_id', None)
     message_text = data.get('message', '')
     message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
-    conv_id = data.get('conv_id', f'{sender_username}_{recipient_username}')
     attachments = data.get('attachments', [])
-    
-    # ✅ FIX: Descartar SOLO si no hay texto Y no hay adjuntos
-    # Antes se descartaban mensajes con solo adjuntos (texto vacío)
+
     if not message_text.strip() and not attachments:
         logger.warning(f"⚠️ [Chat] Mensaje vacío de {sender_username}")
         return
-    
-    # Crear objeto de mensaje
+
     message_obj = {
         'id': message_id,
-        'sender_id': sender_user_id,        # user_id real, no SID
+        'sender_id': sender_user_id,
         'sender_username': sender_username,
-        'recipient_username': recipient_username,
         'recipient_id': recipient_user_id,
+        'recipient_username': recipient_username,
         'text': message_text,
         'timestamp': datetime.now().isoformat(),
         'read': False,
         'attachments': attachments
     }
-    
-    # ALMACENAR MENSAJE EN SERVIDOR
-    if conv_id not in message_storage:
-        message_storage[conv_id] = []
-    message_storage[conv_id].append(message_obj)
-    
-    logger.info(f"💬 [Chat Privado] {sender_username} → {recipient_username}: {message_text[:50]}")
-    
-    # ✅ FIX: Buscar receptor primero por username (campo name del frontend),
-    # con fallback por user_id si el username no se encuentra.
-    # Esto protege contra inconsistencias entre el campo name y username del usuario.
-    recipient_sid = username_to_sid.get(recipient_username)
-    
-    # Fallback: buscar por user_id si no se encontró por nombre
-    if not recipient_sid and recipient_user_id:
-        for sid, uid in sid_to_userid.items():
-            if str(uid) == str(recipient_user_id):
-                recipient_sid = sid
-                logger.info(f"ℹ️ [Chat] Receptor encontrado por user_id ({recipient_user_id}) → SID: {sid}")
-                break
-    
-    if recipient_sid and recipient_sid in connected_users:
-        # ENVIAR MENSAJE AL DESTINATARIO
-        socketio.emit('receive_message', message_obj, room=recipient_sid)
-        logger.info(f"✅ [Mensaje Entregado] A {recipient_username} (SID: {recipient_sid})")
-        
-        # ENVIAR NOTIFICACIÓN AL DESTINATARIO
-        socketio.emit('message_notification', {
-            'from': sender_username,
-            'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
-            'timestamp': datetime.now().isoformat()
-        }, room=recipient_sid)
-        logger.info(f"🔔 [Notificación Enviada] A {recipient_username}")
-        
-        # ENVIAR CONFIRMACIÓN AL REMITENTE CON TIMESTAMP
-        socketio.emit('message_ack', {
+
+    # Guardar en memoria
+    conv_key = '_'.join(sorted([str(sender_user_id), str(recipient_user_id)]))
+    if conv_key not in message_storage:
+        message_storage[conv_key] = []
+    message_storage[conv_key].append(message_obj)
+
+    logger.info(f"💬 [Chat] {sender_username}→{recipient_username}: '{message_text[:40]}'")
+
+    # ══════════════════════════════════════════════════════
+    # ENTREGA DEFINITIVA: emitir a la room personal del receptor.
+    # room="user_{id}" fue creada en user_login con join_room().
+    # Funciona con 1 o N workers porque socket.io gestiona
+    # las rooms internamente (con message_queue si lo hay).
+    # ══════════════════════════════════════════════════════
+    if recipient_user_id is not None:
+        target_room = f"user_{recipient_user_id}"
+        socketio.emit('receive_message', message_obj, room=target_room)
+        logger.info(f"✅ [Entregado] → room '{target_room}'")
+
+        emit('message_ack', {
             'message_id': message_id,
             'status': 'delivered',
             'timestamp': datetime.now().isoformat()
-        }, room=socket_sid)
+        })
     else:
-        logger.warning(f"⚠️ [Mensaje No Entregado] {recipient_username} no conectado")
-        # NOTIFICAR AL REMITENTE QUE NO SE ENTREGÓ
-        socketio.emit('message_ack', {
+        logger.warning(f"⚠️ [Chat] recipient_user_id ausente, no se puede entregar")
+        emit('message_ack', {
             'message_id': message_id,
             'status': 'failed',
-            'reason': 'user_not_connected',
-            'timestamp': datetime.now().isoformat()
-        }, room=socket_sid)
-    
-    # CONFIRMAR AL REMITENTE
-    socketio.emit('message_sent', {
-        'message_id': message_id,
-        'status': 'sent',
-        'timestamp': datetime.now().isoformat()
-    }, room=socket_sid)
+            'reason': 'no_recipient_id'
+        })
 
 @socketio.on('send_general_message')
 def handle_general_message(data):
     """Recibe un mensaje del chat general y lo retransmite a todos"""
     socket_sid = request.sid
     sender_username = data.get('sender_username', 'Usuario')
-    # ✅ FIX: usar el user_id real enviado desde el frontend, NO el SID del socket
-    # El SID cambia en cada conexión; el user_id es estable y es lo que usa el frontend
-    # para determinar si el mensaje es propio (userId === currentUser.id)
     sender_user_id = data.get('sender_id', None) or sid_to_userid.get(socket_sid)
     message_text = data.get('message', '')
     message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
-    
+
     if not message_text.strip():
         return
-    
-    # Crear objeto de mensaje
+
     message_obj = {
         'id': message_id,
-        'sender_id': sender_user_id,   # ✅ user_id real, no SID
+        'sender_id': sender_user_id,
         'sender_username': sender_username,
         'text': message_text,
         'timestamp': datetime.now().isoformat()
     }
-    
+
     logger.info(f"💬 [Chat General] {sender_username}: {message_text[:50]}")
-    
-    # Retransmitir a todos los usuarios conectados
     socketio.emit('receive_general_message', message_obj, broadcast=True)
-    
-    # ENVIAR NOTIFICACIÓN A TODOS (excepto al remitente)
-    socketio.emit('general_message_notification', {
-        'from': sender_username,
-        'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
-        'timestamp': datetime.now().isoformat()
-    }, broadcast=True, skip_sid=socket_sid)  # ✅ FIX: usar socket_sid en lugar de sender_id (que era el SID renombrado)
-    logger.info(f"🔔 [Notificación Chat General Enviada] De {sender_username}")
 
 @socketio.on('typing')
 def handle_typing(data):

@@ -4257,12 +4257,30 @@
       
       function connectSocket() {
         socket = io();
-        
+
         socket.on('connect', function() {
           currentSocketId = socket.id;
-          console.log('✅ Socket.io conectado:', currentSocketId);
-          
-          // Notificar al servidor que el usuario se conectó
+          console.log('✅ [Socket] Conectado:', currentSocketId);
+          if (currentUser) {
+            // Enviar user_id numérico para que el backend haga join_room("user_{id}")
+            socket.emit('user_login', {
+              username: currentUser.name,
+              userId: currentUser.id
+            });
+          }
+        });
+
+        socket.on('login_ack', function(data) {
+          console.log('✅ [Socket] Login confirmado, room:', data.room);
+        });
+
+        socket.on('disconnect', function() {
+          console.log('❌ [Socket] Desconectado');
+          currentSocketId = null;
+        });
+
+        socket.on('reconnect', function() {
+          console.log('🔄 [Socket] Reconectado, re-registrando usuario...');
           if (currentUser) {
             socket.emit('user_login', {
               username: currentUser.name,
@@ -4270,69 +4288,48 @@
             });
           }
         });
-        
-        socket.on('disconnect', function() {
-          console.log('❌ Socket.io desconectado');
-          currentSocketId = null;
-        });
-        
-        // ✅ RECIBIR MENSAJES PRIVADOS
+
+        // ─── MENSAJES PRIVADOS ────────────────────────────────
         socket.on('receive_message', function(msg) {
-          console.log('📨 [Socket] Mensaje privado recibido:', msg);
-          const sender_username = msg.sender_username;
-          // ✅ FIX: Forzar tipo numérico — el backend puede devolver string si viene de JSON
-          const sender_user_id = Number(msg.sender_id);
-          
-          // Agregar mensaje usando convData() para garantizar coherencia con el resto del sistema
-          // convData() usa convKey internamente y crea el array si no existe
-          const msgs = convData(sender_user_id);
+          console.log('📨 [Socket] Mensaje recibido:', msg);
+
+          // sender_id viene del backend como el user_id real (número)
+          const senderUserId = Number(msg.sender_id);
+
+          // Guardar en el array de la conversación correcta
+          const msgs = convData(senderUserId);
           msgs.push({
             mine: false,
-            text: msg.text,
-            time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
-            read: activeConvId === sender_user_id,  // ✅ Marcar como leído solo si la conv está abierta
-            id: msg.id
+            text: msg.text || '',
+            time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime(),
+            read: (activeConvId === senderUserId),
+            id: msg.id,
+            attachments: msg.attachments || []
           });
-          
-          console.log('✅ [Socket] Mensaje agregado a conversación con', sender_username, '(id:', sender_user_id + ')');
-          
-          // ✅ FIX: Comparación con coerción de tipo para evitar number vs string
-          if (activeConvId === sender_user_id) {
-            renderMsgs(activeConvId);
+
+          // Si la conversación está abierta en este momento → renderizar
+          if (activeConvId === senderUserId) {
+            renderMsgs(senderUserId);
           }
-          
-          // ✅ FIX: Actualizar badge de mensajes no leídos
+
           updateBadge();
-          buildMsgList(document.getElementById("msg-search-inp").value);
+          buildMsgList(document.getElementById('msg-search-inp').value);
         });
-        
-        // ✅ RECIBIR NOTIFICACIÓN DE MENSAJE PRIVADO
-        socket.on('message_notification', function(notif) {
-          console.log('🔔 [Socket] Notificación de mensaje:', notif);
-          showNotification('📨 Nuevo mensaje', `De: ${notif.from}`);
-        });
-        
-        // ✅ RECIBIR CONFIRMACIÓN DE ENTREGA DE MENSAJE
+
         socket.on('message_ack', function(ack) {
-          console.log('📬 [Socket] Confirmación de mensaje:', ack);
           if (ack.status === 'delivered') {
-            console.log('✅ Mensaje entregado:', ack.message_id);
-          } else if (ack.status === 'failed') {
-            console.warn('⚠️ Mensaje no entregado:', ack.message_id, ack.reason);
-            showNotification('⚠️ Advertencia', 'El usuario no está conectado');
+            console.log('✅ [Socket] Entregado:', ack.message_id);
+          } else {
+            console.warn('⚠️ [Socket] No entregado:', ack.reason);
           }
         });
-        
-        // ✅ RECIBIR MENSAJES DEL CHAT GENERAL
+
+        // ─── CHAT GENERAL ─────────────────────────────────────
         socket.on('receive_general_message', function(msg) {
-          console.log('💬 [Socket] Mensaje general recibido:', msg);
-          const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
+          console.log('💬 [Socket] General recibido:', msg);
+          const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime();
           const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
-          
-          // ✅ FIX: Forzar tipo numérico en sender_id para que la comparación
-          // `msg.userId === currentUser.id` en renderGeneralChat funcione correctamente.
-          // Antes del fix del backend, sender_id era el SID del socket (string), 
-          // lo que hacía que isMe siempre fuera false para el remitente.
+
           GENERAL_CHAT.push({
             id: msg.id,
             userId: Number(msg.sender_id),
@@ -4341,29 +4338,12 @@
             date: date,
             username: msg.sender_username
           });
-          console.log('✅ [Socket] Mensaje general agregado');
           renderGeneralChat();
         });
-        
-        // ✅ RECIBIR NOTIFICACIÓN DE CHAT GENERAL
-        socket.on('general_message_notification', function(notif) {
-          console.log('🔔 [Socket] Notificación de chat general:', notif);
-          showNotification('💬 Chat General', `${notif.from}: ${notif.message}`);
-        });
-        
-        // Evento para recibir notificaciones
-        socket.on('notification_received', function(notif) {
-          showNotification(notif.title || 'Notificación', notif.message);
-        });
-        
-        // Evento de usuarios online
+
+        // ─── ESTADO USUARIOS ──────────────────────────────────
         socket.on('user_status_update', function(data) {
-          console.log(`👤 ${data.username} está ${data.status}`);
-        });
-        
-        // Evento de lista de usuarios online
-        socket.on('online_users_list', function(data) {
-          console.log('👥 Usuarios online:', data.count);
+          console.log(`👤 ${data.username} → ${data.status}`);
         });
       }
       
@@ -7577,25 +7557,21 @@
         renderMsgs(activeConvId);
         buildMsgList(document.getElementById("msg-search-inp").value);
         
-        // ✅ ENVIAR VÍA SOCKET.IO
+        // ENVIAR VÍA SOCKET.IO
         if (socket && socket.connected && currentUser) {
-          // Obtener el usuario receptor usando activeConvId (que es el user_id)
           const recipient = USERS.find(u => u.id === activeConvId);
-          const recipient_username = recipient ? recipient.name : '';
-          
-          console.log('📤 [Socket] Enviando mensaje privado a:', recipient_username, '(ID:', activeConvId + ')');
+          console.log('📤 [Socket] Enviando a:', recipient ? recipient.name : '?', '(user_id:', activeConvId + ')');
           socket.emit('send_message', {
             message: text,
             sender_username: currentUser.name,
-            sender_id: currentUser.id,  // ✅ Enviar user_id real del remitente
-            recipient_username: recipient_username,
-            recipient_id: activeConvId,  // ✅ Enviar user_id real del receptor
-            conv_id: activeConvId,
+            sender_id: Number(currentUser.id),
+            recipient_username: recipient ? recipient.name : '',
+            recipient_id: Number(activeConvId),
             message_id: msgObj.id,
             attachments: attachments
           });
         } else {
-          console.warn('⚠️ Socket no conectado, mensaje solo guardado localmente');
+          console.warn('⚠️ Socket no conectado');
         }
       }
 
