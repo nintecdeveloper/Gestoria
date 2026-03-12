@@ -227,12 +227,12 @@ def handle_user_login(data):
     })
 
 # ═══════════════════════════════════════════════════════════════
-# WEBSOCKET - MENSAJERÍA PRIVADA
+# WEBSOCKET - MENSAJERÍA PRIVADA (MEJORADA)
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('send_message')
 def handle_send_message(data):
-    """Enviar mensaje privado"""
+    """Enviar mensaje privado - MEJORADO PARA VER DESDE AMBOS LADOS"""
     sid = request.sid
     sender_id = data.get('sender_id')
     sender_username = data.get('sender_username', '?')
@@ -242,7 +242,7 @@ def handle_send_message(data):
     
     ts = datetime.now().isoformat()
     
-    logger.info(f"💬 [SEND_MESSAGE] {sender_username} → UID{recipient_id}")
+    logger.info(f"💬 [SEND_MESSAGE] {sender_username} (UID{sender_id}) → UID{recipient_id}")
     
     # Validación
     try:
@@ -298,21 +298,26 @@ def handle_send_message(data):
     except Exception as e:
         logger.error(f"   ❌ Error BD: {e}")
     
-    # Enviar ACK
+    # Enviar ACK al emisor
     emit('message_ack', {
         'message_id': message_id,
         'status': 'ok',
         'timestamp': ts
-    })
+    }, to=sid)
+    logger.info(f"   ✓ ACK enviado al emisor")
     
-    # Enviar al receptor
+    # ✨ MEJORADO: Enviar a AMBOS usuarios
+    # 1. Enviar al receptor
     recipient_room = f"user_{recipient_id}"
-    logger.info(f"   📤 Enviando a {recipient_room}")
-    emit('receive_message', msg, room=recipient_room, include_self=False)
-
-# ═══════════════════════════════════════════════════════════════
-# WEBSOCKET - CHAT GENERAL
-# ═══════════════════════════════════════════════════════════════
+    logger.info(f"   📤 Enviando a receptor (sala: {recipient_room})")
+    emit('receive_message', msg, room=recipient_room, include_self=True)
+    
+    # 2. Enviar también al emisor CONFIRMADO desde servidor
+    sender_room = f"user_{sender_id}"
+    logger.info(f"   📤 Enviando confirmación al emisor (sala: {sender_room})")
+    emit('receive_message', msg, room=sender_room, skip_sid=sid)
+    
+    logger.info(f"✅ [SEND_MESSAGE] Completado - ambos usuarios notificados")
 
 @socketio.on('send_general_message')
 def handle_general_message(data):
@@ -370,7 +375,7 @@ def handle_general_message(data):
     
     # Broadcast a TODOS
     logger.info(f"   📤 Broadcast a todos")
-    emit('receive_general_message', msg, broadcast=True, include_self=False)
+    emit('receive_general_message', msg, broadcast=True, include_self=True)
 
 @socketio.on('message_read')
 def handle_message_read(data):
@@ -384,6 +389,7 @@ def handle_message_read(data):
         c.execute('UPDATE messages SET read = 1 WHERE id = ?', (message_id,))
         conn.commit()
         conn.close()
+        logger.debug(f"✓ Mensaje {message_id} marcado como leído")
     except Exception as e:
         logger.error(f"Error actualizando lectura: {e}")
 

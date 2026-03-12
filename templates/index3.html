@@ -4352,27 +4352,42 @@
           loadAllHistories();
         });
 
-        // ─── RECIBIR MENSAJE PRIVADO ─────────────────────────
+        // ─── RECIBIR MENSAJE PRIVADO (MEJORADO) ─────────────────────────
         socket.on('receive_message', function(msg) {
           const senderId = Number(msg.sender_id);
-          console.log('📨 [WS] Mensaje de id=' + senderId + ':', msg.text);
+          const recipientId = Number(msg.recipient_id);
+          const isMine = Number(msg.sender_id) === Number(currentUser.id);
+          
+          // Determinar con quién estoy conversando
+          // Si yo soy el remitente, la conversación es con el receptor
+          // Si yo soy el receptor, la conversación es con el remitente
+          const otherId = isMine ? recipientId : senderId;
+          
+          console.log('📨 [WS] Mensaje ID=' + msg.id + ' de=' + senderId + ' para=' + recipientId + ' yo=' + currentUser.id + ' mine=' + isMine);
 
-          const arr = convData(senderId);
-          // Evitar duplicado (el remitente ya lo insertó localmente en sendMsg)
-          if (!arr.find(function(m) { return m.id === msg.id; })) {
+          const arr = convData(otherId);
+          
+          // Evitar duplicado con verificación por ID
+          const exists = arr.find(function(m) { return m.id === msg.id; });
+          if (!exists) {
             arr.push({
               id:          msg.id,
-              mine:        false,
+              mine:        isMine,
               text:        msg.text || '',
               time:        msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime(),
-              read:        (activeConvId === senderId),
+              read:        (activeConvId === otherId),
               attachments: msg.attachments || []
             });
+            console.log('✓ Mensaje agregado a la conversación con user=' + otherId);
+          } else {
+            console.log('⊘ Mensaje duplicado, no agregado');
           }
 
-          if (activeConvId === senderId) {
-            renderMsgs(senderId);
+          // Renderizar si la conversación está activa
+          if (activeConvId === otherId) {
+            renderMsgs(otherId);
           }
+          
           updateBadge();
           buildMsgList(document.getElementById('msg-search-inp').value);
         });
