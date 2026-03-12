@@ -4242,7 +4242,6 @@
       let CONVS = {};
       let socket = null;
       let currentSocketId = null;
-      let socketAuthenticated = false;  // ✅ NUEVO: Flag de autenticación del socket
 
       // ── Clave canónica de conversación ──────────────────────
       function convKey(a, b) {
@@ -4328,16 +4327,12 @@
         socket.on('disconnect', function() {
           console.log('❌ [WS] Desconectado');
           currentSocketId = null;
-          socketAuthenticated = false;  // ✅ RESET FLAG
-          console.log('⚠️  [WS] Socket autenticación reseteada');
         });
 
         // Re-registrar en cada reconexión automática
         socket.on('reconnect', function() {
           console.log('🔄 [WS] Reconectado');
-          socketAuthenticated = false;  // ✅ RESET FLAG
           registerSocketUser();
-          console.log('📤 [WS] Re-registrando usuario...');
         });
 
         socket.on('login_ack', function(data) {
@@ -4345,9 +4340,7 @@
             console.error('❌ [WS] Error en login:', data.error);
             return;
           }
-          console.log('✅ [WS] Room asignada:', data.room, 'para usuario id=', data.user_id);
-          socketAuthenticated = true;  // ✅ MARCAR COMO AUTENTICADO
-          console.log('✅ [WS] SOCKET AUTENTICADO - Ahora se pueden enviar mensajes');
+          console.log('✅ [WS] Usuario autenticado. Room:', data.room);
           // Cargar histórico DESPUÉS de que el socket esté registrado
           loadAllHistories();
         });
@@ -7548,14 +7541,6 @@
 
       function sendMsg() {
         if (activeConvId === null) return;
-        
-        // ✅ NUEVO: Validar que socket está AUTENTICADO
-        if (!socketAuthenticated) {
-          console.warn('⚠️  [Socket] Esperando autenticación del servidor...');
-          alert('Por favor espere mientras se autentica la conexión...');
-          return;
-        }
-        
         const inp = document.getElementById("msg-input");
         const text = inp.value.trim();
         // Permitir envío sin texto si hay adjuntos
