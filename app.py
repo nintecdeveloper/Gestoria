@@ -392,13 +392,14 @@ def handle_notification(data):
     # BUSCAR RECEPTOR POR USERNAME
     recipient_sid = username_to_sid.get(recipient_username)
     if recipient_sid and recipient_sid in connected_users:
+        # ✅ CORRECCIÓN: Cambiar recipient_id por recipient_sid
         socketio.emit('notification_received', {
             'type': notification_type,
             'title': title,
             'message': message,
             'timestamp': datetime.now().isoformat()
-        }, room=recipient_id)
-        logger.info(f"🔔 [Notification] Enviada a {recipient_id[:8]}: {title}")
+        }, room=recipient_sid)  # ← AQUÍ ESTÁ LA CORRECCIÓN
+        logger.info(f"🔔 [Notification] Enviada a {recipient_sid[:8]}: {title}")
 
 @socketio.on('broadcast_notification')
 def handle_broadcast_notification(data):
@@ -414,6 +415,35 @@ def handle_broadcast_notification(data):
         'timestamp': datetime.now().isoformat()
     }, broadcast=True)
     logger.info(f"🔔 [Broadcast Notification] {title}")
+
+# ═══════════════════════════════════════════════════════════════
+# API MENSAJERÍA — RECUPERAR HISTÓRICO
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/messages/<conv_id>', methods=['GET'])
+def get_messages(conv_id):
+    """
+    Recupera el histórico de mensajes de una conversación.
+    Permite que el usuario vea los mensajes previos al reconectar.
+    
+    URL: GET /api/messages/username_receptor
+    Respuesta: { 'ok': true, 'messages': [...], 'conv_id': 'username' }
+    """
+    if not conv_id or conv_id not in message_storage:
+        return jsonify({
+            'ok': False,
+            'error': 'Conversación no encontrada',
+            'messages': []
+        }), 404
+    
+    messages = message_storage[conv_id]
+    logger.info(f"📥 [Mensajes] Recuperando {len(messages)} mensajes de {conv_id}")
+    
+    return jsonify({
+        'ok': True,
+        'conv_id': conv_id,
+        'messages': messages
+    })
 
 # ═══════════════════════════════════════════════════════════════
 # API WHATSAPP — ENVÍO AUTOMÁTICO VÍA META
@@ -466,12 +496,15 @@ def schedule_whatsapp():
     {
         "to":          "+34612345678",
         "message":     "Hola, le recordamos su cita...",
-        "send_at":     "2025-06-15T10:00:00",   ← fecha/hora de Madrid
+        "send_at":     "2025-06-15T10:00:00",   ← fecha/hora de Madrid (IMPORTANTE)
         "job_id":      "wa_evento_42"            ← ID único (para evitar duplicados)
     }
 
     Respuesta OK:    { "ok": true,  "job_id": "wa_evento_42", "scheduled_for": "..." }
     Respuesta error: { "ok": false, "error": "motivo" }
+    
+    ✅ IMPORTANTE: El frontend debe enviar la fecha/hora EN HORA LOCAL DE MADRID
+       convertida correctamente desde el navegador del usuario.
     """
     if not SCHEDULER_AVAILABLE or not scheduler:
         return jsonify({

@@ -7049,6 +7049,9 @@
             notes: clientData.notes,
             createdAt: new Date().toISOString()
           });
+          
+          // ✅ AGREGAR ESTA LÍNEA:
+          recoverReminders();  // Recuperar recordatorios personales guardados
         });
 
         pendingClientsToImport = [];
@@ -7907,10 +7910,9 @@
         }
       }
 
-      function scheduleReminder(eventData, reminderTiming) {
+            function scheduleReminder(eventData, reminderTiming) {
         if (!reminderTiming) return;
 
-        // Convertir timing a milisegundos
         const timingMap = {
           'now': 0,
           '15m': 15 * 60 * 1000,
@@ -7922,6 +7924,8 @@
         };
 
         const delay = timingMap[reminderTiming] || 0;
+        
+        // IMPORTANTE: Crear datetime en zona horaria LOCAL del usuario
         const eventDateTime = new Date(eventData.date + 'T' + eventData.time).getTime();
         const reminderTime = eventDateTime - delay;
         const now = new Date().getTime();
@@ -7934,10 +7938,43 @@
           month: 'long' 
         });
 
+        // ✅ GUARDAR EN LOCALSTORAGE PARA PERSISTENCIA
+        const remindersStorageKey = 'gestionpro_reminders';
+        let savedReminders = [];
+        try {
+          const stored = localStorage.getItem(remindersStorageKey);
+          if (stored) savedReminders = JSON.parse(stored);
+        } catch(e) {
+          console.warn('⚠️ No se pudo leer localStorage:', e);
+        }
+
+        const reminderRecord = {
+          eventId: eventData.id,
+          eventDate: eventData.date,
+          eventTime: eventData.time,
+          eventClient: eventData.client,
+          eventService: eventData.service,
+          reminderTime: reminderTime,
+          reminderTiming: reminderTiming,
+          savedAt: new Date().toISOString(),
+          scheduledForMs: reminderTime
+        };
+
+        // Agregar a lista de recordatorios
+        savedReminders.push(reminderRecord);
+        
+        try {
+          localStorage.setItem(remindersStorageKey, JSON.stringify(savedReminders));
+          console.log(`💾 [Recordatorio] Guardado en localStorage: ${eventData.client} - ${reminderTiming}`);
+        } catch(e) {
+          console.warn('⚠️ No se pudo guardar recordatorio en localStorage:', e);
+        }
+
         if (reminderTime <= now) {
           // Si ya pasó, notificar inmediatamente
           sendNotification('📌 Recordatorio de cita', {
-            body: `${eventData.client} - ${eventData.service || 'Sin servicio'}\n${dateStr} a las ${eventData.time}`,
+            body: `${eventData.client} - ${eventData.service || 'Sin servicio'}
+${dateStr} a las ${eventData.time}`,
             tag: `reminder-${eventData.id || Date.now()}`,
             requireInteraction: true
           });
@@ -7951,13 +7988,22 @@
           
           setTimeout(() => {
             sendNotification('📌 Recordatorio de cita', {
-              body: `${eventData.client} - ${eventData.service || 'Sin servicio'}\n${dateStr} a las ${eventData.time}`,
+              body: `${eventData.client} - ${eventData.service || 'Sin servicio'}
+${dateStr} a las ${eventData.time}`,
               tag: `reminder-${eventData.id || Date.now()}`,
               requireInteraction: true
             });
+            
+            // Remover del localStorage después de ejecutarse
+            try {
+              let reminders = JSON.parse(localStorage.getItem(remindersStorageKey) || '[]');
+              reminders = reminders.filter(r => r.eventId !== eventData.id);
+              localStorage.setItem(remindersStorageKey, JSON.stringify(reminders));
+            } catch(e) {}
           }, timeUntilReminder);
         }
       }
+
 
       // ══════════════════════════════════════════
       //  WHATSAPP: RECORDATORIO AUTOMÁTICO
@@ -8078,7 +8124,7 @@
        *   Si el servidor no está listo (Twilio o Scheduler sin configurar),
        *   cae al modo manual (wa.me) para no perder el recordatorio.
        */
-      function scheduleWaReminder(eventData, reminderTiming) {
+            function scheduleWaReminder(eventData, reminderTiming) {
         if (!reminderTiming) return;
 
         const timingMap = {
@@ -8106,11 +8152,19 @@
 
         // ── Timing futuro: programar en el servidor ──────────
         if (WA_CONFIG.schedulerReady && WA_CONFIG.twilioReady && phoneClean) {
-          // ID único del job: combinación de ID de evento + timing
           const jobId = `wa_ev${eventData.id || Date.now()}_${reminderTiming}`;
 
-          // Formato ISO sin milisegundos para el servidor
-          const sendAtISO = sendAtDate.toISOString().split('.')[0];
+          // ✅ CORRECCIÓN: Enviar hora en formato local correcto
+          // En lugar de toISOString() (que es UTC), construimos la hora local directamente
+          const year = sendAtDate.getFullYear();
+          const month = String(sendAtDate.getMonth() + 1).padStart(2, '0');
+          const day = String(sendAtDate.getDate()).padStart(2, '0');
+          const hours = String(sendAtDate.getHours()).padStart(2, '0');
+          const minutes = String(sendAtDate.getMinutes()).padStart(2, '0');
+          const seconds = String(sendAtDate.getSeconds()).padStart(2, '0');
+          
+          // Formato: YYYY-MM-DDTHH:MM:SS (en hora LOCAL del navegador)
+          const sendAtISO = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 
           fetch('/api/whatsapp/schedule', {
             method: 'POST',
@@ -8118,7 +8172,7 @@
             body: JSON.stringify({
               to:      phoneClean,
               message: message,
-              send_at: sendAtISO,
+              send_at: sendAtISO,  // ✅ Ahora es la hora correcta en la zona horaria local
               job_id:  jobId
             })
           })
@@ -8145,7 +8199,13 @@
         }
       }
 
+
       /**
+       * Fallback: programa el envío con setTimeout en el navegador.
+       * Solo se usa si el servidor no está configurado.
+       * AVISO: se pierde si se cierra la pestaña.
+       */
+            /**
        * Fallback: programa el envío con setTimeout en el navegador.
        * Solo se usa si el servidor no está configurado.
        * AVISO: se pierde si se cierra la pestaña.
@@ -8154,6 +8214,131 @@
         const mins = Math.round(timeUntil / 60000);
         console.warn(`⚠️ [Fallback] WA programado en navegador (${mins} min). Se perderá si se cierra la pestaña.`);
         setTimeout(() => fireWaReminder(eventData), timeUntil);
+      }
+
+
+      
+      /**
+       * Recupera y reprograma recordatorios al cargar la página.
+       * Se debe llamar en el evento DOMContentLoaded o similiar.
+       * 
+       * Ubicación en index3.html: Al inicio del script, después de inicializar
+       */
+      function recoverReminders() {
+        const remindersStorageKey = 'gestionpro_reminders';
+        let savedReminders = [];
+        
+        try {
+          const stored = localStorage.getItem(remindersStorageKey);
+          if (stored) savedReminders = JSON.parse(stored);
+        } catch(e) {
+          console.warn('⚠️ No se pudo recuperar recordatorios:', e);
+          return;
+        }
+
+        const now = new Date().getTime();
+        const validReminders = [];
+
+        savedReminders.forEach(reminder => {
+          const timeLeft = reminder.scheduledForMs - now;
+          
+          // Si el recordatorio sigue siendo válido (no pasó)
+          if (timeLeft > 0) {
+            validReminders.push(reminder);
+            
+            // Reprogramar en setTimeout
+            setTimeout(() => {
+              sendNotification('📌 Recordatorio de cita', {
+                body: `${reminder.eventClient} - ${reminder.eventService || 'Sin servicio'}\n${reminder.eventDate} a las ${reminder.eventTime}`,
+                tag: `reminder-${reminder.eventId}`,
+                requireInteraction: true
+              });
+            }, timeLeft);
+            
+            const mins = Math.round(timeLeft / 60000);
+            console.log(`⏰ [Recuperado] Recordatorio para ${reminder.eventClient} en ${mins} min`);
+          }
+        });
+
+        // Guardar solo los recordatorios válidos
+        try {
+          if (validReminders.length > 0) {
+            localStorage.setItem(remindersStorageKey, JSON.stringify(validReminders));
+            console.log(`✅ [Recordatorios] Recuperados ${validReminders.length} recordatorios del almacenamiento`);
+          } else {
+            localStorage.removeItem(remindersStorageKey);
+          }
+        } catch(e) {
+          console.warn('⚠️ Error guardando recordatorios recuperados:', e);
+        }
+      }
+
+
+      /**
+       * Recupera los mensajes históricos de una conversación.
+       * Se llama cuando el usuario abre una conversación.
+       * 
+       * Ubicación en index3.html: En la función que abre/renderiza conversación
+       * Agregar esta línea al renderizar una conversación:
+       *   loadMessageHistory(username);
+       */
+      async function loadMessageHistory(participantUsername) {
+        try {
+          const response = await fetch(`/api/messages/${participantUsername}`);
+          if (!response.ok) {
+            // No hay histórico, es una conversación nueva
+            return;
+          }
+          
+          const data = await response.json();
+          if (!data.ok || !data.messages) return;
+          
+          // Crear conversación si no existe
+          if (!CONVS[participantUsername]) {
+            CONVS[participantUsername] = {
+              participant: participantUsername,
+              messages: []
+            };
+          }
+          
+          // Agregar mensajes históricos
+          data.messages.forEach(msg => {
+            // Evitar duplicados
+            const exists = CONVS[participantUsername].messages.some(m => m.id === msg.id);
+            if (!exists) {
+              CONVS[participantUsername].messages.push({
+                mine: msg.sender_username === currentUser.name,
+                text: msg.text,
+                time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
+                read: msg.read || false,
+                id: msg.id
+              });
+            }
+          });
+          
+          console.log(`✅ [Histórico] Cargados ${data.messages.length} mensajes de ${participantUsername}`);
+          
+        } catch(err) {
+          console.warn('⚠️ No se pudo cargar histórico de mensajes:', err);
+          // No es crítico, continuamos
+        }
+      }
+
+
+      /**
+       * Obtiene el offset de zona horaria actual en milisegundos.
+       * Importante para recordatorios: calcula la diferencia entre UTC y la hora local.
+       */
+      function getTimezoneOffset() {
+        const now = new Date();
+        return now.getTimezoneOffset() * 60 * 1000; // Convertir minutos a ms
+      }
+
+      /**
+       * Obtiene la hora actual en UTC ISO string (para sincronización con servidor).
+       */
+      function getCurrentUTCTime() {
+        return new Date().toISOString();
       }
 
       // ══════════════════════════════════════════
