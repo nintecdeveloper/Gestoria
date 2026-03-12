@@ -31,7 +31,7 @@ print("="*80 + "\n")
 # FLASK APP Y SOCKETIO
 # ═══════════════════════════════════════════════════════════════
 
-app = Flask(__name__, template_folder='.', static_folder='.')
+app = Flask(__name__, template_folder='templates', static_folder='templates')
 app.config['SECRET_KEY'] = 'dev-secret-key'
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 
