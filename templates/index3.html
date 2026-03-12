@@ -4234,17 +4234,64 @@
         },
       ];
 
+      // ══════════════════════════════════════════════════════
+      //  MENSAJERÍA — ESTADO LOCAL
+      //  CONVS: clave "MIN_ID-MAX_ID" → [{mine,text,time,read,id,attachments}]
+      //  Misma lógica que el backend: make_conv_key(a,b)
+      // ══════════════════════════════════════════════════════
       let CONVS = {};
-
-      // ══════════════════════════════════════════
-      //  SOCKET.IO - MENSAJERÍA EN TIEMPO REAL
-      // ══════════════════════════════════════════
-      
       let socket = null;
       let currentSocketId = null;
-      
+
+      // ── Clave canónica de conversación ──────────────────────
+      function convKey(a, b) {
+        return [Number(a), Number(b)].sort((x, y) => x - y).join('-');
+      }
+      function convData(otherId) {
+        const k = convKey(currentUser.id, Number(otherId));
+        if (!CONVS[k]) CONVS[k] = [];
+        return CONVS[k];
+      }
+
+      // ── Carga histórico desde el servidor al hacer login ────
+      async function loadHistory(otherUserId) {
+        try {
+          const res = await fetch(`/api/messages/${currentUser.id}/${otherUserId}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data.ok || !data.messages || !data.messages.length) return;
+
+          const arr = convData(otherUserId);
+          data.messages.forEach(function(m) {
+            if (arr.find(function(x) { return x.id === m.id; })) return; // dedup
+            arr.push({
+              id:          m.id,
+              mine:        Number(m.sender_id) === Number(currentUser.id),
+              text:        m.text || '',
+              time:        m.timestamp ? m.timestamp.split('T')[1].slice(0,5) : '??:??',
+              read:        true,
+              attachments: m.attachments || []
+            });
+          });
+          console.log('[Chat] Histórico cargado con', otherUserId, '→', data.messages.length, 'msgs');
+        } catch(e) {
+          console.warn('[Chat] Error cargando histórico:', e);
+        }
+      }
+
+      async function loadAllHistories() {
+        if (!currentUser) return;
+        const others = USERS.filter(function(u) { return u.id !== currentUser.id; });
+        for (const u of others) {
+          await loadHistory(u.id);
+        }
+        updateBadge();
+        buildMsgList(document.getElementById('msg-search-inp') ?
+          document.getElementById('msg-search-inp').value : '');
+      }
+
+      // ── Socket.IO ────────────────────────────────────────────
       function initializeSocket() {
-        // Importar socket.io desde CDN si no está disponible
         if (typeof io === 'undefined') {
           const script = document.createElement('script');
           script.src = 'https://cdn.socket.io/4.5.4/socket.io.min.js';
@@ -4254,96 +4301,92 @@
           connectSocket();
         }
       }
-      
+
+      function registerSocketUser() {
+        if (currentUser && socket && socket.connected) {
+          socket.emit('user_login', {
+            username: currentUser.name,
+            userId:   Number(currentUser.id)
+          });
+        }
+      }
+
       function connectSocket() {
-        socket = io();
+        socket = io({ transports: ['websocket', 'polling'] });
 
         socket.on('connect', function() {
           currentSocketId = socket.id;
-          console.log('✅ [Socket] Conectado:', currentSocketId);
-          if (currentUser) {
-            // Enviar user_id numérico para que el backend haga join_room("user_{id}")
-            socket.emit('user_login', {
-              username: currentUser.name,
-              userId: currentUser.id
-            });
-          }
+          console.log('✅ [WS] Conectado:', currentSocketId);
+          registerSocketUser();
         });
 
-        socket.on('login_ack', function(data) {
-          console.log('✅ [Socket] Login confirmado, room:', data.room);
+        socket.on('connect_error', function(err) {
+          console.warn('⚠️ [WS] Error:', err.message);
         });
 
         socket.on('disconnect', function() {
-          console.log('❌ [Socket] Desconectado');
+          console.log('❌ [WS] Desconectado');
           currentSocketId = null;
         });
 
+        // Re-registrar en cada reconexión automática
         socket.on('reconnect', function() {
-          console.log('🔄 [Socket] Reconectado, re-registrando usuario...');
-          if (currentUser) {
-            socket.emit('user_login', {
-              username: currentUser.name,
-              userId: currentUser.id
-            });
-          }
+          console.log('🔄 [WS] Reconectado');
+          registerSocketUser();
         });
 
-        // ─── MENSAJES PRIVADOS ────────────────────────────────
+        socket.on('login_ack', function(data) {
+          console.log('✅ [WS] Room asignada:', data.room);
+        });
+
+        // ─── RECIBIR MENSAJE PRIVADO ─────────────────────────
         socket.on('receive_message', function(msg) {
-          console.log('📨 [Socket] Mensaje recibido:', msg);
+          const senderId = Number(msg.sender_id);
+          console.log('📨 [WS] Mensaje de id=' + senderId + ':', msg.text);
 
-          // sender_id viene del backend como el user_id real (número)
-          const senderUserId = Number(msg.sender_id);
-
-          // Guardar en el array de la conversación correcta
-          const msgs = convData(senderUserId);
-          msgs.push({
-            mine: false,
-            text: msg.text || '',
-            time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime(),
-            read: (activeConvId === senderUserId),
-            id: msg.id,
-            attachments: msg.attachments || []
-          });
-
-          // Si la conversación está abierta en este momento → renderizar
-          if (activeConvId === senderUserId) {
-            renderMsgs(senderUserId);
+          const arr = convData(senderId);
+          // Evitar duplicado (el remitente ya lo insertó localmente en sendMsg)
+          if (!arr.find(function(m) { return m.id === msg.id; })) {
+            arr.push({
+              id:          msg.id,
+              mine:        false,
+              text:        msg.text || '',
+              time:        msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime(),
+              read:        (activeConvId === senderId),
+              attachments: msg.attachments || []
+            });
           }
 
+          if (activeConvId === senderId) {
+            renderMsgs(senderId);
+          }
           updateBadge();
           buildMsgList(document.getElementById('msg-search-inp').value);
         });
 
         socket.on('message_ack', function(ack) {
-          if (ack.status === 'delivered') {
-            console.log('✅ [Socket] Entregado:', ack.message_id);
-          } else {
-            console.warn('⚠️ [Socket] No entregado:', ack.reason);
-          }
+          console.log('📬 [WS] ACK:', ack.status, ack.message_id);
         });
 
-        // ─── CHAT GENERAL ─────────────────────────────────────
+        // ─── RECIBIR MENSAJE DEL CHAT GENERAL ───────────────
         socket.on('receive_general_message', function(msg) {
-          console.log('💬 [Socket] General recibido:', msg);
+          if (GENERAL_CHAT.find(function(m) { return m.id === msg.id; })) return;
           const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0,5) : nowTime();
           const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
-
           GENERAL_CHAT.push({
-            id: msg.id,
-            userId: Number(msg.sender_id),
-            text: msg.text,
-            time: time,
-            date: date,
+            id:       msg.id,
+            userId:   Number(msg.sender_id),
+            text:     msg.text,
+            time:     time,
+            date:     date,
             username: msg.sender_username
           });
           renderGeneralChat();
+          updateBadge();
         });
 
-        // ─── ESTADO USUARIOS ──────────────────────────────────
         socket.on('user_status_update', function(data) {
-          console.log(`👤 ${data.username} → ${data.status}`);
+          console.log('👤 [WS]', data.username, '→', data.status);
         });
       }
       
@@ -4390,32 +4433,7 @@
       // ══════════════════════════════════════════
       let adminViewCalMonth = new Date();
 
-      (function () {
-        function seed(a, b, msgs) {
-          const key = [a, b].sort((x, y) => x - y).join("-");
-          CONVS[key] = msgs;
-        }
-        seed(1, 2, [
-          {
-            mine: false,
-            text: "Buenos días, ¿has podido revisar el informe de Carlos?",
-            time: "09:15",
-            read: true,
-          },
-          {
-            mine: true,
-            text: "Sí, acabo de enviarlo por email al cliente.",
-            time: "09:22",
-            read: true,
-          },
-          {
-            mine: false,
-            text: "Perfecto, lo reviso ahora mismo.",
-            time: "10:24",
-            read: false,
-          },
-        ]);
-      })();
+      // CONVS vacío — se carga desde el servidor en loadAllHistories()
 
       let GENERAL_CHAT = [
         {
@@ -4543,14 +4561,7 @@
           minute: "2-digit",
         });
       }
-      function convKey(a, b) {
-        return [a, b].sort((x, y) => x - y).join("-");
-      }
-      function convData(otherId) {
-        const k = convKey(currentUser.id, otherId);
-        if (!CONVS[k]) CONVS[k] = [];
-        return CONVS[k];
-      }
+      // convKey y convData definidos en bloque socket
       function unreadOf(otherId) {
         return convData(otherId).filter((m) => !m.mine && !m.read).length;
       }
@@ -4690,7 +4701,8 @@
         activeConvId = null;
         editingEvId = null;
         gchatUnreadCount = 0;
-        
+        CONVS = {};  // Limpiar mensajes de la sesión anterior
+
         // Desconectar socket.io
         if (socket && socket.connected) {
           socket.disconnect();
@@ -4767,11 +4779,10 @@
         }
 
         showSection("dashboard");
-        
-        // Inicializar socket.io para mensajería en tiempo real
-        setTimeout(() => {
-          initializeSocket();
-        }, 100);
+
+        // Inicializar socket.io y cargar histórico de mensajes
+        initializeSocket();
+        loadAllHistories();
       }
 
       // ══════════════════════════════════════════

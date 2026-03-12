@@ -174,12 +174,20 @@ socketio = SocketIO(
     async_mode='threading'
 )
 
-# Almacenar usuarios conectados en tiempo real
-connected_users = {}  # {sid: {username, sid, connected_at}}
-username_to_sid = {}  # {username: sid} - MAPEO PARA ENCONTRAR USUARIOS
-sid_to_userid = {}  # {sid: user_id} - MAPEO PARA OBTENER USER ID DEL USUARIO
-active_chats = {}
-message_storage = {}  # {conv_id: [messages]} - ALMACENAR MENSAJES EN SERVIDOR
+# ═══════════════════════════════════════════════════════════════
+# ESTADO GLOBAL — MENSAJERÍA
+# CLAVE DE CONV: misma lógica que el frontend:
+#   [a, b].sort().join("-")  →  ej: "1-2" para Antonio↔Myriam
+# ═══════════════════════════════════════════════════════════════
+connected_users = {}   # sid → {username, user_id, connected_at}
+sid_to_userid   = {}   # sid → user_id (int)
+# conv_key "MIN_ID-MAX_ID" → lista de mensajes
+message_storage = {}   # {"1-2": [{id, sender_id, sender_username, recipient_id, text, timestamp, attachments}]}
+general_storage = []   # [{id, sender_id, sender_username, text, timestamp}]
+
+def make_conv_key(a, b):
+    """Clave canónica — idéntica a convKey() del frontend."""
+    return "-".join(sorted([str(int(a)), str(int(b))]))
 
 # ═══════════════════════════════════════════════════════════════
 # RUTAS PRINCIPALES
@@ -187,277 +195,165 @@ message_storage = {}  # {conv_id: [messages]} - ALMACENAR MENSAJES EN SERVIDOR
 
 @app.route('/')
 def home():
-    """Ruta principal - Servir GestióPro"""
     return render_template('index3.html')
 
 @app.route('/app')
 def dashboard():
-    """Ruta alternativa del dashboard"""
     return render_template('index3.html')
 
 @app.route('/index')
 def index_alt():
-    """Ruta alternativa - index"""
     return render_template('index3.html')
 
 @app.route('/gestionpro')
 def gestionpro():
-    """Ruta de la aplicación GestióPro"""
     return render_template('index3.html')
 
 # ═══════════════════════════════════════════════════════════════
-# WEBSOCKET EVENTS — MENSAJERÍA EN TIEMPO REAL
+# WEBSOCKET — CICLO DE VIDA
 # ═══════════════════════════════════════════════════════════════
 
 @socketio.on('connect')
 def handle_connect(auth):
-    """Usuario se conecta al socket"""
-    user_id = request.sid
-    logger.info(f"🔗 [Socket] Usuario conectado: {user_id}")
-    emit('connect_response', {
-        'data': 'Conectado al servidor',
-        'user_id': user_id
-    })
+    logger.info(f"🔗 [WS] Nuevo socket: {request.sid}")
+    emit('connect_ack', {'sid': request.sid})
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Usuario se desconecta del socket"""
-    socket_sid = request.sid
-    if socket_sid in connected_users:
-        username = connected_users[socket_sid].get('username', 'Usuario')
-        del connected_users[socket_sid]
-        # LIMPIAR MAPEO USERNAME-SID
-        if username in username_to_sid:
-            del username_to_sid[username]
-        # ✅ LIMPIAR MAPEO SID-USERID
-        if socket_sid in sid_to_userid:
-            del sid_to_userid[socket_sid]
-        logger.info(f"❌ [Socket] {username} desconectado")
-    else:
-        logger.info(f"❌ [Socket] Usuario desconectado: {socket_sid}")
+    sid = request.sid
+    info = connected_users.pop(sid, None)
+    sid_to_userid.pop(sid, None)
+    if info:
+        logger.info(f"❌ [WS] {info['username']} desconectado (sid={sid[:8]})")
+
+# ═══════════════════════════════════════════════════════════════
+# WEBSOCKET — REGISTRO (join room personal)
+# ═══════════════════════════════════════════════════════════════
 
 @socketio.on('user_login')
 def handle_user_login(data):
-    """Registra un usuario como conectado y lo une a su room personal"""
-    socket_sid = request.sid
-    username = data.get('username', f'User_{socket_sid[:8]}')
-    user_id = data.get('userId', None)
+    sid     = request.sid
+    username = data.get('username', f'User_{sid[:6]}')
+    user_id  = data.get('userId')
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        user_id = 0
 
-    connected_users[socket_sid] = {
+    connected_users[sid] = {
         'username': username,
-        'sid': socket_sid,
-        'user_id': user_id,
+        'user_id':  user_id,
         'connected_at': datetime.now().isoformat()
     }
-    username_to_sid[username] = socket_sid
-    if user_id:
-        sid_to_userid[socket_sid] = user_id
+    sid_to_userid[sid] = user_id
 
-    # ══════════════════════════════════════════════════════
-    # SOLUCIÓN DEFINITIVA: cada usuario entra en su propia
-    # room identificada por su user_id (ej: room "2" para Myriam).
-    # Así el emit llega aunque haya múltiples workers/procesos,
-    # y sin depender del mapeo en memoria username_to_sid.
-    # ══════════════════════════════════════════════════════
-    if user_id is not None:
-        room_name = f"user_{user_id}"
-        join_room(room_name)
-        logger.info(f"✅ [Chat] {username} unido a room '{room_name}' (SID: {socket_sid})")
+    # Unir a la room personal "user_<id>" — el emit de mensajes
+    # privados apunta a esta room, sin necesidad de conocer el SID.
+    room = f"user_{user_id}"
+    join_room(room)
+    logger.info(f"✅ [WS] {username} (id={user_id}) → room '{room}' (sid={sid[:8]})")
 
-    logger.info(f"✅ [Chat] {username} conectado (SID: {socket_sid}, UserID: {user_id})")
+    # ACK al cliente
+    emit('login_ack', {'ok': True, 'room': room, 'user_id': user_id})
 
-    emit('login_ack', {'status': 'ok', 'room': f"user_{user_id}"})
-
-    socketio.emit('user_status_update', {
-        'user_id': user_id,
-        'username': username,
-        'status': 'online',
-        'online_users': len(connected_users)
-    }, broadcast=True)
+# ═══════════════════════════════════════════════════════════════
+# WEBSOCKET — MENSAJE PRIVADO
+# ═══════════════════════════════════════════════════════════════
 
 @socketio.on('send_message')
-def handle_message(data):
-    """Recibe un mensaje privado y lo entrega al receptor via su room personal"""
-    socket_sid = request.sid
-    sender_username = data.get('sender_username', 'Usuario')
-    sender_user_id = data.get('sender_id', None)
-    recipient_username = data.get('recipient_username', '')
-    recipient_user_id = data.get('recipient_id', None)
-    message_text = data.get('message', '')
-    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
-    attachments = data.get('attachments', [])
+def handle_send_message(data):
+    sender_id        = data.get('sender_id')
+    sender_username  = data.get('sender_username', '')
+    recipient_id     = data.get('recipient_id')
+    text             = (data.get('message') or '').strip()
+    message_id       = data.get('message_id') or f"msg_{datetime.now().timestamp()}"
+    attachments      = data.get('attachments') or []
 
-    if not message_text.strip() and not attachments:
-        logger.warning(f"⚠️ [Chat] Mensaje vacío de {sender_username}")
+    # Convertir IDs a int
+    try:
+        sender_id    = int(sender_id)
+        recipient_id = int(recipient_id)
+    except (TypeError, ValueError):
+        emit('message_ack', {'message_id': message_id, 'status': 'error', 'reason': 'invalid_ids'})
         return
 
-    message_obj = {
-        'id': message_id,
-        'sender_id': sender_user_id,
+    if not text and not attachments:
+        return
+
+    ts = datetime.now().isoformat()
+    msg = {
+        'id':              message_id,
+        'sender_id':       sender_id,
         'sender_username': sender_username,
-        'recipient_id': recipient_user_id,
-        'recipient_username': recipient_username,
-        'text': message_text,
-        'timestamp': datetime.now().isoformat(),
-        'read': False,
-        'attachments': attachments
+        'recipient_id':    recipient_id,
+        'text':            text,
+        'timestamp':       ts,
+        'attachments':     attachments
     }
 
-    # Guardar en memoria
-    conv_key = '_'.join(sorted([str(sender_user_id), str(recipient_user_id)]))
-    if conv_key not in message_storage:
-        message_storage[conv_key] = []
-    message_storage[conv_key].append(message_obj)
+    # Persistir con la misma clave que convKey() del frontend
+    key = make_conv_key(sender_id, recipient_id)
+    if key not in message_storage:
+        message_storage[key] = []
+    message_storage[key].append(msg)
+    logger.info(f"💬 [MSG PRIVADO] {sender_username}→id{recipient_id} (conv={key}): '{text[:40]}'")
 
-    logger.info(f"💬 [Chat] {sender_username}→{recipient_username}: '{message_text[:40]}'")
+    # Entregar al receptor via su room personal
+    # NOTA: emit() sin socketio. usa el contexto del handler actual (correcto para threading)
+    emit('receive_message', msg, room=f"user_{recipient_id}", include_self=False)
 
-    # ══════════════════════════════════════════════════════
-    # ENTREGA DEFINITIVA: emitir a la room personal del receptor.
-    # room="user_{id}" fue creada en user_login con join_room().
-    # Funciona con 1 o N workers porque socket.io gestiona
-    # las rooms internamente (con message_queue si lo hay).
-    # ══════════════════════════════════════════════════════
-    if recipient_user_id is not None:
-        target_room = f"user_{recipient_user_id}"
-        socketio.emit('receive_message', message_obj, room=target_room)
-        logger.info(f"✅ [Entregado] → room '{target_room}'")
+    # ACK al remitente
+    emit('message_ack', {'message_id': message_id, 'status': 'ok', 'timestamp': ts})
 
-        emit('message_ack', {
-            'message_id': message_id,
-            'status': 'delivered',
-            'timestamp': datetime.now().isoformat()
-        })
-    else:
-        logger.warning(f"⚠️ [Chat] recipient_user_id ausente, no se puede entregar")
-        emit('message_ack', {
-            'message_id': message_id,
-            'status': 'failed',
-            'reason': 'no_recipient_id'
-        })
+# ═══════════════════════════════════════════════════════════════
+# WEBSOCKET — CHAT GENERAL
+# ═══════════════════════════════════════════════════════════════
 
 @socketio.on('send_general_message')
 def handle_general_message(data):
-    """Recibe un mensaje del chat general y lo retransmite a todos"""
-    socket_sid = request.sid
-    sender_username = data.get('sender_username', 'Usuario')
-    sender_user_id = data.get('sender_id', None) or sid_to_userid.get(socket_sid)
-    message_text = data.get('message', '')
-    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
+    sid             = request.sid
+    sender_id       = data.get('sender_id') or sid_to_userid.get(sid, 0)
+    sender_username = data.get('sender_username', '')
+    text            = (data.get('message') or '').strip()
+    message_id      = data.get('message_id') or f"gchat_{datetime.now().timestamp()}"
 
-    if not message_text.strip():
+    try:
+        sender_id = int(sender_id)
+    except (TypeError, ValueError):
+        sender_id = 0
+
+    if not text:
         return
 
-    message_obj = {
-        'id': message_id,
-        'sender_id': sender_user_id,
+    ts = datetime.now().isoformat()
+    msg = {
+        'id':              message_id,
+        'sender_id':       sender_id,
         'sender_username': sender_username,
-        'text': message_text,
-        'timestamp': datetime.now().isoformat()
+        'text':            text,
+        'timestamp':       ts
     }
-
-    logger.info(f"💬 [Chat General] {sender_username}: {message_text[:50]}")
-    socketio.emit('receive_general_message', message_obj, broadcast=True)
-
-@socketio.on('typing')
-def handle_typing(data):
-    """Notifica que alguien está escribiendo"""
-    sender_id = request.sid
-    recipient_username = data.get('recipient_username', '')
-    sender_username = data.get('sender_username', 'Usuario')
-    
-    # BUSCAR RECEPTOR POR USERNAME
-    recipient_sid = username_to_sid.get(recipient_username)
-    if recipient_sid and recipient_sid in connected_users:
-        socketio.emit('user_typing', {
-            'sender_id': sender_id,
-            'sender_username': sender_username
-        }, room=recipient_sid)
-
-@socketio.on('stop_typing')
-def handle_stop_typing(data):
-    """Notifica que dejó de escribir"""
-    sender_id = request.sid
-    recipient_username = data.get('recipient_username', '')
-    
-    # BUSCAR RECEPTOR POR USERNAME
-    recipient_sid = username_to_sid.get(recipient_username)
-    if recipient_sid and recipient_sid in connected_users:
-        socketio.emit('user_stop_typing', {
-            'sender_id': sender_id
-        }, room=recipient_sid)
-
-@socketio.on('get_online_users')
-def handle_get_online_users():
-    """Retorna lista de usuarios online"""
-    online_list = list(connected_users.values())
-    socketio.emit('online_users_list', {
-        'users': online_list,
-        'count': len(online_list)
-    })
-
-@socketio.on('send_notification')
-def handle_notification(data):
-    """Envía una notificación a un usuario específico"""
-    recipient_username = data.get('recipient_username', '')
-    notification_type = data.get('type', 'info')  # info, warning, error, success
-    message = data.get('message', '')
-    title = data.get('title', '')
-    
-    # BUSCAR RECEPTOR POR USERNAME
-    recipient_sid = username_to_sid.get(recipient_username)
-    if recipient_sid and recipient_sid in connected_users:
-        # ✅ CORRECCIÓN: Cambiar recipient_id por recipient_sid
-        socketio.emit('notification_received', {
-            'type': notification_type,
-            'title': title,
-            'message': message,
-            'timestamp': datetime.now().isoformat()
-        }, room=recipient_sid)  # ← AQUÍ ESTÁ LA CORRECCIÓN
-        logger.info(f"🔔 [Notification] Enviada a {recipient_sid[:8]}: {title}")
-
-@socketio.on('broadcast_notification')
-def handle_broadcast_notification(data):
-    """Envía una notificación a todos los usuarios"""
-    notification_type = data.get('type', 'info')
-    message = data.get('message', '')
-    title = data.get('title', '')
-    
-    socketio.emit('notification_received', {
-        'type': notification_type,
-        'title': title,
-        'message': message,
-        'timestamp': datetime.now().isoformat()
-    }, broadcast=True)
-    logger.info(f"🔔 [Broadcast Notification] {title}")
+    general_storage.append(msg)
+    logger.info(f"💬 [GCHAT] {sender_username}: '{text[:40]}'")
+    emit('receive_general_message', msg, broadcast=True)
 
 # ═══════════════════════════════════════════════════════════════
-# API MENSAJERÍA — RECUPERAR HISTÓRICO
+# REST API — HISTÓRICO DE CONVERSACIÓN PRIVADA
+#   GET /api/messages/<id_a>/<id_b>
+#   Devuelve todos los mensajes entre los dos usuarios.
+#   El frontend llama esto al hacer login para cargar el histórico.
 # ═══════════════════════════════════════════════════════════════
 
-@app.route('/api/messages/<conv_id>', methods=['GET'])
-def get_messages(conv_id):
-    """
-    Recupera el histórico de mensajes de una conversación.
-    Permite que el usuario vea los mensajes previos al reconectar.
-    
-    URL: GET /api/messages/username_receptor
-    Respuesta: { 'ok': true, 'messages': [...], 'conv_id': 'username' }
-    """
-    if not conv_id or conv_id not in message_storage:
-        return jsonify({
-            'ok': False,
-            'error': 'Conversación no encontrada',
-            'messages': []
-        }), 404
-    
-    messages = message_storage[conv_id]
-    logger.info(f"📥 [Mensajes] Recuperando {len(messages)} mensajes de {conv_id}")
-    
-    return jsonify({
-        'ok': True,
-        'conv_id': conv_id,
-        'messages': messages
-    })
+@app.route('/api/messages/<int:uid_a>/<int:uid_b>', methods=['GET'])
+def get_conversation(uid_a, uid_b):
+    key  = make_conv_key(uid_a, uid_b)
+    msgs = message_storage.get(key, [])
+    logger.info(f"📥 [API] Histórico {key}: {len(msgs)} mensajes")
+    return jsonify({'ok': True, 'conv_key': key, 'messages': msgs})
+
+@app.route('/api/messages/general', methods=['GET'])
+def get_general_history():
+    return jsonify({'ok': True, 'messages': general_storage})
 
 # ═══════════════════════════════════════════════════════════════
 # API WHATSAPP — ENVÍO AUTOMÁTICO VÍA META
