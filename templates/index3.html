@@ -4280,31 +4280,29 @@
         socket.on('receive_message', function(msg) {
           console.log('📨 [Socket] Mensaje privado recibido:', msg);
           const sender_username = msg.sender_username;
-          const sender_user_id = msg.sender_id;  // ✅ Usar user_id real
+          // ✅ FIX: Forzar tipo numérico — el backend puede devolver string si viene de JSON
+          const sender_user_id = Number(msg.sender_id);
           
-          // Crear conversación usando convKey (igual que en envío)
-          const k = convKey(currentUser.id, sender_user_id);
-          if (!CONVS[k]) {
-            CONVS[k] = [];
-          }
-          
-          // Agregar mensaje
-          CONVS[k].push({
+          // Agregar mensaje usando convData() para garantizar coherencia con el resto del sistema
+          // convData() usa convKey internamente y crea el array si no existe
+          const msgs = convData(sender_user_id);
+          msgs.push({
             mine: false,
             text: msg.text,
             time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
-            read: false,
+            read: activeConvId === sender_user_id,  // ✅ Marcar como leído solo si la conv está abierta
             id: msg.id
           });
           
-          console.log('✅ [Socket] Mensaje agregado a conversación con', sender_username);
+          console.log('✅ [Socket] Mensaje agregado a conversación con', sender_username, '(id:', sender_user_id + ')');
           
-          // Actualizar UI si está abierto
-          // activeConvId es el user_id del otro usuario
+          // ✅ FIX: Comparación con coerción de tipo para evitar number vs string
           if (activeConvId === sender_user_id) {
             renderMsgs(activeConvId);
           }
           
+          // ✅ FIX: Actualizar badge de mensajes no leídos
+          updateBadge();
           buildMsgList(document.getElementById("msg-search-inp").value);
         });
         
@@ -4331,9 +4329,13 @@
           const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
           const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
           
+          // ✅ FIX: Forzar tipo numérico en sender_id para que la comparación
+          // `msg.userId === currentUser.id` en renderGeneralChat funcione correctamente.
+          // Antes del fix del backend, sender_id era el SID del socket (string), 
+          // lo que hacía que isMe siempre fuera false para el remitente.
           GENERAL_CHAT.push({
             id: msg.id,
-            userId: msg.sender_id,
+            userId: Number(msg.sender_id),
             text: msg.text,
             time: time,
             date: date,
@@ -7273,6 +7275,7 @@
           socket.emit('send_general_message', {
             message: text,
             sender_username: currentUser.name,
+            sender_id: currentUser.id,    // ✅ FIX: enviar user_id real para identificación correcta
             message_id: msgObj.id,
             attachments: attachments
           });

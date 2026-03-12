@@ -270,26 +270,31 @@ def handle_message(data):
     """Recibe un mensaje privado y lo retransmite"""
     socket_sid = request.sid
     sender_username = data.get('sender_username', 'Usuario')
-    sender_user_id = data.get('sender_id', None)  # ✅ Obtener user_id del frontend
+    sender_user_id = data.get('sender_id', None)  # user_id real del frontend
     recipient_username = data.get('recipient_username', '')
-    recipient_user_id = data.get('recipient_id', None)  # ✅ Obtener recipient user_id
+    recipient_user_id = data.get('recipient_id', None)  # user_id real del receptor
     message_text = data.get('message', '')
     message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
     conv_id = data.get('conv_id', f'{sender_username}_{recipient_username}')
+    attachments = data.get('attachments', [])
     
-    if not message_text.strip():
+    # ✅ FIX: Descartar SOLO si no hay texto Y no hay adjuntos
+    # Antes se descartaban mensajes con solo adjuntos (texto vacío)
+    if not message_text.strip() and not attachments:
         logger.warning(f"⚠️ [Chat] Mensaje vacío de {sender_username}")
         return
     
     # Crear objeto de mensaje
     message_obj = {
         'id': message_id,
-        'sender_id': sender_user_id,  # ✅ Usar user_id real, no SID
+        'sender_id': sender_user_id,        # user_id real, no SID
         'sender_username': sender_username,
         'recipient_username': recipient_username,
+        'recipient_id': recipient_user_id,
         'text': message_text,
         'timestamp': datetime.now().isoformat(),
-        'read': False
+        'read': False,
+        'attachments': attachments
     }
     
     # ALMACENAR MENSAJE EN SERVIDOR
@@ -299,8 +304,18 @@ def handle_message(data):
     
     logger.info(f"💬 [Chat Privado] {sender_username} → {recipient_username}: {message_text[:50]}")
     
-    # BUSCAR EL SID DEL RECEPTOR POR USERNAME
+    # ✅ FIX: Buscar receptor primero por username (campo name del frontend),
+    # con fallback por user_id si el username no se encuentra.
+    # Esto protege contra inconsistencias entre el campo name y username del usuario.
     recipient_sid = username_to_sid.get(recipient_username)
+    
+    # Fallback: buscar por user_id si no se encontró por nombre
+    if not recipient_sid and recipient_user_id:
+        for sid, uid in sid_to_userid.items():
+            if str(uid) == str(recipient_user_id):
+                recipient_sid = sid
+                logger.info(f"ℹ️ [Chat] Receptor encontrado por user_id ({recipient_user_id}) → SID: {sid}")
+                break
     
     if recipient_sid and recipient_sid in connected_users:
         # ENVIAR MENSAJE AL DESTINATARIO
@@ -315,7 +330,7 @@ def handle_message(data):
         }, room=recipient_sid)
         logger.info(f"🔔 [Notificación Enviada] A {recipient_username}")
         
-        # ✅ ENVIAR CONFIRMACIÓN AL REMITENTE CON TIMESTAMP
+        # ENVIAR CONFIRMACIÓN AL REMITENTE CON TIMESTAMP
         socketio.emit('message_ack', {
             'message_id': message_id,
             'status': 'delivered',
@@ -323,7 +338,7 @@ def handle_message(data):
         }, room=socket_sid)
     else:
         logger.warning(f"⚠️ [Mensaje No Entregado] {recipient_username} no conectado")
-        # ✅ NOTIFICAR AL REMITENTE QUE NO SE ENTREGÓ
+        # NOTIFICAR AL REMITENTE QUE NO SE ENTREGÓ
         socketio.emit('message_ack', {
             'message_id': message_id,
             'status': 'failed',
@@ -336,13 +351,17 @@ def handle_message(data):
         'message_id': message_id,
         'status': 'sent',
         'timestamp': datetime.now().isoformat()
-    }, room=sender_id)
+    }, room=socket_sid)
 
 @socketio.on('send_general_message')
 def handle_general_message(data):
     """Recibe un mensaje del chat general y lo retransmite a todos"""
-    sender_id = request.sid
+    socket_sid = request.sid
     sender_username = data.get('sender_username', 'Usuario')
+    # ✅ FIX: usar el user_id real enviado desde el frontend, NO el SID del socket
+    # El SID cambia en cada conexión; el user_id es estable y es lo que usa el frontend
+    # para determinar si el mensaje es propio (userId === currentUser.id)
+    sender_user_id = data.get('sender_id', None) or sid_to_userid.get(socket_sid)
     message_text = data.get('message', '')
     message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
     
@@ -352,7 +371,7 @@ def handle_general_message(data):
     # Crear objeto de mensaje
     message_obj = {
         'id': message_id,
-        'sender_id': sender_id,
+        'sender_id': sender_user_id,   # ✅ user_id real, no SID
         'sender_username': sender_username,
         'text': message_text,
         'timestamp': datetime.now().isoformat()
@@ -368,7 +387,7 @@ def handle_general_message(data):
         'from': sender_username,
         'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
         'timestamp': datetime.now().isoformat()
-    }, broadcast=True, skip_sid=sender_id)
+    }, broadcast=True, skip_sid=socket_sid)  # ✅ FIX: usar socket_sid en lugar de sender_id (que era el SID renombrado)
     logger.info(f"🔔 [Notificación Chat General Enviada] De {sender_username}")
 
 @socketio.on('typing')
