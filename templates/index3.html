@@ -4934,6 +4934,7 @@
         "admin-calendars": "Calendarios",
         users: "Gestión de Usuarios",
         services: "Servicios",
+        clients: "Clientes",
         "general-chat": "Chat General",
         messages: "Mensajería",
       };
@@ -4971,13 +4972,11 @@
           { nombre: 'Anna Fabregà', id: 5 },
         ];
         
-        // Construir HTML con "Mi calendario" primero
-        let html = '<div class="nav-subitem" onclick="showSection(\'my-calendar\')">📅 Mi calendario</div>';
+        // Construir HTML SOLO con Mataro + usuarios
+        // "Mi calendario" ya está en el menú principal arriba, no repetirlo aquí
+        let html = '<div style="padding: 12px 24px 8px 44px; color: rgba(255,255,255,0.4); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Mataro</div>';
         
-        // Agregar separador "Mataro" con estilo de categoría
-        html += '<div style="padding: 12px 24px 8px 44px; margin-top: 4px; color: rgba(255,255,255,0.4); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Mataro</div>';
-        
-        // Agregar usuarios con la clase correcta
+        // Agregar usuarios
         html += usuarios.map(u => {
           return '<div class="nav-subitem-user" onclick="showSection(\'my-calendar\')" title="' + u.nombre + '">👤 ' + u.nombre + '</div>';
         }).join('');
