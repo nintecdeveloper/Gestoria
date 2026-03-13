@@ -2942,28 +2942,13 @@
           >
             <span class="icon">&#9671;</span> Servicios
           </div>
-          <!-- CLIENTES - SECCIÓN EXPANDIBLE -->
-          <div class="nav-item nav-expandable" onclick="toggleClientsMenu(event)">
+          <!-- CLIENTES - SECCIÓN SIMPLE -->
+          <div
+            class="nav-item"
+            data-sec="clients"
+            onclick="showSection('clients')"
+          >
             <span class="icon">👥</span> Clientes
-            <span class="nav-expand-icon">▶</span>
-          </div>
-          <div class="nav-submenu" id="clients-submenu" style="display: none;">
-            <div class="nav-subitem" onclick="showSection('clients-personal')">
-              📌 Calendario Personal
-            </div>
-            <div class="nav-subitem" onclick="showSection('clients-departamental')">
-              🏢 Calendarios Departamentales
-            </div>
-            <div class="nav-subitem nav-subitem-nested" style="margin-left: 20px;">
-              💼 Cal. Laboral
-            </div>
-            <div class="nav-subitem nav-subitem-nested" style="margin-left: 20px;">
-              📊 Cal. Mercantil
-            </div>
-            <div class="nav-subitem" onclick="showSection('clients-usuarios')">
-              👤 Calendarios Personales
-            </div>
-            <div id="clients-user-list" style="margin-left: 30px; margin-top: 8px;"></div>
           </div>
           <div class="nav-section-title">Comunicación</div>
           <div
@@ -4975,15 +4960,6 @@
         submenu.classList.toggle('expanded');
       }
 
-      function toggleClientsMenu(event) {
-        event.stopPropagation();
-        const btn = event.currentTarget;
-        const submenu = document.getElementById('clients-submenu');
-        
-        btn.classList.toggle('expanded');
-        submenu.classList.toggle('expanded');
-      }
-
       // Renderizar lista de usuarios en calendarios personales
       function renderCalendarsUserList() {
         const container = document.getElementById('calendars-user-list');
@@ -4995,22 +4971,16 @@
           { nombre: 'Anna Fabregà', id: 5 },
         ];
         
-        // Construir HTML con "Mi calendario" primero, seguido de "Mataro"
-        let html = `
-          <div class="nav-subitem" onclick="showSection('my-calendar')" style="padding: 8px 12px; cursor: pointer;">
-            📅 Mi calendario
-          </div>
-          <div style="padding: 8px 12px; color: var(--text-muted); font-weight: 500; font-size: 12px;">
-            Mataro
-          </div>
-        `;
+        // Construir HTML con "Mi calendario" primero
+        let html = '<div class="nav-subitem" onclick="showSection(\'my-calendar\')">📅 Mi calendario</div>';
         
-        // Agregar usuarios
-        html += usuarios.map(u => `
-          <div class="nav-subitem-user" onclick="showSection('my-calendar')" title="${u.nombre}" style="padding: 6px 12px; cursor: pointer; font-size: 13px;">
-            👤 ${u.nombre}
-          </div>
-        `).join('');
+        // Agregar separador "Mataro" con estilo de categoría
+        html += '<div style="padding: 12px 24px 8px 44px; margin-top: 4px; color: rgba(255,255,255,0.4); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Mataro</div>';
+        
+        // Agregar usuarios con la clase correcta
+        html += usuarios.map(u => {
+          return '<div class="nav-subitem-user" onclick="showSection(\'my-calendar\')" title="' + u.nombre + '">👤 ' + u.nombre + '</div>';
+        }).join('');
         
         container.innerHTML = html;
       }
