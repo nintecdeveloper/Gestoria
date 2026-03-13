@@ -4913,6 +4913,11 @@
 
         showSection("dashboard");
         
+        // ════════════════════════════════════════════════════════════
+        // Cargar mensajes guardados desde localStorage
+        // ════════════════════════════════════════════════════════════
+        loadMessagesFromStorage();
+        
         // Inicializar socket.io para mensajería en tiempo real
         setTimeout(() => {
           initializeSocket();
@@ -4962,6 +4967,10 @@
         submenu.classList.toggle('expanded');
       }
 
+      // Variables globales para el calendario del usuario seleccionado
+      let selectedCalendarUserId = null;
+      let selectedCalendarUserName = null;
+
       // Renderizar lista de usuarios en calendarios personales
       function renderCalendarsUserList() {
         const container = document.getElementById('calendars-user-list');
@@ -4975,8 +4984,74 @@
         
         // Agregar solo los usuarios (sin "Mataro" que ahora está en otro lugar)
         let html = usuarios.map(u => {
-          return '<div class="nav-subitem-user" onclick="showSection(\'my-calendar\')" title="' + u.nombre + '">👤 ' + u.nombre + '</div>';
+          return '<div class="nav-subitem-user" onclick="openUserCalendar(' + u.id + ', \'' + u.nombre + '\')" title="' + u.nombre + '">👤 ' + u.nombre + '</div>';
         }).join('');
+        
+        container.innerHTML = html;
+      }
+
+      // Nueva función para abrir calendario de un usuario específico
+      function openUserCalendar(userId, userName) {
+        selectedCalendarUserId = userId;
+        selectedCalendarUserName = userName;
+        showUserCalendarSection();
+      }
+
+      // Nueva función para mostrar la sección de calendario del usuario
+      function showUserCalendarSection() {
+        if (window.innerWidth <= 768) {
+          document.querySelector(".sidebar").classList.remove("open");
+          document.getElementById("sidebar-overlay").classList.remove("active");
+        }
+        document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
+        document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"));
+        
+        const el = document.getElementById("section-my-calendar");
+        if (el) el.classList.add("active");
+        
+        // Actualizar título con el nombre del usuario seleccionado
+        let titleText = selectedCalendarUserName ? "Calendario de " + selectedCalendarUserName : "Mi Calendario";
+        document.getElementById("topbar-title").textContent = titleText;
+        
+        renderUserCalendar();
+      }
+
+      // Nueva función para renderizar el calendario del usuario seleccionado
+      function renderUserCalendar() {
+        const userId = selectedCalendarUserId || currentUser.id;
+        const userName = selectedCalendarUserName || currentUser.name;
+        
+        // Obtener eventos del usuario seleccionado
+        const userEvents = EVENTS.filter(ev => ev.assignedTo === userId);
+        
+        // Renderizar calendario con los eventos del usuario seleccionado
+        const container = document.getElementById('my-calendar-grid');
+        if (!container) return;
+        
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        
+        let html = '<div class="calendar-header">' + 
+                   '<h2>' + userName + '</h2>' +
+                   '<p style="color:var(--text-muted);font-size:12px">Eventos del ' + new Date(year, month).toLocaleDateString('es-ES', {month:'long', year:'numeric'}) + '</p>' +
+                   '</div>';
+        
+        if (userEvents.length === 0) {
+          html += '<div style="text-align:center;color:var(--text-muted);padding:40px 20px">No hay eventos para este usuario</div>';
+        } else {
+          html += '<div class="calendar-events" style="display:flex;flex-direction:column;gap:8px">';
+          userEvents.forEach(ev => {
+            const eventDate = new Date(ev.date);
+            const isToday = new Date().toDateString() === eventDate.toDateString();
+            html += '<div class="calendar-event" style="' + (isToday ? 'background:var(--accent-light);border-left:4px solid var(--accent2)' : 'border-left:4px solid var(--border)') + ';padding:12px;border-radius:4px">' +
+                   '<div style="font-weight:600">' + ev.title + '</div>' +
+                   '<div style="font-size:12px;color:var(--text-muted)">' + ev.date + ' a las ' + ev.time + '</div>' +
+                   (ev.client ? '<div style="font-size:12px;color:var(--text-muted)">Cliente: ' + ev.client + '</div>' : '') +
+                   '</div>';
+          });
+          html += '</div>';
+        }
         
         container.innerHTML = html;
       }
@@ -7630,9 +7705,15 @@
         activeConvId = otherId;
         const other = USERS.find((u) => u.id === otherId);
         if (!other) return;
+        
+        // Marcar todos los mensajes como leídos
         convData(otherId).forEach((m) => {
           if (!m.mine) m.read = true;
         });
+        
+        // Guardar en localStorage para persistencia
+        saveMessagesToStorage();
+        
         updateBadge();
         buildMsgList(document.getElementById("msg-search-inp").value);
         document.getElementById("msg-empty-state").style.display = "none";
@@ -7640,41 +7721,11 @@
         chat.style.display = "flex";
         document.getElementById("chat-avatar").textContent = initials(other.name);
         document.getElementById("chat-name").textContent = other.name;
+        
         // Limpiar adjuntos pendientes al cambiar de conversación
         msgPendingAttachments = [];
         msgRenderChips();
         renderMsgs(otherId);
-
-        // Cargar historial del servidor (mensajes enviados mientras el usuario estaba offline)
-        if (currentUser) {
-          const convId = `${currentUser.name}_${other.name}`;
-          fetch(`/api/messages/${convId}`)
-            .then(r => r.ok ? r.json() : null)
-            .then(data => {
-              if (!data || !data.ok || !data.messages || !data.messages.length) return;
-              const localMsgs = convData(otherId);
-              const localIds = new Set(localMsgs.map(m => m.id).filter(Boolean));
-              let added = false;
-              data.messages.forEach(serverMsg => {
-                if (localIds.has(serverMsg.id)) return; // evitar duplicados
-                const isMine = serverMsg.sender_username === currentUser.name;
-                localMsgs.push({
-                  id: serverMsg.id,
-                  mine: isMine,
-                  text: serverMsg.text,
-                  time: serverMsg.timestamp ? serverMsg.timestamp.split('T')[1].slice(0,5) : '',
-                  read: isMine ? true : serverMsg.read
-                });
-                added = true;
-              });
-              if (added) {
-                localMsgs.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-                renderMsgs(otherId);
-                buildMsgList(document.getElementById("msg-search-inp").value);
-              }
-            })
-            .catch(() => {}); // silenciar errores de red
-        }
 
         // Mobile: slide animation
         if (isMobile()) {
@@ -7749,6 +7800,55 @@
         }
       }
 
+      // ════════════════════════════════════════════════════════════
+      // FUNCIONES DE ALMACENAMIENTO EN LOCALSTORAGE
+      // ════════════════════════════════════════════════════════════
+
+      /**
+       * Guardar todas las conversaciones en localStorage
+       */
+      function saveMessagesToStorage() {
+        try {
+          const data = JSON.stringify(CONVS);
+          localStorage.setItem('app_conversations', data);
+          console.log('✅ Conversaciones guardadas en localStorage');
+        } catch (err) {
+          console.warn('⚠️ No se pudo guardar en localStorage:', err);
+        }
+      }
+
+      /**
+       * Cargar conversaciones desde localStorage
+       */
+      function loadMessagesFromStorage() {
+        try {
+          const data = localStorage.getItem('app_conversations');
+          if (data) {
+            const loaded = JSON.parse(data);
+            Object.keys(loaded).forEach(key => {
+              CONVS[key] = loaded[key];
+            });
+            console.log('✅ Conversaciones cargadas desde localStorage');
+            return true;
+          }
+        } catch (err) {
+          console.warn('⚠️ No se pudo cargar desde localStorage:', err);
+        }
+        return false;
+      }
+
+      /**
+       * Limpiar todas las conversaciones (debug)
+       */
+      function clearMessagesStorage() {
+        try {
+          localStorage.removeItem('app_conversations');
+          console.log('✅ Almacenamiento de mensajes limpiado');
+        } catch (err) {
+          console.warn('⚠️ Error al limpiar storage:', err);
+        }
+      }
+
       function sendMsg() {
         if (activeConvId === null) return;
         const inp = document.getElementById("msg-input");
@@ -7784,7 +7884,10 @@
         renderMsgs(activeConvId);
         buildMsgList(document.getElementById("msg-search-inp").value);
         
-        // ✅ ENVIAR VÍA SOCKET.IO
+        // ✅ GUARDAR EN LOCALSTORAGE
+        saveMessagesToStorage();
+        
+        // ✅ INTENTAR ENVIAR VÍA SOCKET.IO (opcional)
         if (socket && socket.connected && currentUser) {
           const recipientUser = USERS.find(u => u.id === activeConvId);
           const recipientName = recipientUser ? recipientUser.name : String(activeConvId);
@@ -7798,7 +7901,7 @@
             attachments: attachments
           });
         } else {
-          console.warn('⚠️ Socket no conectado, mensaje solo guardado localmente');
+          console.log('✅ Mensaje guardado localmente (sin servidor)');
         }
       }
 
