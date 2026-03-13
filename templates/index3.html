@@ -4995,11 +4995,24 @@
           { nombre: 'Anna Fabregà', id: 5 },
         ];
         
-        container.innerHTML = usuarios.map(u => `
-          <div class="nav-subitem-user" onclick="showSection('calendar-user-${u.id}')" title="${u.nombre}">
-            👤 ${u.nombre.split(' ')[0]}...
+        // Construir HTML con "Mi calendario" primero, seguido de "Mataro"
+        let html = `
+          <div class="nav-subitem" onclick="showSection('my-calendar')" style="padding: 8px 12px; cursor: pointer;">
+            📅 Mi calendario
+          </div>
+          <div style="padding: 8px 12px; color: var(--text-muted); font-weight: 500; font-size: 12px;">
+            Mataro
+          </div>
+        `;
+        
+        // Agregar usuarios
+        html += usuarios.map(u => `
+          <div class="nav-subitem-user" onclick="showSection('my-calendar')" title="${u.nombre}" style="padding: 6px 12px; cursor: pointer; font-size: 13px;">
+            👤 ${u.nombre}
           </div>
         `).join('');
+        
+        container.innerHTML = html;
       }
 
       function showSection(name) {
