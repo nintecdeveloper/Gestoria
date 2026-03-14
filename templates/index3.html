@@ -3299,7 +3299,7 @@
                     <option value="all">Todos</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Agendar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null, 'laboral')">+ Agendar cita</button>
               </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
@@ -3340,7 +3340,7 @@
                     <option value="all">Todos</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Agendar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null, 'fiscal')">+ Agendar cita</button>
               </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
@@ -3381,7 +3381,7 @@
                     <option value="all">Todos</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null)">+ Agendar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null, 'mercantil')">+ Agendar cita</button>
               </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
@@ -4710,6 +4710,7 @@
       let editingClientId = null;
       let clientsSearchFilter = '';  // Filtro de búsqueda para clientes
       let pendingIsGlobal = false;
+      let currentEventFilterParam = null; // ✅ NUEVO: para pasar departamento a fillEmployeeSelect
       let currentDetailId = null;
       let gchatUnreadCount = 0;
 
@@ -5362,6 +5363,7 @@
       // ══════════════════════════════════════════════════
       const _calView = {
         'my': 'month', 'global': 'month', 'admin-view': 'month',
+        'mataro': 'month', 'vilassar': 'month', // ✅ NUEVO: para Mataró y Vilassar
         'dept-laboral': 'month', 'dept-fiscal': 'month', 'dept-mercantil': 'month'
       };
       const _calWeek = {}; // lunes de la semana activa por calId
@@ -5575,7 +5577,12 @@
 
         const titleEl = document.getElementById(calTitleMap[which] || 'global-cal-title');
         const calCellsEl = document.getElementById(calCellsMap[which] || 'global-cal-cells');
-        if (!calCellsEl) return;
+        
+        // ✅ Verificar que existen los elementos antes de continuar
+        if (!titleEl || !calCellsEl) {
+          console.warn(`⚠️ No se encontraron elementos del DOM para calendario ${which}`);
+          return;
+        }
 
         const colors = ["", "amber", "red"];
 
@@ -5953,15 +5960,18 @@
         ).join("");
       }
 
-      function fillEmployeeSelect(selectedId) {
+      function fillEmployeeSelect(selectedId, filterDept = null) {
         const grp = document.getElementById("ev-employee-group");
         const isAdmin = currentUser.role === "admin";
         // Admin siempre puede asignar técnico, tanto en citas propias como globales
         grp.style.display = isAdmin ? "" : "none";
         if (isAdmin) {
-          document.getElementById("ev-employee").innerHTML = USERS.filter(
-            (u) => u.active,
-          )
+          // ✅ FILTRAR POR DEPARTAMENTO si se proporciona
+          let usersToShow = USERS.filter(u => u.active);
+          if (filterDept) {
+            usersToShow = usersToShow.filter(u => u.departamento === filterDept);
+          }
+          document.getElementById("ev-employee").innerHTML = usersToShow
             .map(
               (u) =>
                 `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)}</option>`,
@@ -5970,9 +5980,12 @@
         }
       }
 
-      function openEventModal(isGlobal, dateStr) {
+      function openEventModal(isGlobal, dateStr, filterParam = null) {
         editingEvId = null;
         pendingIsGlobal = isGlobal;
+        // ✅ GUARDAR EL PARÁMETRO DE FILTRO (puede ser departamento o sede)
+        currentEventFilterParam = filterParam;
+        
         document.getElementById("event-modal-title").textContent = isGlobal
           ? "Agendar cita (Global)"
           : "Nueva cita";
@@ -6002,7 +6015,8 @@
         const pvChk = document.getElementById("ev-private");
         if (pvChk) pvChk.checked = false;
         fillServiceSelect();
-        fillEmployeeSelect(currentUser.id);
+        // ✅ PASAR EL PARÁMETRO DE FILTRO A fillEmployeeSelect
+        fillEmployeeSelect(currentUser.id, filterParam);
         
         // Limpiar recordatorios al abrir el modal para nueva cita
         _prReminders['ev'] = {};
@@ -8060,7 +8074,7 @@
           ? msgPendingAttachments.map(a => ({
               name: a.name,
               size: a.size,
-              dataUrl: a.dataUrl,
+              data: a.dataUrl,  // ✅ Guardar data en base64 para transmisión
               type: a.type
             }))
           : [];
@@ -8085,19 +8099,31 @@
         // ✅ GUARDAR EN LOCALSTORAGE
         saveMessagesToStorage();
         
-        // ✅ INTENTAR ENVIAR VÍA SOCKET.IO (opcional)
+        // ✅ INTENTAR ENVIAR VÍA SOCKET.IO CON ADJUNTOS
         if (socket && socket.connected && currentUser) {
           const recipientUser = USERS.find(u => u.id === activeConvId);
           const recipientName = recipientUser ? recipientUser.name : String(activeConvId);
-          console.log('📤 [Socket] Enviando mensaje privado a:', recipientName);
-          socket.emit('send_message', {
-            message: text,
-            sender_username: currentUser.name,
-            recipient_username: recipientName,
-            conv_id: `${currentUser.name}_${recipientName}`,
-            message_id: msgObj.id,
-            attachments: attachments
-          });
+          console.log('📤 [Socket] Enviando mensaje privado a:', recipientName, 'con', attachments.length, 'adjunto(s)');
+          
+          // ✅ USAR EVENTO ESPECIAL SI HAY ADJUNTOS
+          if (attachments.length > 0) {
+            socket.emit('send_message_with_attachment', {
+              message: text,
+              sender_username: currentUser.name,
+              recipient_username: recipientName,
+              conv_id: `${currentUser.name}_${recipientName}`,
+              message_id: msgObj.id,
+              attachments: attachments
+            });
+          } else {
+            socket.emit('send_message', {
+              message: text,
+              sender_username: currentUser.name,
+              recipient_username: recipientName,
+              conv_id: `${currentUser.name}_${recipientName}`,
+              message_id: msgObj.id
+            });
+          }
         } else {
           console.log('✅ Mensaje guardado localmente (sin servidor)');
         }

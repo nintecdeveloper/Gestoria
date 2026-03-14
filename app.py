@@ -63,10 +63,10 @@ META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/mes
 
 # Lista de usuarios (sin Sara)
 USUARIOS = [
-    {'id': 1, 'nombre': 'Antonio', 'departamento': 'admin', 'email': 'antonio@rodonverges.com', 'rol': 'admin'},
-    {'id': 2, 'nombre': 'Myriam', 'departamento': 'laboral', 'email': 'myriam@rodonverges.com', 'rol': 'user'},
-    {'id': 4, 'nombre': 'Montse Martín', 'departamento': 'laboral', 'email': 'montse@rodonverges.com', 'rol': 'user'},
-    {'id': 5, 'nombre': 'Anna Fabregà', 'departamento': 'fiscal', 'email': 'anna@rodonverges.com', 'rol': 'user'},
+    {'id': 1, 'nombre': 'Antonio', 'departamento': 'admin', 'email': 'antonio@rodonverges.com', 'rol': 'admin', 'sede': 'Mataró'},
+    {'id': 2, 'nombre': 'Myriam', 'departamento': 'laboral', 'email': 'myriam@rodonverges.com', 'rol': 'user', 'sede': 'Vilassar'},
+    {'id': 4, 'nombre': 'Montse Martín', 'departamento': 'laboral', 'email': 'montse@rodonverges.com', 'rol': 'user', 'sede': 'Mataró'},
+    {'id': 5, 'nombre': 'Anna Fabregà', 'departamento': 'fiscal', 'email': 'anna@rodonverges.com', 'rol': 'user', 'sede': 'Vilassar'},
 ]
 
 # Estructura de calendarios
@@ -660,6 +660,144 @@ def whatsapp_status():
         'fully_ready':     meta_ok and scheduler_ok,
         'reason':          ' · '.join(reasons) if reasons else 'Todo configurado correctamente'
     })
+
+# ═══════════════════════════════════════════════════════════════
+# API ADJUNTOS EN MENSAJERÍA
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/messages/attachment/<msg_id>/<filename>', methods=['GET'])
+def get_message_attachment(msg_id, filename):
+    """
+    Descargar un archivo adjunto de un mensaje.
+    Los archivos se almacenan en base64 en el servidor.
+    """
+    try:
+        # Buscar el mensaje en el almacenamiento
+        for conv_id, messages in message_storage.items():
+            for msg in messages:
+                if msg.get('id') == msg_id and msg.get('attachments'):
+                    for att in msg['attachments']:
+                        if att.get('name') == filename:
+                            # El archivo está almacenado como base64
+                            file_data = att.get('data', '')
+                            if file_data.startswith('data:'):
+                                # Extraer la parte base64
+                                file_data = file_data.split(',')[1]
+                            
+                            import base64
+                            binary_data = base64.b64decode(file_data)
+                            
+                            from flask import send_file
+                            from io import BytesIO
+                            return send_file(
+                                BytesIO(binary_data),
+                                download_name=filename,
+                                as_attachment=True
+                            )
+        
+        logger.warning(f"⚠️ Archivo no encontrado: {msg_id}/{filename}")
+        return jsonify({'ok': False, 'error': 'Archivo no encontrado'}), 404
+    except Exception as e:
+        logger.error(f"❌ Error al descargar adjunto: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@socketio.on('send_message_with_attachment')
+def handle_message_with_attachment(data):
+    """Recibe un mensaje con adjunto y lo retransmite"""
+    sender_id = request.sid
+    sender_username = data.get('sender_username', 'Usuario')
+    recipient_username = data.get('recipient_username', '')
+    message_text = data.get('message', '')
+    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
+    conv_id = data.get('conv_id', f'{sender_username}_{recipient_username}')
+    attachments = data.get('attachments', [])
+    
+    if not message_text.strip() and not attachments:
+        logger.warning(f"⚠️ [Chat] Mensaje vacío de {sender_username}")
+        return
+    
+    # Crear objeto de mensaje
+    message_obj = {
+        'id': message_id,
+        'sender_id': sender_id,
+        'sender_username': sender_username,
+        'recipient_username': recipient_username,
+        'text': message_text,
+        'timestamp': datetime.now().isoformat(),
+        'read': False,
+        'attachments': attachments  # ← AGREGAR ADJUNTOS
+    }
+    
+    # ALMACENAR MENSAJE EN SERVIDOR
+    if conv_id not in message_storage:
+        message_storage[conv_id] = []
+    message_storage[conv_id].append(message_obj)
+    
+    logger.info(f"💬 [Chat Privado] {sender_username} → {recipient_username}: {len(attachments)} archivo(s)")
+    
+    # BUSCAR EL SID DEL RECEPTOR POR USERNAME
+    recipient_sid = username_to_sid.get(recipient_username)
+    
+    if recipient_sid and recipient_sid in connected_users:
+        # ENVIAR MENSAJE AL DESTINATARIO
+        socketio.emit('receive_message', message_obj, room=recipient_sid)
+        logger.info(f"✅ [Mensaje Entregado] A {recipient_username} (SID: {recipient_sid})")
+        
+        # ENVIAR NOTIFICACIÓN AL DESTINATARIO
+        socketio.emit('message_notification', {
+            'from': sender_username,
+            'message': attachments.length > 0 ? "📎 Archivo adjunto" : (message_text[:50] + '...' if len(message_text) > 50 else message_text),
+            'timestamp': datetime.now().isoformat()
+        }, room=recipient_sid)
+    else:
+        logger.warning(f"⚠️ [Mensaje No Entregado] {recipient_username} no conectado")
+    
+    # CONFIRMAR AL REMITENTE
+    socketio.emit('message_sent', {
+        'message_id': message_id,
+        'status': 'sent',
+        'timestamp': datetime.now().isoformat()
+    }, room=sender_id)
+
+
+# ═══════════════════════════════════════════════════════════════
+# API CHATS AUTOMÁTICOS POR SEDE
+# ═══════════════════════════════════════════════════════════════
+
+def create_seat_chats(user_id, user_name, user_sede):
+    """
+    Crea automáticamente los chats de sede cuando se añade un usuario.
+    - Chat de sede (todos los usuarios de la sede + admins)
+    - Chats individuales con otros usuarios de la misma sede
+    """
+    try:
+        logger.info(f"📱 [Chats Sede] Creando chats para {user_name} en {user_sede}")
+        
+        # Crear chat de sede si no existe
+        seat_chat_id = f"seat_{user_sede.lower()}"
+        if seat_chat_id not in message_storage:
+            message_storage[seat_chat_id] = []
+            logger.info(f"✅ [Chat Sede] Creado: {seat_chat_id}")
+        
+        # Crear chats individuales con otros usuarios de la misma sede
+        same_sede_users = [u for u in USUARIOS if u.get('sede') == user_sede or u['departamento'] == 'admin']
+        
+        for other_user in same_sede_users:
+            if other_user['id'] != user_id:
+                conv_id = f"{user_name}_{other_user['nombre']}"
+                if conv_id not in message_storage:
+                    message_storage[conv_id] = []
+                    logger.info(f"✅ [Chat Individual] Creado: {conv_id}")
+                    
+                # También crear en orden inverso
+                conv_id_inv = f"{other_user['nombre']}_{user_name}"
+                if conv_id_inv not in message_storage:
+                    message_storage[conv_id_inv] = []
+        
+    except Exception as e:
+        logger.error(f"❌ Error al crear chats de sede: {str(e)}")
+
 
 # ═══════════════════════════════════════════════════════════════
 # WEBHOOK PARA RECIBIR MENSAJES DE META (Opcional)
