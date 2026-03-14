@@ -747,7 +747,7 @@ def handle_message_with_attachment(data):
         # ENVIAR NOTIFICACIÓN AL DESTINATARIO
         socketio.emit('message_notification', {
             'from': sender_username,
-            'message': attachments.length > 0 ? "📎 Archivo adjunto" : (message_text[:50] + '...' if len(message_text) > 50 else message_text),
+            'message': "📎 Archivo adjunto" if len(attachments) > 0 else (message_text[:50] + '...' if len(message_text) > 50 else message_text),
             'timestamp': datetime.now().isoformat()
         }, room=recipient_sid)
     else:
