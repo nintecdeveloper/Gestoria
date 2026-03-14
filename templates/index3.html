@@ -2848,8 +2848,17 @@
             <label>Contraseña</label>
             <div style="position: relative;">
               <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" style="padding-right: 40px;" />
-              <button type="button" id="login-pass-toggle" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; padding: 0; font-size: 18px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar contraseña">
-                ◯
+              <button type="button" id="login-pass-toggle" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; padding: 0; font-size: 16px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; transition: color 0.2s;" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar contraseña">
+                <!-- SVG Heroicons: Eye Closed (oculto) -->
+                <svg id="eye-closed-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;display:block">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <!-- SVG Heroicons: Eye Open (visible) - oculto por defecto -->
+                <svg id="eye-open-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;display:none">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
               </button>
             </div>
           </div>
@@ -4332,6 +4341,18 @@
           sede: "Mataró",
         },
         {
+          id: 3,
+          username: "pau",
+          password: "pau123",
+          name: "Pau",
+          role: "admin",
+          email: "pau@rodonverges.com",
+          phone: "+34 93 000 00 03",
+          active: true,
+          color: "orange",
+          sede: "Vilassar",
+        },
+        {
           id: 2,
           username: "myriam",
           password: "myriam123",
@@ -5122,13 +5143,16 @@
       // NUEVO: Toggle para mostrar/ocultar contraseña
       function togglePasswordVisibility() {
         const passInput = document.getElementById("login-pass");
-        const toggleBtn = document.getElementById("login-pass-toggle");
+        const eyeClosedIcon = document.getElementById("eye-closed-icon");
+        const eyeOpenIcon = document.getElementById("eye-open-icon");
         if (passInput.type === "password") {
           passInput.type = "text";
-          toggleBtn.textContent = "◉"; // Lleno = contraseña visible
+          eyeClosedIcon.style.display = "none";  // Ocultar ojo cerrado
+          eyeOpenIcon.style.display = "block";   // Mostrar ojo abierto
         } else {
           passInput.type = "password";
-          toggleBtn.textContent = "◯"; // Vacío = contraseña oculta
+          eyeClosedIcon.style.display = "block"; // Mostrar ojo cerrado
+          eyeOpenIcon.style.display = "none";    // Ocultar ojo abierto
         }
       }
 
@@ -6208,26 +6232,23 @@
         // Admin siempre puede asignar técnico, tanto en citas propias como globales
         grp.style.display = isAdmin ? "" : "none";
         if (isAdmin) {
-          // ✅ CORRECCIÓN 4: Asegurar filtrado correcto por departamento
-          // ✅ NUEVO: Excluir admins de la lista de empleados asignables
+          // ✅ FILTRADO MEJORADO: Departamento + Sede
+          // Los admins SOLO pueden asignar empleados de su misma sede
           let usersToShow = USERS.filter(u => u.active && u.role !== "admin");
           
           const SEDE_LIST = ['Mataró', 'Vilassar'];
           const DEPT_LIST = ['laboral', 'fiscal', 'mercantil'];
           
-          // Si se llama desde calendario departamental, SOLO mostrar usuarios de ese depto
+          // CAMBIO 2A: Admin SOLO puede asignar a empleados de su misma sede
+          usersToShow = usersToShow.filter(u => u.sede === currentUser.sede);
+          
+          // Si se llama desde calendario departamental, FILTRAR POR DEPTO TAMBIEN
           if (filterDept && DEPT_LIST.includes(filterDept)) {
-            // ✅ Filtrar ESTRICTAMENTE por departamento solicitado (y excluir admins)
-            usersToShow = usersToShow.filter(u => u.departamento === filterDept && u.role !== "admin");
-            // NO hacer excepciones de sede aquí - se requiere que sea del depto
+            // ✅ Filtrar por departamento solicitado (y sede del admin)
+            usersToShow = usersToShow.filter(u => u.departamento === filterDept);
           } else if (filterDept && SEDE_LIST.includes(filterDept)) {
-            // Si es una sede, filtrar por eso (y excluir admins)
-            usersToShow = usersToShow.filter(u => u.sede === filterDept && u.role !== "admin");
-          } else {
-            // Sin filtro específico (calendario global), si admin tiene sede, respetar eso
-            if (currentUser.sede) {
-              usersToShow = usersToShow.filter(u => u.sede === currentUser.sede && u.role !== "admin");
-            }
+            // Si es una sede, ya está filtrada arriba
+            usersToShow = usersToShow.filter(u => u.sede === filterDept);
           }
           
           document.getElementById("ev-employee").innerHTML = usersToShow
@@ -7326,35 +7347,65 @@
       // ══════════════════════════════════════════
 
       function renderUsers() {
-        document.getElementById("user-count").textContent =
-          USERS.filter((u) => u.active).length + " usuarios activos";
-        document.getElementById("users-table-body").innerHTML = USERS.map(
-          (u) => {
+        const activeCount = USERS.filter((u) => u.active).length;
+        document.getElementById("user-count").textContent = `${activeCount} usuarios activos`;
+        
+        // ✅ CAMBIO 4: Agrupar usuarios por sede
+        const usersBysede = {
+          'Mataró': [],
+          'Vilassar': [],
+          'Sin sede': []
+        };
+        
+        // Agrupar usuarios
+        USERS.forEach(u => {
+          if (u.sede === 'Mataró') usersBysede['Mataró'].push(u);
+          else if (u.sede === 'Vilassar') usersBysede['Vilassar'].push(u);
+          else usersBysede['Sin sede'].push(u);
+        });
+        
+        // Crear HTML agrupado por sede
+        let htmlContent = '';
+        
+        ['Mataró', 'Vilassar', 'Sin sede'].forEach(sede => {
+          const users = usersBysede[sede];
+          if (users.length === 0) return; // No mostrar sedes vacías
+          
+          // Encabezado de sede
+          htmlContent += `<tr style="background-color:var(--bg2);height:36px;border-bottom:2px solid var(--border)">
+            <td colspan="8" style="padding:8px 14px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">
+              📍 ${sede}
+            </td>
+          </tr>`;
+          
+          // Usuarios de la sede
+          users.forEach(u => {
             const deptTag = u.role !== "admin" && u.departamento
               ? `<span class="tag tag-dept-${u.departamento}" style="text-transform:capitalize">${u.departamento}</span>`
               : `<span class="tag tag-dept-none">—</span>`;
-            // NUEVO: Mostrar sede
             const sedeTag = u.sede 
               ? `<span class="tag" style="background-color:#e8f4f8;color:#0066cc;border:1px solid #99ccff">${u.sede}</span>`
               : `<span class="tag tag-dept-none">—</span>`;
-            return `
-    <tr>
-      <td><div class="user-cell"><div class="mini-avatar">${initials(u.name)}</div><div><div style="font-weight:500">${safeHtml(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">@${safeHtml(u.username)}</div></div></div></td>
-      <td><span class="tag ${u.role === "admin" ? "tag-blue" : "tag-green"}">${u.role === "admin" ? "Admin" : "Empleado"}</span></td>
-      <td>${deptTag}</td>
-      <td>${sedeTag}</td>
-      <td style="color:var(--text-muted)">${safeHtml(u.email || "—")}</td>
-      <td style="color:var(--text-muted)">${safeHtml(u.phone || "—")}</td>
-      <td><span class="tag ${u.active ? "tag-green" : "tag-gray"}">${u.active ? "Activo" : "Inactivo"}</span></td>
-      <td>
-        <div class="action-btns">
-          <button class="btn-icon" title="Editar" onclick="editUser(${u.id})">Editar</button>
-          <button class="btn-icon red" title="${u.active ? "Desactivar" : "Activar"}" onclick="toggleUser(${u.id})">${u.active ? "Desactivar" : "Activar"}</button>
-        </div>
-      </td>
-    </tr>`;
-          }
-        ).join("");
+            
+            htmlContent += `<tr>
+              <td><div class="user-cell"><div class="mini-avatar">${initials(u.name)}</div><div><div style="font-weight:500">${safeHtml(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">@${safeHtml(u.username)}</div></div></div></td>
+              <td><span class="tag ${u.role === "admin" ? "tag-blue" : "tag-green"}">${u.role === "admin" ? "Admin" : "Empleado"}</span></td>
+              <td>${deptTag}</td>
+              <td>${sedeTag}</td>
+              <td style="color:var(--text-muted)">${safeHtml(u.email || "—")}</td>
+              <td style="color:var(--text-muted)">${safeHtml(u.phone || "—")}</td>
+              <td><span class="tag ${u.active ? "tag-green" : "tag-gray"}">${u.active ? "Activo" : "Inactivo"}</span></td>
+              <td>
+                <div class="action-btns">
+                  <button class="btn-icon" title="Editar" onclick="editUser(${u.id})">Editar</button>
+                  <button class="btn-icon red" title="${u.active ? "Desactivar" : "Activar"}" onclick="toggleUser(${u.id})">${u.active ? "Desactivar" : "Activar"}</button>
+                </div>
+              </td>
+            </tr>`;
+          });
+        });
+        
+        document.getElementById("users-table-body").innerHTML = htmlContent;
       }
 
       function openUserModal() {
