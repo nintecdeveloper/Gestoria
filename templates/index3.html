@@ -2841,12 +2841,17 @@
 
           <div class="form-group">
             <label>Nombre de usuario</label>
-            <input type="text" id="login-user" placeholder="antonio / myriam / sara" autocomplete="username" />
+            <input type="text" id="login-user" placeholder="Escriba su nombre de usuario" autocomplete="username" />
           </div>
 
           <div class="form-group">
             <label>Contraseña</label>
-            <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" />
+            <div style="position: relative;">
+              <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" style="padding-right: 40px;" />
+              <button type="button" id="login-pass-toggle" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; padding: 0; font-size: 18px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;" onclick="togglePasswordVisibility()">
+                👁️
+              </button>
+            </div>
           </div>
 
           <div class="login-error" id="login-error">
@@ -2856,13 +2861,6 @@
           <button class="btn btn-primary btn-full" style="margin-top:10px" onclick="doLogin()">
             Iniciar sesión &rarr;
           </button>
-
-          <div class="login-hint">
-            <strong>Credenciales:</strong><br />
-            Admin &rarr; <strong>antonio</strong> / <strong>admin123</strong><br />
-            Myriam &rarr; <strong>myriam</strong> / <strong>myriam123</strong><br />
-            Sara &rarr; <strong>sara</strong> / <strong>sara123</strong>
-          </div>
         </div>
 
       </div>
@@ -2892,12 +2890,19 @@
           <div class="nav-submenu expanded" id="calendars-submenu">
             <div style="padding: 6px 24px 12px 44px; color: rgba(255,255,255,0.4); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Mataro</div>
             <!-- Mi Calendario -->
-            <div class="nav-subitem" onclick="showSection('my-calendar')">
+            <div class="nav-subitem" onclick="viewMyOwnCalendar()">
               📌 Mi Calendario
             </div>
             <!-- Calendario Global (Admin) -->
             <div class="nav-subitem admin-only" onclick="showSection('global-calendar')">
               ➕ Calendario Global
+            </div>
+            <!-- NUEVO: Calendarios por Sede -->
+            <div class="nav-subitem admin-only" onclick="showSection('mataro-calendar')">
+              📍 Calendario Mataró
+            </div>
+            <div class="nav-subitem admin-only" onclick="showSection('vilassar-calendar')">
+              📍 Calendario Vilassar
             </div>
             <!-- Cal. Administradores -->
             <div class="nav-subitem" id="nav-admin-view-calendar" onclick="showSection('admin-view-calendar')">
@@ -3011,7 +3016,7 @@
                   <div class="card-title">Próximas citas</div>
                   <button
                     class="btn btn-sm btn-outline"
-                    onclick="showSection('my-calendar')"
+                    onclick="viewMyOwnCalendar()"
                   >
                     Ver calendario
                   </button>
@@ -3115,6 +3120,94 @@
               </div>
             </div>
             <div class="appt-list" id="global-appt-list"></div>
+          </div>
+
+          <!-- NUEVO: CALENDARIO GLOBAL MATARÓ -->
+          <div class="section" id="section-mataro-calendar" style="display:none">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Calendario Mataró</h2>
+                <p>Citas del equipo de Mataró</p>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar por:</label>
+                  <select id="mataro-filter-person" onchange="renderCalendar('mataro')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Todos</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openEventModal(true, null, 'mataro')">+ Agendar cita</button>
+              </div>
+            </div>
+            <div class="calendar-wrapper">
+              <div class="cal-header">
+                <button class="cal-nav" onclick="calNav(-1,'mataro')">&lsaquo;</button>
+                <div class="cal-title" id="mataro-cal-title"></div>
+                <button class="cal-nav" onclick="calNav(1,'mataro')">&rsaquo;</button>
+                <div class="cal-view-toggle">
+                  <button class="cal-view-btn active" id="mataro-btn-month" onclick="setCalView('mataro','month')">Mes</button>
+                  <button class="cal-view-btn" id="mataro-btn-week" onclick="setCalView('mataro','week')">Semana</button>
+                  <button class="cal-view-btn" id="mataro-btn-day" onclick="setCalView('mataro','day')">Día</button>
+                </div>
+              </div>
+              <div class="cal-grid">
+                <div class="cal-days-header">
+                  <div class="cal-day-name">Lun</div>
+                  <div class="cal-day-name">Mar</div>
+                  <div class="cal-day-name">Mié</div>
+                  <div class="cal-day-name">Jue</div>
+                  <div class="cal-day-name">Vie</div>
+                  <div class="cal-day-name">Sáb</div>
+                  <div class="cal-day-name">Dom</div>
+                </div>
+                <div class="cal-cells" id="mataro-cal-cells"></div>
+              </div>
+            </div>
+            <div class="appt-list" id="mataro-appt-list"></div>
+          </div>
+
+          <!-- NUEVO: CALENDARIO GLOBAL VILASSAR -->
+          <div class="section" id="section-vilassar-calendar" style="display:none">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Calendario Vilassar</h2>
+                <p>Citas del equipo de Vilassar</p>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar por:</label>
+                  <select id="vilassar-filter-person" onchange="renderCalendar('vilassar')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Todos</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openEventModal(true, null, 'vilassar')">+ Agendar cita</button>
+              </div>
+            </div>
+            <div class="calendar-wrapper">
+              <div class="cal-header">
+                <button class="cal-nav" onclick="calNav(-1,'vilassar')">&lsaquo;</button>
+                <div class="cal-title" id="vilassar-cal-title"></div>
+                <button class="cal-nav" onclick="calNav(1,'vilassar')">&rsaquo;</button>
+                <div class="cal-view-toggle">
+                  <button class="cal-view-btn active" id="vilassar-btn-month" onclick="setCalView('vilassar','month')">Mes</button>
+                  <button class="cal-view-btn" id="vilassar-btn-week" onclick="setCalView('vilassar','week')">Semana</button>
+                  <button class="cal-view-btn" id="vilassar-btn-day" onclick="setCalView('vilassar','day')">Día</button>
+                </div>
+              </div>
+              <div class="cal-grid">
+                <div class="cal-days-header">
+                  <div class="cal-day-name">Lun</div>
+                  <div class="cal-day-name">Mar</div>
+                  <div class="cal-day-name">Mié</div>
+                  <div class="cal-day-name">Jue</div>
+                  <div class="cal-day-name">Vie</div>
+                  <div class="cal-day-name">Sáb</div>
+                  <div class="cal-day-name">Dom</div>
+                </div>
+                <div class="cal-cells" id="vilassar-cal-cells"></div>
+              </div>
+            </div>
+            <div class="appt-list" id="vilassar-appt-list"></div>
           </div>
 
           <!-- ══════════════════════════════════════════════════
@@ -3318,7 +3411,7 @@
 
             <!-- Accesos rápidos a calendarios -->
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:28px">
-              <div class="card" style="cursor:pointer" onclick="showSection('my-calendar')">
+              <div class="card" style="cursor:pointer" onclick="viewMyOwnCalendar()">
                 <div class="card-body" style="display:flex;align-items:center;gap:12px">
                   <div style="width:38px;height:38px;border-radius:8px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📅</div>
                   <div><div style="font-weight:600;font-size:14px">Mi Calendario</div><div style="font-size:12px;color:var(--text-muted)">Personal</div></div>
@@ -3854,6 +3947,14 @@
             <option value="mercantil">Mercantil</option>
           </select>
         </div>
+        <!-- NUEVO: Selector de Sede -->
+        <div class="form-group">
+          <label>Sede *</label>
+          <select id="nu-sede">
+            <option value="Mataró">Mataró</option>
+            <option value="Vilassar">Vilassar</option>
+          </select>
+        </div>
         <!-- NUEVO: selector de color de usuario -->
         <div class="form-group">
           <label>Color en calendarios</label>
@@ -4195,6 +4296,7 @@
           phone: "+34 93 000 00 01",
           active: true,
           color: "teal",
+          sede: "Mataró",
         },
         {
           id: 2,
@@ -4207,6 +4309,7 @@
           active: true,
           departamento: "laboral",
           color: "blue",
+          sede: "Mataró",
         },
         {
           id: 4,
@@ -4219,6 +4322,7 @@
           active: true,
           departamento: "laboral",
           color: "pink",
+          sede: "Mataró",
         },
         {
           id: 5,
@@ -4231,6 +4335,7 @@
           active: true,
           departamento: "fiscal",
           color: "purple",
+          sede: "Mataró",
         },
       ];
 
@@ -4588,6 +4693,7 @@
       let currentUser = null;
       let myCalMonth = new Date();
       let globalCalMonth = new Date();
+      let viewingUserIdForCalendar = null; // ✅ NUEVO: Para "Calendarios Personales"
       let activeConvId = null;
       let editingEvId = null;
       let editingUserId = null;
@@ -4809,6 +4915,18 @@
       // ══════════════════════════════════════════
       //  AUTH
       // ══════════════════════════════════════════
+      // NUEVO: Toggle para mostrar/ocultar contraseña
+      function togglePasswordVisibility() {
+        const passInput = document.getElementById("login-pass");
+        const toggleBtn = document.getElementById("login-pass-toggle");
+        if (passInput.type === "password") {
+          passInput.type = "text";
+          toggleBtn.textContent = "🙈";
+        } else {
+          passInput.type = "password";
+          toggleBtn.textContent = "👁️";
+        }
+      }
 
       function doLogin() {
         const u = document.getElementById("login-user").value.trim();
@@ -4865,6 +4983,12 @@
 
       function initApp() {
         const isAdmin = currentUser.role === "admin";
+        
+        // ✅ NUEVO: Limpiar el calendario personal cuando se inicia sesión
+        viewingUserIdForCalendar = null;
+        selectedCalendarUserId = null;
+        selectedCalendarUserName = null;
+        
         document.getElementById("sidebar-avatar").textContent = initials(
           currentUser.name,
         );
@@ -4982,7 +5106,7 @@
           { nombre: 'Anna Fabregà', id: 5 },
         ];
         
-        // Agregar solo los usuarios (sin "Mataro" que ahora está en otro lugar)
+        // ✅ Cada usuario tiene onclick que llama openUserCalendar
         let html = usuarios.map(u => {
           return '<div class="nav-subitem-user" onclick="openUserCalendar(' + u.id + ', \'' + u.nombre + '\')" title="' + u.nombre + '">👤 ' + u.nombre + '</div>';
         }).join('');
@@ -4990,70 +5114,24 @@
         container.innerHTML = html;
       }
 
-      // Nueva función para abrir calendario de un usuario específico
+      // ✅ NUEVA FUNCIÓN: Abre el calendario de un usuario específico
       function openUserCalendar(userId, userName) {
+        console.log('📅 Abriendo calendario de:', userName, '(ID:', userId, ')');
         selectedCalendarUserId = userId;
         selectedCalendarUserName = userName;
-        showUserCalendarSection();
+        viewingUserIdForCalendar = userId; // ✅ Esto es lo importante
+        
+        // Mostrar la sección de calendario
+        showSection('my-calendar');
       }
 
-      // Nueva función para mostrar la sección de calendario del usuario
-      function showUserCalendarSection() {
-        if (window.innerWidth <= 768) {
-          document.querySelector(".sidebar").classList.remove("open");
-          document.getElementById("sidebar-overlay").classList.remove("active");
-        }
-        document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
-        document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"));
-        
-        const el = document.getElementById("section-my-calendar");
-        if (el) el.classList.add("active");
-        
-        // Actualizar título con el nombre del usuario seleccionado
-        let titleText = selectedCalendarUserName ? "Calendario de " + selectedCalendarUserName : "Mi Calendario";
-        document.getElementById("topbar-title").textContent = titleText;
-        
-        renderUserCalendar();
-      }
-
-      // Nueva función para renderizar el calendario del usuario seleccionado
-      function renderUserCalendar() {
-        const userId = selectedCalendarUserId || currentUser.id;
-        const userName = selectedCalendarUserName || currentUser.name;
-        
-        // Obtener eventos del usuario seleccionado
-        const userEvents = EVENTS.filter(ev => ev.assignedTo === userId);
-        
-        // Renderizar calendario con los eventos del usuario seleccionado
-        const container = document.getElementById('my-calendar-grid');
-        if (!container) return;
-        
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth();
-        
-        let html = '<div class="calendar-header">' + 
-                   '<h2>' + userName + '</h2>' +
-                   '<p style="color:var(--text-muted);font-size:12px">Eventos del ' + new Date(year, month).toLocaleDateString('es-ES', {month:'long', year:'numeric'}) + '</p>' +
-                   '</div>';
-        
-        if (userEvents.length === 0) {
-          html += '<div style="text-align:center;color:var(--text-muted);padding:40px 20px">No hay eventos para este usuario</div>';
-        } else {
-          html += '<div class="calendar-events" style="display:flex;flex-direction:column;gap:8px">';
-          userEvents.forEach(ev => {
-            const eventDate = new Date(ev.date);
-            const isToday = new Date().toDateString() === eventDate.toDateString();
-            html += '<div class="calendar-event" style="' + (isToday ? 'background:var(--accent-light);border-left:4px solid var(--accent2)' : 'border-left:4px solid var(--border)') + ';padding:12px;border-radius:4px">' +
-                   '<div style="font-weight:600">' + ev.title + '</div>' +
-                   '<div style="font-size:12px;color:var(--text-muted)">' + ev.date + ' a las ' + ev.time + '</div>' +
-                   (ev.client ? '<div style="font-size:12px;color:var(--text-muted)">Cliente: ' + ev.client + '</div>' : '') +
-                   '</div>';
-          });
-          html += '</div>';
-        }
-        
-        container.innerHTML = html;
+      // ✅ NUEVA FUNCIÓN: Ver mi propio calendario (limpiar selección de usuario)
+      function viewMyOwnCalendar() {
+        console.log('📅 Viendo mi propio calendario');
+        viewingUserIdForCalendar = null;
+        selectedCalendarUserId = null;
+        selectedCalendarUserName = null;
+        showSection('my-calendar');
       }
 
       function showSection(name) {
@@ -5078,6 +5156,10 @@
           const adminUser = getAdminUser();
           if (adminUser) titleText = "Calendario de " + adminUser.name.split(' ')[0];
         }
+        // ✅ NUEVO: Actualizar título si estamos viendo un calendario personal
+        if (name === "my-calendar" && viewingUserIdForCalendar !== null && selectedCalendarUserName) {
+          titleText = "Calendario de " + selectedCalendarUserName;
+        }
         document.getElementById("topbar-title").textContent = titleText;
 
         if (name === "dashboard") renderDashboard();
@@ -5085,6 +5167,15 @@
         if (name === "global-calendar") {
           if (currentUser.role !== "admin") { showSection("my-calendar"); return; }
           populateGlobalFilter(); renderCalendar("global");
+        }
+        // NUEVO: Calendarios por sede (solo admin)
+        if (name === "mataro-calendar") {
+          if (currentUser.role !== "admin") { showSection("my-calendar"); return; }
+          populateMataroFilter(); renderCalendar("mataro");
+        }
+        if (name === "vilassar-calendar") {
+          if (currentUser.role !== "admin") { showSection("my-calendar"); return; }
+          populateVilassarFilter(); renderCalendar("vilassar");
         }
         // NUEVO: renderizar calendario del admin
         if (name === "admin-view-calendar") renderAdminViewCalendar();
@@ -5439,6 +5530,7 @@
       function renderCalendar(which) {
         const isMy = which === "my";
         const calId = which;
+        // NUEVO: Para Mataró y Vilassar usar globalCalMonth
         const date = isMy ? myCalMonth : globalCalMonth;
         const isAdmin = currentUser.role === "admin";
         const viewMode = _calView[calId] || 'month';
@@ -5448,17 +5540,51 @@
           return;
         }
 
-        const titleEl = document.getElementById(isMy ? "my-cal-title" : "global-cal-title");
-        const calCellsEl = document.getElementById(isMy ? "my-cal-cells" : "global-cal-cells");
+        // NUEVO: Mapear which a los IDs de elementos HTML correctos
+        const calTitleMap = {
+          'my': 'my-cal-title',
+          'global': 'global-cal-title',
+          'mataro': 'mataro-cal-title',
+          'vilassar': 'vilassar-cal-title'
+        };
+        const calCellsMap = {
+          'my': 'my-cal-cells',
+          'global': 'global-cal-cells',
+          'mataro': 'mataro-cal-cells',
+          'vilassar': 'vilassar-cal-cells'
+        };
+
+        const titleEl = document.getElementById(calTitleMap[which] || 'global-cal-title');
+        const calCellsEl = document.getElementById(calCellsMap[which] || 'global-cal-cells');
         if (!calCellsEl) return;
 
         const colors = ["", "amber", "red"];
 
+        // NUEVO: Función para obtener sede basada en which
+        const getSedeFilter = () => {
+          if (which === 'mataro') return 'Mataró';
+          if (which === 'vilassar') return 'Vilassar';
+          return null;
+        };
+
         // Filtrar eventos según who
         const filterEvs = (evs) => {
-          if (isMy) return evs.filter(e => e.assignedTo === currentUser.id);
+          if (isMy) {
+            // ✅ Si estamos viendo un usuario específico, filtrar por él
+            const userIdToFilter = viewingUserIdForCalendar !== null ? viewingUserIdForCalendar : currentUser.id;
+            return evs.filter(e => e.assignedTo === userIdToFilter);
+          }
           if (!isAdmin) evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
-          const filterSel = document.getElementById("global-filter-person");
+          
+          // NUEVO: Filtrar por sede si es necesario
+          const sedeFilter = getSedeFilter();
+          if (sedeFilter) {
+            const sedeUserIds = USERS.filter(u => u.active && u.sede === sedeFilter).map(u => u.id);
+            evs = evs.filter(e => sedeUserIds.includes(e.assignedTo));
+          }
+
+          // Filtrar por usuario seleccionado
+          const filterSel = document.getElementById(which + "-filter-person");
           if (filterSel && filterSel.value && filterSel.value !== "all") {
             const filterId = parseInt(filterSel.value);
             evs = evs.filter(e => e.assignedTo === filterId);
@@ -6052,14 +6178,42 @@
           ).join('');
       }
 
+      // NUEVO: Llenar filtro de calendario Mataró
+      function populateMataroFilter() {
+        const sel = document.getElementById("mataro-filter-person");
+        if (!sel) return;
+        const current = sel.value;
+        const mataroUsers = USERS.filter(u => u.active && u.sede === "Mataró");
+        sel.innerHTML = '<option value="all">Todos</option>' +
+          mataroUsers.map(u =>
+            `<option value="${u.id}"${String(u.id) === current ? ' selected' : ''}>${safeHtml(u.name)}</option>`
+          ).join('');
+      }
+
+      // NUEVO: Llenar filtro de calendario Vilassar
+      function populateVilassarFilter() {
+        const sel = document.getElementById("vilassar-filter-person");
+        if (!sel) return;
+        const current = sel.value;
+        const vilassarUsers = USERS.filter(u => u.active && u.sede === "Vilassar");
+        sel.innerHTML = '<option value="all">Todos</option>' +
+          vilassarUsers.map(u =>
+            `<option value="${u.id}"${String(u.id) === current ? ' selected' : ''}>${safeHtml(u.name)}</option>`
+          ).join('');
+      }
+
       function refreshCals() {
         try {
           const myCalSection = document.getElementById("section-my-calendar");
           const globalCalSection = document.getElementById("section-global-calendar");
-          // NUEVO: también refrescar la sección del calendario del admin
+          // NUEVO: también refrescar las secciones de sedes
+          const mataroCalSection = document.getElementById("section-mataro-calendar");
+          const vilassarCalSection = document.getElementById("section-vilassar-calendar");
           const adminViewSection = document.getElementById("section-admin-view-calendar");
           if (myCalSection && myCalSection.classList.contains("active")) renderCalendar("my");
           if (globalCalSection && globalCalSection.classList.contains("active")) renderCalendar("global");
+          if (mataroCalSection && mataroCalSection.classList.contains("active")) renderCalendar("mataro");
+          if (vilassarCalSection && vilassarCalSection.classList.contains("active")) renderCalendar("vilassar");
           if (adminViewSection && adminViewSection.classList.contains("active")) renderAdminViewCalendar();
           DEPARTAMENTOS.forEach(dept => {
             const sec = document.getElementById("section-cal-" + dept);
@@ -6885,6 +7039,7 @@
         const phone = document.getElementById("nu-phone").value.trim();
         const role = document.getElementById("nu-role").value;
         const dept = role !== "admin" ? document.getElementById("nu-dept").value : null;
+        const sede = document.getElementById("nu-sede").value; // NUEVO: capturar sede
         const color = document.getElementById("nu-color")?.value || "teal";
         const errEl = document.getElementById("nu-err");
 
@@ -6900,6 +7055,12 @@
         }
         if (role !== "admin" && !dept) {
           errEl.textContent = "El departamento es obligatorio para empleados.";
+          errEl.style.display = "";
+          return;
+        }
+        // NUEVO: validar sede
+        if (!sede) {
+          errEl.textContent = "La sede es obligatoria.";
           errEl.style.display = "";
           return;
         }
@@ -6922,7 +7083,8 @@
             u.phone = phone;
             u.role = role;
             u.departamento = role !== "admin" ? dept : null;
-            u.color = color; // NUEVO
+            u.sede = sede; // NUEVO: actualizar sede
+            u.color = color;
             if (pass) u.password = pass;
           }
         } else {
@@ -6936,7 +7098,8 @@
             email,
             phone,
             active: true,
-            color, // NUEVO
+            sede, // NUEVO: agregar sede a nuevos usuarios
+            color,
           });
         }
         closeModal("user-modal");
