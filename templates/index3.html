@@ -6529,16 +6529,34 @@
           }
           
           // Agregar recordatorio WhatsApp si está configurado
-          if (waFirstTiming) {
-            eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
-            scheduleWaReminder(eventObj, waFirstTiming);
-          }
-          
-          EVENTS.push(eventObj);
-        }
-        closeModal("event-modal");
-        refreshCals();
-        renderDashboard();
+        // Guardar SIEMPRE la cita primero
+EVENTS.push(eventObj);
+
+closeModal("event-modal");
+refreshCals();
+renderDashboard();
+
+// Después intentar programar recordatorios
+try {
+
+  if (prState.timing) {
+    eventObj.prReminder = {
+      timing: prState.timing,
+      label: prState.label
+    };
+
+    requestNotificationPermission();
+    scheduleReminder(eventObj, prState.timing);
+  }
+
+  if (waFirstTiming) {
+    eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
+    scheduleWaReminder(eventObj, waFirstTiming);
+  }
+
+} catch (e) {
+  console.error("Error programando recordatorios:", e);
+}
       }
 
       function populateGlobalFilter() {
@@ -7200,17 +7218,31 @@
           });
         }
 
-        // Agregar recordatorio WhatsApp si está configurado
-        if (waFirstTiming) {
-          eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
-          scheduleWaReminder(eventObj, waFirstTiming);
-        }
+      // Guardar SIEMPRE la cita primero
+EVENTS.push(eventObj);
 
-        EVENTS.push(eventObj);
+closeModal("admin-event-modal");
+refreshCals();
+renderDashboard();
 
-        closeModal("admin-event-modal");
-        refreshCals();
-        renderDashboard();
+// Después intentar programar recordatorios
+try {
+  if (prState.timing) {
+    eventObj.prReminder = {
+      timing: prState.timing,
+      label: prState.label
+    };
+    requestNotificationPermission();
+    scheduleReminder(eventObj, prState.timing);
+  }
+
+  if (waFirstTiming) {
+    eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
+    scheduleWaReminder(eventObj, waFirstTiming);
+  }
+} catch (e) {
+  console.error("Error programando recordatorios:", e);
+}
       }
 
       // Validación en tiempo real del horario al cambiar fecha/hora en el modal del admin
