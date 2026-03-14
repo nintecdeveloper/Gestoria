@@ -4902,7 +4902,7 @@
       // ══════════════════════════════════════════
       let WA_CONFIG = {
         serverReady:    null,  // true = Twilio + Scheduler listos (envío 100% automático)
-        twilioReady:    null,  // true = solo Twilio listo (envío inmediato 'now' funciona)
+        metaReady:    null,  // true = solo Twilio listo (envío inmediato 'now' funciona)
         schedulerReady: null,  // true = APScheduler listo (programación futura funciona)
       };
 
@@ -4914,11 +4914,11 @@
         try {
           const res  = await fetch('/api/whatsapp/status');
           const data = await res.json();
-          WA_CONFIG.twilioReady    = data.twilio_ready    === true;
+          WA_CONFIG.metaReady = data.meta_ready === true;
           WA_CONFIG.schedulerReady = data.scheduler_ready === true;
           WA_CONFIG.serverReady    = data.fully_ready     === true;
         } catch(e) {
-          WA_CONFIG.twilioReady    = false;
+          WA_CONFIG.metaReady    = false;
           WA_CONFIG.schedulerReady = false;
           WA_CONFIG.serverReady    = false;
         }
@@ -9132,7 +9132,7 @@ ${dateStr} a las ${eventData.time}`,
         const message = buildWaMessage(eventData);
 
         // ── Modo automático: envío via servidor Twilio ──────
-        if (WA_CONFIG.twilioReady && phoneFormatted) {
+        if (WA_CONFIG.metaReady && phoneFormatted) {
           try {
             const res = await fetch('/api/whatsapp/send', {
               method: 'POST',
@@ -9231,7 +9231,7 @@ ${dateStr} a las ${eventData.time}`,
         }
 
         // ── Timing futuro: programar en el servidor ──────────
-        if (WA_CONFIG.schedulerReady && WA_CONFIG.twilioReady && phoneClean) {
+        if (WA_CONFIG.schedulerReady && WA_CONFIG.metaReady && phoneClean) {
           const jobId = `wa_ev${eventData.id || Date.now()}_${reminderTiming}`;
 
           // ✅ CORRECCIÓN: Enviar hora en formato local correcto
