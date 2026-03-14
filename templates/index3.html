@@ -2848,8 +2848,8 @@
             <label>Contraseña</label>
             <div style="position: relative;">
               <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" style="padding-right: 40px;" />
-              <button type="button" id="login-pass-toggle" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; padding: 0; font-size: 18px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;" onclick="togglePasswordVisibility()">
-                👁️
+              <button type="button" id="login-pass-toggle" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; padding: 0; font-size: 18px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar contraseña">
+                ◯
               </button>
             </div>
           </div>
@@ -3294,7 +3294,15 @@
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar por:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Sede:</label>
+                  <select id="dept-laboral-filter-sede" onchange="renderDeptCalendar('laboral')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Todas</option>
+                    <option value="Mataró">Mataró</option>
+                    <option value="Vilassar">Vilassar</option>
+                  </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleado:</label>
                   <select id="dept-laboral-filter-person" onchange="renderDeptCalendar('laboral')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
                     <option value="all">Todos</option>
                   </select>
@@ -3335,7 +3343,15 @@
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar por:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Sede:</label>
+                  <select id="dept-fiscal-filter-sede" onchange="renderDeptCalendar('fiscal')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Todas</option>
+                    <option value="Mataró">Mataró</option>
+                    <option value="Vilassar">Vilassar</option>
+                  </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleado:</label>
                   <select id="dept-fiscal-filter-person" onchange="renderDeptCalendar('fiscal')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
                     <option value="all">Todos</option>
                   </select>
@@ -3376,7 +3392,15 @@
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar por:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Sede:</label>
+                  <select id="dept-mercantil-filter-sede" onchange="renderDeptCalendar('mercantil')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Todas</option>
+                    <option value="Mataró">Mataró</option>
+                    <option value="Vilassar">Vilassar</option>
+                  </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleado:</label>
                   <select id="dept-mercantil-filter-person" onchange="renderDeptCalendar('mercantil')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
                     <option value="all">Todos</option>
                   </select>
@@ -5101,10 +5125,10 @@
         const toggleBtn = document.getElementById("login-pass-toggle");
         if (passInput.type === "password") {
           passInput.type = "text";
-          toggleBtn.textContent = "🙈";
+          toggleBtn.textContent = "◉"; // Lleno = contraseña visible
         } else {
           passInput.type = "password";
-          toggleBtn.textContent = "👁️";
+          toggleBtn.textContent = "◯"; // Vacío = contraseña oculta
         }
       }
 
@@ -6185,23 +6209,24 @@
         grp.style.display = isAdmin ? "" : "none";
         if (isAdmin) {
           // ✅ CORRECCIÓN 4: Asegurar filtrado correcto por departamento
-          let usersToShow = USERS.filter(u => u.active);
+          // ✅ NUEVO: Excluir admins de la lista de empleados asignables
+          let usersToShow = USERS.filter(u => u.active && u.role !== "admin");
           
           const SEDE_LIST = ['Mataró', 'Vilassar'];
           const DEPT_LIST = ['laboral', 'fiscal', 'mercantil'];
           
           // Si se llama desde calendario departamental, SOLO mostrar usuarios de ese depto
           if (filterDept && DEPT_LIST.includes(filterDept)) {
-            // ✅ Filtrar ESTRICTAMENTE por departamento solicitado
-            usersToShow = usersToShow.filter(u => u.departamento === filterDept);
+            // ✅ Filtrar ESTRICTAMENTE por departamento solicitado (y excluir admins)
+            usersToShow = usersToShow.filter(u => u.departamento === filterDept && u.role !== "admin");
             // NO hacer excepciones de sede aquí - se requiere que sea del depto
           } else if (filterDept && SEDE_LIST.includes(filterDept)) {
-            // Si es una sede, filtrar por eso
-            usersToShow = usersToShow.filter(u => u.sede === filterDept);
+            // Si es una sede, filtrar por eso (y excluir admins)
+            usersToShow = usersToShow.filter(u => u.sede === filterDept && u.role !== "admin");
           } else {
             // Sin filtro específico (calendario global), si admin tiene sede, respetar eso
             if (currentUser.sede) {
-              usersToShow = usersToShow.filter(u => u.sede === currentUser.sede);
+              usersToShow = usersToShow.filter(u => u.sede === currentUser.sede && u.role !== "admin");
             }
           }
           
@@ -6276,7 +6301,7 @@
         fillEmployeeSelect(currentUser.id, filterParam);
         
         // Limpiar recordatorios al abrir el modal para nueva cita
-        _prReminders['ev'] = {};
+        _prReminders['ev'] = []; // ✅ Array vacío
         _renderPrBadges('ev');
         _waReminders['ev'] = {};
         _renderWaBadges('ev');
@@ -6313,15 +6338,27 @@
         document.getElementById("ev-service").value = ev.service;
         fillEmployeeSelect(ev.assignedTo);
         
-        // Cargar recordatorio personal si existe
-        if (ev.prReminder) {
-          _prReminders['ev'] = {
-            timing: ev.prReminder.timing,
-            label: ev.prReminder.label
-          };
+        // ✅ CAMBIO: Cargar múltiples recordatorios personales si existen
+        if (ev.prReminders && Array.isArray(ev.prReminders)) {
+          _prReminders['ev'] = [...ev.prReminders]; // Copiar array
+          // Marcar opciones como seleccionadas en el dropdown
+          const dropdown = document.getElementById('ev-pr-dropdown');
+          if (dropdown) {
+            ev.prReminders.forEach(reminder => {
+              dropdown.querySelectorAll('.pr-dropdown-opt').forEach(opt => {
+                if (opt.getAttribute('onclick').includes("'" + reminder.timing + "'")) {
+                  opt.classList.add('selected');
+                }
+              });
+            });
+          }
+          _renderPrBadges('ev');
+        } else if (ev.prReminder) {
+          // ✅ COMPATIBILIDAD: Si existe formato antiguo, convertir a nuevo
+          _prReminders['ev'] = [{ timing: ev.prReminder.timing, label: ev.prReminder.label }];
           _renderPrBadges('ev');
         } else {
-          _prReminders['ev'] = {};
+          _prReminders['ev'] = [];
           _renderPrBadges('ev');
         }
         
@@ -6401,7 +6438,7 @@
         }
 
         // Obtener estado de recordatorios
-        const prState = _prReminders['ev'] || {};
+        const prReminders = _prReminders['ev'] || []; // ✅ Ahora es un array
         const waState = _waReminders['ev'] || {};
         // Extraer primer timing WA seleccionado (estructura: { timing: label, ... })
         const waTimings = Object.keys(waState);
@@ -6424,16 +6461,16 @@
             ev.clientPhone = clientPhoneForWa || ev.clientPhone || null;
             if (isAdmin) { ev.assignedTo = assignedTo; ev.private = isPrivate; }
             
-            // Guardar recordatorio personal al editar
-            if (prState.timing) {
-              ev.prReminder = {
-                timing: prState.timing,
-                label: prState.label
-              };
+            // ✅ CAMBIO: Guardar múltiples recordatorios personales al editar
+            if (prReminders.length > 0) {
+              ev.prReminders = prReminders; // Guardar como array
               requestNotificationPermission();
-              scheduleReminder(ev, prState.timing);
+              // Programar cada recordatorio
+              prReminders.forEach(reminder => {
+                scheduleReminder(ev, reminder.timing);
+              });
             } else {
-              delete ev.prReminder;
+              delete ev.prReminders;
             }
             
             // Guardar recordatorio WhatsApp al editar
@@ -6459,16 +6496,15 @@
             clientPhone: clientPhoneForWa || null,
           };
           
-          // Agregar recordatorio personal si está configurado
-          if (prState.timing) {
-            eventObj.prReminder = {
-              timing: prState.timing,
-              label: prState.label
-            };
+          // ✅ CAMBIO: Agregar múltiples recordatorios personales
+          if (prReminders.length > 0) {
+            eventObj.prReminders = prReminders; // Guardar como array
             
-            // Programar notificación
+            // Programar notificaciones
             requestNotificationPermission();
-            scheduleReminder(eventObj, prState.timing);
+            prReminders.forEach(reminder => {
+              scheduleReminder(eventObj, reminder.timing);
+            });
           }
           
           // Agregar recordatorio WhatsApp si está configurado
@@ -6569,11 +6605,16 @@
         const isAdmin = currentUser.role === "admin";
         
         // ✅ CAMBIO 6: FILTRAR POR DEPARTAMENTO Y SEDE
-        // Anteriormente solo filtraba por departamento
         let deptUsers = USERS.filter(u => u.departamento === dept && u.active);
         
-        // ✅ Si el usuario tiene sede, solo mostrar usuarios de su sede (mantener coherencia)
-        if (currentUser.sede) {
+        // ✅ NUEVO: Obtener filtro de sede y aplicarlo
+        const sideFilterSel = document.getElementById("dept-" + dept + "-filter-sede");
+        let sedeFilter = sideFilterSel ? sideFilterSel.value : "all";
+        
+        if (sedeFilter && sedeFilter !== "all") {
+          deptUsers = deptUsers.filter(u => u.sede === sedeFilter);
+        } else if (currentUser.sede) {
+          // Si el usuario tiene sede y no hay filtro, solo mostrar usuarios de su sede
           deptUsers = deptUsers.filter(u => u.sede === currentUser.sede);
         }
         
@@ -6586,7 +6627,7 @@
           selectedEmployeeId = parseInt(selectedEmployeeId);
         }
         
-        // Lllenar el select de filtro si es necesario
+        // Llenar el select de filtro si es necesario
         if (filterSel && filterSel.options.length === 1) {
           const current = filterSel.value;
           filterSel.innerHTML = '<option value="all">Todos</option>' +
@@ -7009,7 +7050,7 @@
         if (aevClientSugg) aevClientSugg.classList.remove("open");
 
         // Limpiar recordatorios al abrir el modal para nueva cita
-        _prReminders['aev'] = {};
+        _prReminders['aev'] = []; // ✅ Array vacío
         _renderPrBadges('aev');
         _waReminders['aev'] = {};
         _renderWaBadges('aev');
@@ -7104,7 +7145,7 @@
         document.getElementById("aev-blocked-warning").style.display = "none";
 
         // Obtener estado de recordatorios
-        const prState = _prReminders['aev'] || {};
+        const prReminders = _prReminders['aev'] || []; // ✅ Ahora es un array
         const waState = _waReminders['aev'] || {};
         // Extraer primer timing WA seleccionado (estructura: { timing: label, ... })
         const waTimings = Object.keys(waState);
@@ -7129,14 +7170,13 @@
           clientPhone: clientPhoneForWa || null,
         };
 
-        // Agregar recordatorio personal si está configurado
-        if (prState.timing) {
-          eventObj.prReminder = {
-            timing: prState.timing,
-            label: prState.label
-          };
+        // ✅ CAMBIO: Agregar múltiples recordatorios personales si están configurados
+        if (prReminders.length > 0) {
+          eventObj.prReminders = prReminders; // Guardar como array
           requestNotificationPermission();
-          scheduleReminder(eventObj, prState.timing);
+          prReminders.forEach(reminder => {
+            scheduleReminder(eventObj, reminder.timing);
+          });
         }
 
         // Agregar recordatorio WhatsApp si está configurado
@@ -8665,9 +8705,10 @@
 
       // ══════════════════════════════════════════
       //  RECORDATORIO PERSONAL (con notificaciones)
+      //  ✅ AHORA SOPORTA MÚLTIPLES RECORDATORIOS
       // ══════════════════════════════════════════
 
-      const _prReminders = {}; // prefix -> { timing: value, label: text }
+      const _prReminders = {}; // prefix -> [ {timing, label}, {timing, label}, ... ]
       
       function togglePrDropdown(dropdownId) {
         document.querySelectorAll('.pr-dropdown.open').forEach(d => {
@@ -8692,23 +8733,21 @@
       }
 
       function selectPrReminder(prefix, value, label, optEl) {
-        if (!_prReminders[prefix]) _prReminders[prefix] = {};
-        const already = _prReminders[prefix].timing;
-        if (already === value) {
-          // Toggle off if same selected
-          delete _prReminders[prefix].timing;
-          delete _prReminders[prefix].label;
+        if (!_prReminders[prefix]) _prReminders[prefix] = [];
+        
+        // ✅ CAMBIO: Permitir múltiples selecciones
+        const existingIndex = _prReminders[prefix].findIndex(r => r.timing === value);
+        
+        if (existingIndex !== -1) {
+          // Ya existe, quitar (toggle off)
+          _prReminders[prefix].splice(existingIndex, 1);
           optEl.classList.remove('selected');
         } else {
-          _prReminders[prefix].timing = value;
-          _prReminders[prefix].label = label;
-          // Unselect previous
-          const dropdown = document.getElementById(prefix + '-pr-dropdown');
-          if (dropdown) {
-            dropdown.querySelectorAll('.pr-dropdown-opt').forEach(o => o.classList.remove('selected'));
-          }
+          // No existe, agregar (toggle on)
+          _prReminders[prefix].push({ timing: value, label: label });
           optEl.classList.add('selected');
         }
+        
         _renderPrBadges(prefix);
       }
 
@@ -8716,40 +8755,52 @@
         const container = document.getElementById(prefix + '-pr-badges');
         if (!container) return;
         container.innerHTML = '';
-        const state = _prReminders[prefix] || {};
-        if (state.timing && state.label) {
+        const reminders = _prReminders[prefix] || [];
+        
+        // ✅ NUEVO: Renderizar múltiples badges
+        reminders.forEach((reminder, idx) => {
           const badge = document.createElement('span');
           badge.className = 'pr-reminder-badge';
-          const txt = document.createTextNode('🔔 ' + state.label + ' ');
+          const txt = document.createTextNode('🔔 ' + reminder.label + ' ');
           badge.appendChild(txt);
           const btn = document.createElement('button');
           btn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--accent2);font-size:14px;padding:0 0 0 4px;line-height:1';
           btn.title = 'Quitar';
           btn.textContent = '×';
           btn.dataset.prefix = prefix;
+          btn.dataset.index = idx;
           btn.addEventListener('click', function() {
-            removePrReminder(this.dataset.prefix);
+            removePrReminder(this.dataset.prefix, parseInt(this.dataset.index));
           });
           badge.appendChild(btn);
           container.appendChild(badge);
-        }
+        });
       }
 
-      function removePrReminder(prefix) {
-        if (_prReminders[prefix]) {
-          delete _prReminders[prefix].timing;
-          delete _prReminders[prefix].label;
+      function removePrReminder(prefix, index) {
+        if (_prReminders[prefix] && index !== undefined) {
+          _prReminders[prefix].splice(index, 1);
         }
         // Uncheck in dropdown
         const dropdown = document.getElementById(prefix + '-pr-dropdown');
-        if (dropdown) {
-          dropdown.querySelectorAll('.pr-dropdown-opt').forEach(o => o.classList.remove('selected'));
+        if (dropdown && index !== undefined) {
+          const reminders = _prReminders[prefix] || [];
+          const removedReminder = reminders[index]; // Nota: ya fue eliminado del array
+          dropdown.querySelectorAll('.pr-dropdown-opt').forEach(o => {
+            // Desmarcar si no existe en la lista
+            const isSelected = reminders.some(r => 
+              o.getAttribute('onclick').includes("'" + r.timing + "'")
+            );
+            if (!isSelected) {
+              o.classList.remove('selected');
+            }
+          });
         }
         _renderPrBadges(prefix);
       }
 
       function clearPrReminder(prefix) {
-        _prReminders[prefix] = {};
+        _prReminders[prefix] = []; // ✅ Array en lugar de objeto
         _renderPrBadges(prefix);
         const dropdown = document.getElementById(prefix + '-pr-dropdown');
         if (dropdown) dropdown.querySelectorAll('.pr-dropdown-opt').forEach(o => o.classList.remove('selected'));
