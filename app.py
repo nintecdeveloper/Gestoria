@@ -55,8 +55,7 @@ META_PHONE_NUMBER_ID = os.environ.get('META_PHONE_NUMBER_ID', None)
 META_ACCESS_TOKEN = os.environ.get('META_ACCESS_TOKEN', None)
 META_BUSINESS_ACCOUNT_ID = os.environ.get('META_BUSINESS_ACCOUNT_ID', None)
 META_API_VERSION = "v18.0"
-META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/messages"
-
+META_API_URL = f"https://graph.facebook.com/{META_API_VERSION}/{{phone_id}}/messages"
 # ═══════════════════════════════════════════════════════════════
 # USUARIOS Y CALENDARIOS — DATOS INICIALES
 # ═══════════════════════════════════════════════════════════════
