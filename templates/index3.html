@@ -2941,6 +2941,14 @@
           >
             <span class="icon">&#8857;</span> Usuarios
           </div>
+          <!-- NUEVO: Gestión de Calendarios y Permisos -->
+          <div
+            class="nav-item admin-only"
+            data-sec="admin-calendars"
+            onclick="showSection('admin-calendars')"
+          >
+            <span class="icon">🔐</span> Permisos
+          </div>
           <div
             class="nav-item"
             data-sec="services"
@@ -3475,6 +3483,7 @@
                     <th>Usuario</th>
                     <th>Rol</th>
                     <th>Departamento</th>
+                    <th>Sede</th>
                     <th>Email</th>
                     <th>Teléfono</th>
                     <th>Estado</th>
@@ -5056,12 +5065,15 @@
         dashboard: "Inicio",
         "my-calendar": "Mi Calendario",
         "global-calendar": "Calendario Global",
-        // NUEVO: título para la sección del calendario del admin
+        // NUEVO: títulos para calendarios de sede
+        "mataro-calendar": "Calendario Mataró",
+        "vilassar-calendar": "Calendario Vilassar",
+        // título para la sección del calendario del admin
         "admin-view-calendar": "Calendario de Antonio",
         "cal-laboral": "Calendario Laboral",
         "cal-fiscal": "Calendario Fiscal",
         "cal-mercantil": "Calendario Mercantil",
-        "admin-calendars": "Calendarios",
+        "admin-calendars": "Permisos",
         users: "Gestión de Usuarios",
         services: "Servicios",
         clients: "Clientes",
@@ -5399,9 +5411,15 @@
 
       // Re-render por ID
       function _rerenderCal(calId) {
-        if (calId === 'my' || calId === 'global') { renderCalendar(calId); }
-        else if (calId === 'admin-view') { renderAdminViewCalendar(); }
-        else { renderDeptCalendar(calId.replace('dept-','')); }
+        if (calId === 'my' || calId === 'global' || calId === 'mataro' || calId === 'vilassar') { 
+          renderCalendar(calId); 
+        }
+        else if (calId === 'admin-view') { 
+          renderAdminViewCalendar(); 
+        }
+        else { 
+          renderDeptCalendar(calId.replace('dept-','')); 
+        }
       }
 
       // Navegación unificada (respeta vista activa)
@@ -5517,8 +5535,9 @@
           myCalMonth = new Date(myCalMonth.getFullYear(), myCalMonth.getMonth() + dir, 1);
           renderCalendar("my");
         } else {
+          // NUEVO: Para todos los calendarios globales (global, mataro, vilassar) usar globalCalMonth
           globalCalMonth = new Date(globalCalMonth.getFullYear(), globalCalMonth.getMonth() + dir, 1);
-          renderCalendar("global");
+          renderCalendar(which);
         }
       }
 
@@ -5680,7 +5699,14 @@
       }
 
       function renderApptList(which, evs) {
-        const listId = which === "my" ? "my-appt-list" : "global-appt-list";
+        // NUEVO: Mapear which a los IDs correctos para todos los calendarios
+        const apptListMap = {
+          'my': 'my-appt-list',
+          'global': 'global-appt-list',
+          'mataro': 'mataro-appt-list',
+          'vilassar': 'vilassar-appt-list'
+        };
+        const listId = apptListMap[which] || 'global-appt-list';
         const el = document.getElementById(listId);
         if (!el) return;
         const isAdmin = currentUser.role === "admin";
@@ -6942,11 +6968,16 @@
             const deptTag = u.role !== "admin" && u.departamento
               ? `<span class="tag tag-dept-${u.departamento}" style="text-transform:capitalize">${u.departamento}</span>`
               : `<span class="tag tag-dept-none">—</span>`;
+            // NUEVO: Mostrar sede
+            const sedeTag = u.sede 
+              ? `<span class="tag" style="background-color:#e8f4f8;color:#0066cc;border:1px solid #99ccff">${u.sede}</span>`
+              : `<span class="tag tag-dept-none">—</span>`;
             return `
     <tr>
       <td><div class="user-cell"><div class="mini-avatar">${initials(u.name)}</div><div><div style="font-weight:500">${safeHtml(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">@${safeHtml(u.username)}</div></div></div></td>
       <td><span class="tag ${u.role === "admin" ? "tag-blue" : "tag-green"}">${u.role === "admin" ? "Admin" : "Empleado"}</span></td>
       <td>${deptTag}</td>
+      <td>${sedeTag}</td>
       <td style="color:var(--text-muted)">${safeHtml(u.email || "—")}</td>
       <td style="color:var(--text-muted)">${safeHtml(u.phone || "—")}</td>
       <td><span class="tag ${u.active ? "tag-green" : "tag-gray"}">${u.active ? "Activo" : "Inactivo"}</span></td>
@@ -6970,9 +7001,11 @@
         );
         document.getElementById("nu-role").selectedIndex = 0;
         document.getElementById("nu-dept").selectedIndex = 0;
+        // NUEVO: Establecer Sede por defecto a Mataró
+        document.getElementById("nu-sede").value = "Mataró";
         document.getElementById("nu-err").style.display = "none";
         document.getElementById("nu-dept-group").style.display = "";
-        // NUEVO: renderizar color picker con primer color libre
+        // renderizar color picker con primer color libre
         const defaultColor = autoAssignColor(nextUserId);
         renderColorPicker(defaultColor);
         openModal("user-modal");
@@ -7025,8 +7058,10 @@
           deptGroup.style.display = "";
           document.getElementById("nu-dept").value = u.departamento || "laboral";
         }
+        // NUEVO: Cargar sede
+        document.getElementById("nu-sede").value = u.sede || "Mataró";
         document.getElementById("nu-err").style.display = "none";
-        // NUEVO: renderizar color picker con el color del usuario
+        // renderizar color picker con el color del usuario
         renderColorPicker(u.color || "teal");
         openModal("user-modal");
       }
