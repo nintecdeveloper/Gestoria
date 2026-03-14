@@ -2914,13 +2914,13 @@
               <span class="nav-expand-icon">▶</span>
             </div>
             <div class="nav-submenu expanded" id="dept-calendars-sub">
-              <div class="nav-subitem nav-subitem-nested" onclick="showSection('cal-laboral')">
+              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('laboral')) showSection('cal-laboral'); else alert('No tienes permiso para ver este calendario');">
                 💼 Cal. Laboral
               </div>
-              <div class="nav-subitem nav-subitem-nested" onclick="showSection('cal-mercantil')">
+              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('mercantil')) showSection('cal-mercantil'); else alert('No tienes permiso para ver este calendario');">
                 📊 Cal. Mercantil
               </div>
-              <div class="nav-subitem nav-subitem-nested" onclick="showSection('cal-fiscal')">
+              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('fiscal')) showSection('cal-fiscal'); else alert('No tienes permiso para ver este calendario');">
                 📋 Cal. Fiscal
               </div>
             </div>
@@ -3299,7 +3299,7 @@
                     <option value="all">Todos</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null, 'laboral')">+ Agendar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('laboral')">+ Agendar cita</button>
               </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
@@ -3340,7 +3340,7 @@
                     <option value="all">Todos</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null, 'fiscal')">+ Agendar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('fiscal')">+ Agendar cita</button>
               </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
@@ -3381,7 +3381,7 @@
                     <option value="all">Todos</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openEventModal(false, null, 'mercantil')">+ Agendar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('mercantil')">+ Agendar cita</button>
               </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
@@ -4549,6 +4549,17 @@
 
       let CONVS = {};
 
+      // ✅ CORRECCIÓN 6: Variables para Chat de Sede
+      let activeSedeChat = null;  // 'mataro' o 'vilassar' si está abierto
+      const SEDE_CHATS = {
+        mataro: { name: 'Chat Mataró', sede: 'Mataró', icon: '🏢', messages: [] },
+        vilassar: { name: 'Chat Vilassar', sede: 'Vilassar', icon: '🏢', messages: [] }
+      };
+      
+      // Inicializar conversaciones de sede en CONVS si no existen
+      if (!CONVS['sede_mataro']) CONVS['sede_mataro'] = [];
+      if (!CONVS['sede_vilassar']) CONVS['sede_vilassar'] = [];
+
       // ══════════════════════════════════════════
       //  SOCKET.IO - MENSAJERÍA EN TIEMPO REAL
       // ══════════════════════════════════════════
@@ -4601,11 +4612,14 @@
             // Usar clave numérica estándar para consistencia con openConv
             const convId = convKey(currentUser.id, senderUser.id);
             if (!CONVS[convId]) CONVS[convId] = [];
+            // ✅ CORRECCIÓN 1: Guardar attachments recibidos para que se muestren correctamente
             CONVS[convId].push({
               mine: false,
               text: msg.text,
               time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
-              read: false
+              read: false,
+              attachments: msg.attachments || [],
+              id: msg.message_id || `msg_${Date.now()}`
             });
             // Si la conversación está activa, marcar como leído y renderizar
             if (activeConvId === senderUser.id) {
@@ -4617,11 +4631,14 @@
             if (!CONVS[senderName]) CONVS[senderName] = { participant: senderName, messages: [] };
             const conv = CONVS[senderName];
             const arr = Array.isArray(conv) ? conv : conv.messages;
+            // ✅ CORRECCIÓN 2: Guardar attachments en fallback también
             arr.push({
               mine: false,
               text: msg.text,
               time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
-              read: false
+              read: false,
+              attachments: msg.attachments || [],
+              id: msg.message_id || `msg_${Date.now()}`
             });
           }
           
@@ -4645,13 +4662,15 @@
           const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
           const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
           
+          // ✅ CORRECCIÓN 3: Guardar attachments en chat general también
           GENERAL_CHAT.push({
             id: msg.id,
             userId: msg.sender_id,
             text: msg.text,
             time: time,
             date: date,
-            username: msg.sender_username
+            username: msg.sender_username,
+            attachments: msg.attachments || []
           });
           console.log('✅ [Socket] Mensaje general agregado');
           renderGeneralChat();
@@ -4662,8 +4681,48 @@
           console.log('🔔 [Socket] Notificación de chat general:', notif);
           showNotification('💬 Chat General', `${notif.from}: ${notif.message}`);
         });
+
+        // ✅ CORRECCIÓN 6: RECIBIR MENSAJES DE CHAT DE SEDE
+        socket.on('receive_sede_message', function(msg) {
+          console.log('🏢 [Socket] Mensaje de sede recibido:', msg);
+          const sedeKey = msg.sede_key;
+          const sedeConvId = `sede_${sedeKey}`;
+          
+          // Validar que el usuario pertenece a esta sede o es admin
+          const isAdmin = currentUser.role === 'admin';
+          const userSede = currentUser.sede;
+          const messageSede = msg.sede;
+          
+          if (!isAdmin && userSede !== messageSede) {
+            console.warn('❌ Intento de recibir mensaje de sede no autorizado');
+            return;
+          }
+          
+          // Guardar el mensaje
+          if (!CONVS[sedeConvId]) CONVS[sedeConvId] = [];
+          CONVS[sedeConvId].push({
+            mine: false,
+            text: msg.message,
+            time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
+            read: false,
+            sender: msg.sender_username,
+            sender_id: msg.sender_id,
+            attachments: msg.attachments || [],
+            id: msg.message_id || `msg_${Date.now()}`
+          });
+          
+          // Si el chat de sede está activo, renderizar
+          if (activeSedeChat === sedeKey) {
+            CONVS[sedeConvId].forEach(m => { if (!m.mine) m.read = true; });
+            renderMsgsFromArray(CONVS[sedeConvId]);
+          }
+          
+          saveMessagesToStorage();
+          updateBadge();
+          buildMsgList(document.getElementById("msg-search-inp").value);
+          console.log('✅ Mensaje de sede agregado:', sedeKey);
+        });
         
-        // Evento para recibir notificaciones
         socket.on('notification_received', function(notif) {
           showNotification(notif.title || 'Notificación', notif.message);
         });
@@ -5329,9 +5388,31 @@
         }
         // NUEVO: renderizar calendario del admin
         if (name === "admin-view-calendar") renderAdminViewCalendar();
-        if (name === "cal-laboral") renderDeptCalendar("laboral");
-        if (name === "cal-fiscal") renderDeptCalendar("fiscal");
-        if (name === "cal-mercantil") renderDeptCalendar("mercantil");
+        // ✅ CORRECCIÓN 7: Validar permisos para calendarios departamentales
+        if (name === "cal-laboral") {
+          if (!canAccessDeptCalendar("laboral")) {
+            alert("❌ No tienes permiso para ver este calendario");
+            showSection("my-calendar");
+            return;
+          }
+          renderDeptCalendar("laboral");
+        }
+        if (name === "cal-fiscal") {
+          if (!canAccessDeptCalendar("fiscal")) {
+            alert("❌ No tienes permiso para ver este calendario");
+            showSection("my-calendar");
+            return;
+          }
+          renderDeptCalendar("fiscal");
+        }
+        if (name === "cal-mercantil") {
+          if (!canAccessDeptCalendar("mercantil")) {
+            alert("❌ No tienes permiso para ver este calendario");
+            showSection("my-calendar");
+            return;
+          }
+          renderDeptCalendar("mercantil");
+        }
         if (name === "admin-calendars") renderPermissionsPanel();
         if (name === "users") renderUsers();
         if (name === "services") renderServices();
@@ -6103,27 +6184,22 @@
         // Admin siempre puede asignar técnico, tanto en citas propias como globales
         grp.style.display = isAdmin ? "" : "none";
         if (isAdmin) {
-          // ✅ CAMBIO 7: MEJORADO - Diferenciar entre departamento y sede
-          // filterDept puede ser: null, 'laboral'/'fiscal'/'mercantil' (departamento), o 'Mataró'/'Vilassar' (sede)
+          // ✅ CORRECCIÓN 4: Asegurar filtrado correcto por departamento
           let usersToShow = USERS.filter(u => u.active);
           
           const SEDE_LIST = ['Mataró', 'Vilassar'];
           const DEPT_LIST = ['laboral', 'fiscal', 'mercantil'];
           
-          if (filterDept) {
-            if (SEDE_LIST.includes(filterDept)) {
-              // ✅ filterParam es una sede
-              usersToShow = usersToShow.filter(u => u.sede === filterDept);
-            } else if (DEPT_LIST.includes(filterDept)) {
-              // ✅ filterParam es un departamento
-              usersToShow = usersToShow.filter(u => u.departamento === filterDept);
-              // Además, si el admin tiene sede, respetar su sede
-              if (currentUser.sede) {
-                usersToShow = usersToShow.filter(u => u.sede === currentUser.sede);
-              }
-            }
+          // Si se llama desde calendario departamental, SOLO mostrar usuarios de ese depto
+          if (filterDept && DEPT_LIST.includes(filterDept)) {
+            // ✅ Filtrar ESTRICTAMENTE por departamento solicitado
+            usersToShow = usersToShow.filter(u => u.departamento === filterDept);
+            // NO hacer excepciones de sede aquí - se requiere que sea del depto
+          } else if (filterDept && SEDE_LIST.includes(filterDept)) {
+            // Si es una sede, filtrar por eso
+            usersToShow = usersToShow.filter(u => u.sede === filterDept);
           } else {
-            // Sin filtro especial, si el admin tiene sede, mostrar solo usuarios de su sede
+            // Sin filtro específico (calendario global), si admin tiene sede, respetar eso
             if (currentUser.sede) {
               usersToShow = usersToShow.filter(u => u.sede === currentUser.sede);
             }
@@ -6132,10 +6208,22 @@
           document.getElementById("ev-employee").innerHTML = usersToShow
             .map(
               (u) =>
-                `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)} (${u.sede || 'Sin sede'})</option>`,
+                `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)} (${u.departamento || 'sin depto'}, ${u.sede || 'Sin sede'})</option>`,
             )
             .join("");
         }
+      }
+
+      // ✅ CORRECCIÓN 5: Validar permisos antes de abrir modal departamental
+      function openDeptEventModal(dept) {
+        // Primero verificar que el usuario puede acceder a este departamento
+        if (!canAccessDeptCalendar(dept)) {
+          const deptDisplay = dept.charAt(0).toUpperCase() + dept.slice(1);
+          alert(`❌ No tienes permiso para ver o crear citas en el departamento ${deptDisplay}.\n\nContacta con tu administrador si crees que es un error.`);
+          return;
+        }
+        // Si tiene permiso, abrir el modal normalmente
+        openEventModal(false, null, dept);
       }
 
       function openEventModal(isGlobal, dateStr, filterParam = null) {
@@ -8103,6 +8191,36 @@
       }
 
       function buildMsgList(filter) {
+        // ✅ CORRECCIÓN 6: Mostrar chats de sede primero
+        let sedeChatsHtml = '';
+        const isAdmin = currentUser.role === 'admin';
+        const userSede = currentUser.sede;
+        
+        // Mostrar chats de sede disponibles
+        Object.entries(SEDE_CHATS).forEach(([sedeKey, sedeInfo]) => {
+          // Admin ve todos, no-admin solo su sede
+          if (isAdmin || userSede === sedeInfo.sede) {
+            const sedeConvId = `sede_${sedeKey}`;
+            const msgs = CONVS[sedeConvId] || [];
+            const last = msgs.length ? msgs[msgs.length - 1] : null;
+            const unread = msgs.filter(m => !m.mine && !m.read).length;
+            const isActive = activeSedeChat === sedeKey ? 'active' : '';
+            
+            sedeChatsHtml += `<div class="msg-conv ${isActive}" onclick="openSedeChat('${sedeKey}')">
+              <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:18px;flex-shrink:0">${sedeInfo.icon}</div>
+              <div class="msg-conv-info">
+                <div class="msg-conv-name" style="font-weight:600">${sedeInfo.name}</div>
+                <div class="msg-conv-preview">${last ? (last.mine ? "Tú: " : "") + (last.text ? safeHtml(last.text) : (last.attachments && last.attachments.length ? "📎 " + safeHtml(last.attachments[0].name) : "")) : "Sin mensajes aún"}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                ${last ? `<div class="msg-conv-time">${last.time}</div>` : ""}
+                ${unread > 0 ? `<div class="nav-badge">${unread}</div>` : ""}
+              </div>
+            </div>`;
+          }
+        });
+        
+        // Conversaciones privadas
         const others = USERS.filter((u) => u.id !== currentUser.id && u.active);
         const filtered = filter
           ? others.filter(
@@ -8112,7 +8230,7 @@
             )
           : others;
 
-        document.getElementById("msg-list").innerHTML = filtered
+        const privateChatsHtml = filtered
           .map((u) => {
             const msgs = convData(u.id);
             const last = msgs.length ? msgs[msgs.length - 1] : null;
@@ -8130,6 +8248,8 @@
     </div>`;
           })
           .join("");
+
+        document.getElementById("msg-list").innerHTML = sedeChatsHtml + privateChatsHtml;
       }
 
       function filterConvs() {
@@ -8177,6 +8297,54 @@
         }, 50);
       }
 
+      // ✅ CORRECCIÓN 6: Función para abrir chat de sede
+      function openSedeChat(sedeKey) {
+        // sedeKey = 'mataro' o 'vilassar'
+        const sedeInfo = SEDE_CHATS[sedeKey];
+        if (!sedeInfo) return;
+        
+        // Validar permisos
+        const isAdmin = currentUser.role === 'admin';
+        const userSede = currentUser.sede;
+        
+        // Admin puede ver ambas sedes, no-admin solo su propia
+        if (!isAdmin && userSede !== sedeInfo.sede) {
+          alert(`❌ No tienes acceso al chat de ${sedeInfo.sede}`);
+          return;
+        }
+        
+        activeSedeChat = sedeKey;
+        activeConvId = null;  // Limpiar conversación privada activa
+        
+        // Marcar como leído
+        CONVS[`sede_${sedeKey}`].forEach(m => { if (!m.mine) m.read = true; });
+        saveMessagesToStorage();
+        updateBadge();
+        buildMsgList(document.getElementById("msg-search-inp").value);
+        
+        // Mostrar chat
+        document.getElementById("msg-empty-state").style.display = "none";
+        const chat = document.getElementById("msg-active-chat");
+        chat.style.display = "flex";
+        document.getElementById("chat-avatar").textContent = sedeInfo.icon;
+        document.getElementById("chat-name").textContent = sedeInfo.name;
+        
+        // Limpiar adjuntos
+        msgPendingAttachments = [];
+        msgRenderChips();
+        renderMsgsFromArray(CONVS[`sede_${sedeKey}`]);
+        
+        // Mobile
+        if (isMobile()) {
+          document.getElementById("msg-main").classList.add("conv-open");
+          document.querySelector(".msg-sidebar").classList.add("conv-open");
+        }
+        setTimeout(() => {
+          const inp = document.getElementById("msg-input");
+          if (inp && !isMobile()) inp.focus();
+        }, 50);
+      }
+
       function closeMobileConv() {
         document.getElementById("msg-main").classList.remove("conv-open");
         document.querySelector(".msg-sidebar").classList.remove("conv-open");
@@ -8187,6 +8355,11 @@
 
       function renderMsgs(otherId) {
         const msgs = convData(otherId);
+        renderMsgsFromArray(msgs);
+      }
+
+      // ✅ CORRECCIÓN 6: Renderizar mensajes desde un array directamente
+      function renderMsgsFromArray(msgs) {
         const el = document.getElementById("msg-messages");
         el.innerHTML = msgs.length
           ? msgs
@@ -8289,7 +8462,9 @@
       }
 
       function sendMsg() {
-        if (activeConvId === null) return;
+        // ✅ CORRECCIÓN 6: Soportar tanto conversaciones privadas como chats de sede
+        if (activeConvId === null && activeSedeChat === null) return;
+        
         const inp = document.getElementById("msg-input");
         const text = inp.value.trim();
         // Permitir envío sin texto si hay adjuntos
@@ -8315,45 +8490,65 @@
           id: `msg_${Date.now()}`
         };
         
-        convData(activeConvId).push(msgObj);
+        // ✅ CORRECCIÓN 6: Determinar si es chat de sede o conversación privada
+        if (activeSedeChat) {
+          // Enviar a chat de sede
+          const sedeConvId = `sede_${activeSedeChat}`;
+          CONVS[sedeConvId].push(msgObj);
+          renderMsgsFromArray(CONVS[sedeConvId]);
+          
+          // Guardar y sincronizar
+          saveMessagesToStorage();
+          if (socket && socket.connected) {
+            socket.emit('send_sede_message', {
+              message: text,
+              sender_username: currentUser.name,
+              sender_id: currentUser.id,
+              sede: SEDE_CHATS[activeSedeChat].sede,
+              sede_key: activeSedeChat,
+              message_id: msgObj.id,
+              attachments: attachments
+            });
+          }
+        } else {
+          // Conversación privada existente
+          convData(activeConvId).push(msgObj);
+          renderMsgs(activeConvId);
+          
+          saveMessagesToStorage();
+          if (socket && socket.connected && currentUser) {
+            const recipientUser = USERS.find(u => u.id === activeConvId);
+            const recipientName = recipientUser ? recipientUser.name : String(activeConvId);
+            console.log('📤 [Socket] Enviando mensaje privado a:', recipientName, 'con', attachments.length, 'adjunto(s)');
+            
+            if (attachments.length > 0) {
+              socket.emit('send_message_with_attachment', {
+                message: text,
+                sender_username: currentUser.name,
+                recipient_username: recipientName,
+                conv_id: `${currentUser.name}_${recipientName}`,
+                message_id: msgObj.id,
+                attachments: attachments
+              });
+            } else {
+              socket.emit('send_message', {
+                message: text,
+                sender_username: currentUser.name,
+                recipient_username: recipientName,
+                conv_id: `${currentUser.name}_${recipientName}`,
+                message_id: msgObj.id
+              });
+            }
+          } else {
+            console.log('✅ Mensaje guardado localmente (sin servidor)');
+          }
+        }
+        
         inp.value = "";
         // Limpiar adjuntos pendientes
         msgPendingAttachments = [];
         msgRenderChips();
-        renderMsgs(activeConvId);
         buildMsgList(document.getElementById("msg-search-inp").value);
-        
-        // ✅ GUARDAR EN LOCALSTORAGE
-        saveMessagesToStorage();
-        
-        // ✅ INTENTAR ENVIAR VÍA SOCKET.IO CON ADJUNTOS
-        if (socket && socket.connected && currentUser) {
-          const recipientUser = USERS.find(u => u.id === activeConvId);
-          const recipientName = recipientUser ? recipientUser.name : String(activeConvId);
-          console.log('📤 [Socket] Enviando mensaje privado a:', recipientName, 'con', attachments.length, 'adjunto(s)');
-          
-          // ✅ USAR EVENTO ESPECIAL SI HAY ADJUNTOS
-          if (attachments.length > 0) {
-            socket.emit('send_message_with_attachment', {
-              message: text,
-              sender_username: currentUser.name,
-              recipient_username: recipientName,
-              conv_id: `${currentUser.name}_${recipientName}`,
-              message_id: msgObj.id,
-              attachments: attachments
-            });
-          } else {
-            socket.emit('send_message', {
-              message: text,
-              sender_username: currentUser.name,
-              recipient_username: recipientName,
-              conv_id: `${currentUser.name}_${recipientName}`,
-              message_id: msgObj.id
-            });
-          }
-        } else {
-          console.log('✅ Mensaje guardado localmente (sin servidor)');
-        }
       }
 
       // ══════════════════════════════════════════
