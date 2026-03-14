@@ -4965,6 +4965,41 @@
         return USERS.find(u => u.role === 'admin' && u.active) || null;
       }
 
+      // ✅ CAMBIO 3: NUEVA FUNCIÓN - Obtener admin de una sede específica
+      // Soporta la regla: "Habrá un administrador por sede"
+      // Si hay múltiples admins en una sede, retorna el primero activo
+      function getAdminForSede(sede) {
+        if (!sede) return null;
+        return USERS.find(u => u.role === 'admin' && u.active && u.sede === sede) || null;
+      }
+
+      // ✅ CAMBIO 3: NUEVA FUNCIÓN - Validar restricción de visibilidad de admin por sede
+      // Regla: "Los usuarios que tengan permisos para ver el calendario del admin
+      // solo podrán ver el calendario del admin de su propia sede"
+      function canViewAdminCalendar(adminUser) {
+        if (!adminUser) return false;
+        const isAdmin = currentUser.role === 'admin';
+        if (isAdmin) return true; // Admins ven todos los calendarios
+        
+        // ✅ No-admins solo ven admin de su propia sede
+        if (currentUser.sede && adminUser.sede) {
+          return currentUser.sede === adminUser.sede;
+        }
+        return false;
+      }
+
+      // ✅ CAMBIO 3: NUEVA FUNCIÓN - Obtener el admin correcto según contexto
+      // Si el user es de una sede, retorna el admin de esa sede
+      // Si es admin, retorna el admin de su sede o cualquier admin
+      function getContextualAdminUser() {
+        if (currentUser.role === 'admin') {
+          // Admin de su sede, o cualquier admin si no tiene sede
+          return getAdminForSede(currentUser.sede) || getAdminUser();
+        }
+        // Usuario regular: admin de su sede
+        return getAdminForSede(currentUser.sede);
+      }
+
       // ══════════════════════════════════════════
       //  NUEVO UTIL: Verificar si un horario está bloqueado en el calendario del admin
       //  Un horario está bloqueado si hay una cita privada del admin en esa fecha+hora
@@ -5189,18 +5224,38 @@
         const container = document.getElementById('calendars-user-list');
         if (!container) return;
         
-        const usuarios = [
-          { nombre: 'Myriam', id: 2 },
-          { nombre: 'Montse Martín', id: 4 },
-          { nombre: 'Anna Fabregà', id: 5 },
-        ];
+        // ✅ CAMBIO 1: Obtener TODOS los usuarios activos del array USERS (dinámico)
+        // Anteriormente solo mostraba 3 usuarios hardcodeados
+        const activeUsers = USERS.filter(u => u.active && u.id !== currentUser.id).sort((a, b) => {
+          // Ordenar por sede primero, luego por nombre
+          if (a.sede !== b.sede) return a.sede.localeCompare(b.sede);
+          return a.name.localeCompare(b.name);
+        });
         
-        // ✅ Cada usuario tiene onclick que llama openUserCalendar
-        let html = usuarios.map(u => {
-          return '<div class="nav-subitem-user" onclick="openUserCalendar(' + u.id + ', \'' + u.nombre + '\')" title="' + u.nombre + '">👤 ' + u.nombre + '</div>';
-        }).join('');
+        // Agrupar usuarios por sede
+        const usersBysede = {};
+        activeUsers.forEach(u => {
+          const sede = u.sede || 'Sin sede';
+          if (!usersBysede[sede]) usersBysede[sede] = [];
+          usersBysede[sede].push(u);
+        });
         
-        container.innerHTML = html;
+        // Construir HTML agrupado por sede
+        let html = '';
+        const sedesOrdenadas = ['Mataró', 'Vilassar', 'Sin sede'];
+        sedesOrdenadas.forEach(sede => {
+          if (!usersBysede[sede] || usersBysede[sede].length === 0) return;
+          
+          // ✅ Agregar encabezado de sede
+          html += `<div style="padding:8px 12px;margin-top:8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);border-bottom:1px solid var(--border)">${sede}</div>`;
+          
+          // Agregar usuarios de esa sede
+          usersBysede[sede].forEach(u => {
+            html += `<div class="nav-subitem-user" onclick="openUserCalendar(${u.id}, '${u.name.replace(/'/g, "\\'")}')\" title=\"${u.name}\">👤 ${safeHtml(u.name)}</div>`;
+          });
+        });
+        
+        container.innerHTML = html || '<div style="padding:12px;color:var(--text-muted);font-size:13px">No hay usuarios disponibles</div>';
       }
 
       // ✅ NUEVA FUNCIÓN: Abre el calendario de un usuario específico
@@ -6048,15 +6103,36 @@
         // Admin siempre puede asignar técnico, tanto en citas propias como globales
         grp.style.display = isAdmin ? "" : "none";
         if (isAdmin) {
-          // ✅ FILTRAR POR DEPARTAMENTO si se proporciona
+          // ✅ CAMBIO 7: MEJORADO - Diferenciar entre departamento y sede
+          // filterDept puede ser: null, 'laboral'/'fiscal'/'mercantil' (departamento), o 'Mataró'/'Vilassar' (sede)
           let usersToShow = USERS.filter(u => u.active);
+          
+          const SEDE_LIST = ['Mataró', 'Vilassar'];
+          const DEPT_LIST = ['laboral', 'fiscal', 'mercantil'];
+          
           if (filterDept) {
-            usersToShow = usersToShow.filter(u => u.departamento === filterDept);
+            if (SEDE_LIST.includes(filterDept)) {
+              // ✅ filterParam es una sede
+              usersToShow = usersToShow.filter(u => u.sede === filterDept);
+            } else if (DEPT_LIST.includes(filterDept)) {
+              // ✅ filterParam es un departamento
+              usersToShow = usersToShow.filter(u => u.departamento === filterDept);
+              // Además, si el admin tiene sede, respetar su sede
+              if (currentUser.sede) {
+                usersToShow = usersToShow.filter(u => u.sede === currentUser.sede);
+              }
+            }
+          } else {
+            // Sin filtro especial, si el admin tiene sede, mostrar solo usuarios de su sede
+            if (currentUser.sede) {
+              usersToShow = usersToShow.filter(u => u.sede === currentUser.sede);
+            }
           }
+          
           document.getElementById("ev-employee").innerHTML = usersToShow
             .map(
               (u) =>
-                `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)}</option>`,
+                `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)} (${u.sede || 'Sin sede'})</option>`,
             )
             .join("");
         }
@@ -6068,9 +6144,20 @@
         // ✅ GUARDAR EL PARÁMETRO DE FILTRO (puede ser departamento o sede)
         currentEventFilterParam = filterParam;
         
+        // ✅ CAMBIO 8: Mostrar contexto de sede en el título
+        const SEDE_LIST = ['Mataró', 'Vilassar'];
+        const DEPT_LIST = ['laboral', 'fiscal', 'mercantil'];
+        let contextStr = '';
+        
+        if (filterParam && SEDE_LIST.includes(filterParam)) {
+          contextStr = ` (${filterParam})`;
+        } else if (filterParam && DEPT_LIST.includes(filterParam)) {
+          contextStr = ` - ${filterParam.charAt(0).toUpperCase() + filterParam.slice(1)}`;
+        }
+        
         document.getElementById("event-modal-title").textContent = isGlobal
-          ? "Agendar cita (Global)"
-          : "Nueva cita";
+          ? "Agendar cita (Global)" + contextStr
+          : "Nueva cita" + contextStr;
         document.getElementById("event-modal-sub").textContent = isGlobal
           ? "Asigna una cita a un empleado"
           : "Añade una nueva cita a tu calendario";
@@ -6194,6 +6281,25 @@
         const assignedTo = isAdmin
           ? parseInt(document.getElementById("ev-employee").value)
           : currentUser.id;
+        
+        // ✅ CAMBIO 11: Validar que el técnico asignado existe y tiene sede válida
+        const assignedUser = USERS.find(u => u.id === assignedTo);
+        if (!assignedUser) {
+          errEl.textContent = "El empleado seleccionado no existe.";
+          errEl.style.display = "";
+          return;
+        }
+        
+        // ✅ Si se crea desde un calendario de sede, validar que el técnico es de esa sede
+        const SEDE_LIST = ['Mataró', 'Vilassar'];
+        if (currentEventFilterParam && SEDE_LIST.includes(currentEventFilterParam)) {
+          if (assignedUser.sede !== currentEventFilterParam) {
+            errEl.textContent = `El empleado seleccionado no pertenece a la sede ${currentEventFilterParam}.`;
+            errEl.style.display = "";
+            return;
+          }
+        }
+        
         const service = document.getElementById("ev-service").value;
         const notes = document.getElementById("ev-notes").value;
         const isPrivate = isAdmin ? (document.getElementById("ev-private")?.checked || false) : false;
@@ -6373,7 +6479,15 @@
         if (!titleEl || !cellsEl) return;
 
         const isAdmin = currentUser.role === "admin";
-        const deptUsers = USERS.filter(u => u.departamento === dept && u.active);
+        
+        // ✅ CAMBIO 6: FILTRAR POR DEPARTAMENTO Y SEDE
+        // Anteriormente solo filtraba por departamento
+        let deptUsers = USERS.filter(u => u.departamento === dept && u.active);
+        
+        // ✅ Si el usuario tiene sede, solo mostrar usuarios de su sede (mantener coherencia)
+        if (currentUser.sede) {
+          deptUsers = deptUsers.filter(u => u.sede === currentUser.sede);
+        }
         
         // Obtener filtro de empleado
         const filterSel = document.getElementById("dept-" + dept + "-filter-person");
@@ -6389,7 +6503,7 @@
           const current = filterSel.value;
           filterSel.innerHTML = '<option value="all">Todos</option>' +
             deptUsers.map(u =>
-              `<option value="${u.id}"${u.id === selectedEmployeeId ? ' selected' : ''}>${safeHtml(u.name)}</option>`
+              `<option value="${u.id}"${u.id === selectedEmployeeId ? ' selected' : ''}>${safeHtml(u.name)} (${u.sede})</option>`
             ).join('');
           filterSel.value = current;
         }
@@ -6559,13 +6673,30 @@
         const viewMode = _calView[calId] || 'month';
         const date = adminViewCalMonth;
 
+        // ✅ CAMBIO 5: FILTRAR ADMINS SEGÚN RESTRICCIÓN DE SEDE
+        // Obtener admins visibles (respetando restricción de sede)
+        let adminUsers = USERS.filter(u => u.role === 'admin' && u.active);
+        
+        if (!isAdmin) {
+          // ✅ No-admin: solo ver admin de su sede
+          adminUsers = adminUsers.filter(u => u.sede === currentUser.sede);
+          
+          // Si no hay admin en su sede, mostrar mensaje de error
+          if (!adminUsers.length) {
+            const titleEl = document.getElementById("admin-view-cal-title");
+            const cellsEl = document.getElementById("admin-view-cal-cells");
+            if (titleEl) titleEl.textContent = "Calendario del administrador";
+            if (cellsEl) cellsEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);">⚠️ No hay administrador disponible en tu sede</div>';
+            return;
+          }
+        }
+        
         // Poblar select de filtro
-        const adminUsers = USERS.filter(u => u.role === 'admin' && u.active);
         const filterSel = document.getElementById("admin-view-filter");
         if (filterSel) {
           const currentVal = filterSel.value;
-          filterSel.innerHTML = '<option value="all">Todos los admins</option>' +
-            adminUsers.map(u => `<option value="${u.id}"${String(u.id) === currentVal ? ' selected' : ''}>${safeHtml(u.name)}</option>`).join('');
+          filterSel.innerHTML = adminUsers.length > 1 ? '<option value="all">Todos los admins</option>' : '' +
+            adminUsers.map(u => `<option value="${u.id}"${String(u.id) === currentVal ? ' selected' : ''}>${safeHtml(u.name)} (${u.sede})</option>`).join('');
         }
 
         const filterVal = filterSel ? filterSel.value : "all";
@@ -6806,7 +6937,17 @@
         const grp = document.getElementById("aev-admin-group");
         const sel = document.getElementById("aev-admin-id");
         if (!grp || !sel) return;
-        const adminUsers = USERS.filter(u => u.role === 'admin' && u.active);
+        
+        // ✅ CAMBIO 4: FILTRAR ADMINS SEGÚN RESTRICCIÓN DE SEDE
+        // No-admins solo ven admin de su sede
+        // Admins ven todos (pero idealmente de su sede)
+        let adminUsers = USERS.filter(u => u.role === 'admin' && u.active);
+        
+        if (currentUser.role !== 'admin') {
+          // ✅ No-admin: solo mostrar admin de su sede
+          adminUsers = adminUsers.filter(u => u.sede === currentUser.sede);
+        }
+        
         if (adminUsers.length <= 1) {
           grp.style.display = "none";
           if (sel) sel.value = adminUsers[0] ? String(adminUsers[0].id) : "";
@@ -6817,7 +6958,7 @@
         const filterSel = document.getElementById("admin-view-filter");
         const filterVal = filterSel ? filterSel.value : "all";
         sel.innerHTML = adminUsers.map(u =>
-          `<option value="${u.id}"${filterVal !== "all" && String(u.id) === filterVal ? ' selected' : ''}>${safeHtml(u.name)}</option>`
+          `<option value="${u.id}"${filterVal !== "all" && String(u.id) === filterVal ? ' selected' : ''}>${safeHtml(u.name)} (${u.sede || 'Sin sede'})</option>`
         ).join('');
       }
 
@@ -7235,6 +7376,8 @@
         }
         closeModal("user-modal");
         renderUsers();
+        // ✅ CAMBIO 9: Actualizar lista de usuarios personales cuando se guarda
+        renderCalendarsUserList();
         buildMsgList();
         updateGchatHeader();
         updateDeptCalNav();
@@ -7248,6 +7391,8 @@
         const u = USERS.find((x) => x.id === id);
         if (u) u.active = !u.active;
         renderUsers();
+        // ✅ CAMBIO 10: Actualizar lista de usuarios personales cuando se activa/desactiva
+        renderCalendarsUserList();
       }
 
       // ══════════════════════════════════════════
