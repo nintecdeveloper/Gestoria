@@ -167,22 +167,27 @@ def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
 # ═══════════════════════════════════════════════════════════════
 # SCHEDULER — INICIALIZACIÓN
 # ═══════════════════════════════════════════════════════════════
-scheduler = None
-if SCHEDULER_AVAILABLE:
-    scheduler = BackgroundScheduler(timezone='Europe/Madrid')
-    scheduler.start()
-    logger.info("✅ [Scheduler] APScheduler iniciado correctamente.")
-
 def send_whatsapp_job(to_phone: str, message: str):
-    """
-    Tarea ejecutada por el scheduler en el momento programado.
-    Envía el WhatsApp via Meta Cloud API directamente desde el servidor.
-    """
+
+    # 1. Enviar WhatsApp
     result = send_whatsapp_meta(to_phone, message)
+
     if result['ok']:
         logger.info(f"✅ [Scheduler/Meta] Recordatorio enviado a {to_phone}")
     else:
         logger.error(f"❌ [Scheduler/Meta] No se pudo enviar a {to_phone}: {result.get('error')}")
+
+    # 2. Enviar notificación al CRM (usuarios conectados)
+    socketio.emit(
+        'notification_received',
+        {
+            'type': 'reminder',
+            'title': 'Recordatori de cita',
+            'message': message,
+            'timestamp': datetime.now().isoformat()
+        },
+        broadcast=True
+    )
 
 # ═══════════════════════════════════════════════════════════════
 # INICIALIZAR FLASK Y SOCKETIO
