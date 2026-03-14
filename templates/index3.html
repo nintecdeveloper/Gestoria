@@ -742,7 +742,7 @@
         display: none;
       }
       .section.active {
-        display: block;
+        display: block !important;
       }
       .sec-hdr {
         display: flex;
@@ -5230,12 +5230,18 @@
         }
         document
           .querySelectorAll(".section")
-          .forEach((s) => s.classList.remove("active"));
+          .forEach((s) => {
+            s.classList.remove("active");
+            s.style.display = 'none';  // ✅ Asegurar que está oculto
+          });
         document
           .querySelectorAll(".nav-item")
           .forEach((n) => n.classList.remove("active"));
         const el = document.getElementById("section-" + name);
-        if (el) el.classList.add("active");
+        if (el) {
+          el.classList.add("active");
+          el.style.display = 'block';  // ✅ Mostrar explícitamente
+        }
         const ni = document.querySelector('.nav-item[data-sec="' + name + '"]');
         if (ni) ni.classList.add("active");
 
