@@ -3585,11 +3585,10 @@
               </div>
             </div>
             <div class="msg-layout">
-              <div class=\"msg-sidebar\">
-                <div class=\"msg-sidebar-header\">
-                  <div class=\"card-title\">Conversaciones</div>
+              <div class="msg-sidebar">
+                <div class="msg-sidebar-header">
+                  <div class="card-title">Conversaciones</div>
                 </div>
-
                 <div class="msg-search">
                   <input
                     type="text"
@@ -4265,141 +4264,7 @@
         return free ? free.id : USER_COLOR_PALETTE[userId % USER_COLOR_PALETTE.length].id;
       }
 
-      let USERS = [
-        // ✅ ADMINS (únicos usuarios existentes que se mantienen)
-        {
-          id: 1,
-          username: "antonio",
-          password: "admin123",
-          name: "Antonio",
-          role: "admin",
-          email: "antonio@rodonverges.com",
-          phone: "+34 93 000 00 01",
-          active: true,
-          color: "teal",
-          sede: "Mataró",
-        },
-        {
-          id: 3,
-          username: "pau",
-          password: "pau123",
-          name: "Pau",
-          role: "admin",
-          email: "pau@rodonverges.com",
-          phone: "+34 93 000 00 03",
-          active: true,
-          color: "orange",
-          sede: "Vilassar",
-        },
-
-        // ✅ USUARIOS MATARÓ (nuevos)
-        {
-          id: 10,
-          username: "myriam",
-          password: "Myriam123",
-          name: "Myriam Recolons",
-          role: "empleado",
-          email: "myriam@rodonverges.com",
-          phone: "+34 93 000 00 10",
-          active: true,
-          departamento: "laboral",
-          color: "blue",
-          sede: "Mataró",
-        },
-        {
-          id: 11,
-          username: "anna_f",
-          password: "Anna123",
-          name: "Anna Fabregà",
-          role: "empleado",
-          email: "anna.f@rodonverges.com",
-          phone: "+34 93 000 00 11",
-          active: true,
-          departamento: "fiscal",
-          color: "purple",
-          sede: "Mataró",
-        },
-        {
-          id: 12,
-          username: "montse",
-          password: "Montse123",
-          name: "Montse Martín",
-          role: "empleado",
-          email: "montse@rodonverges.com",
-          phone: "+34 93 000 00 12",
-          active: true,
-          departamento: "mercantil",
-          color: "pink",
-          sede: "Mataró",
-        },
-
-        // ✅ USUARIOS VILASSAR (nuevos)
-        {
-          id: 20,
-          username: "cristina",
-          password: "Cristina123",
-          name: "Cristina Navas",
-          role: "empleado",
-          email: "cristina@rodonverges.com",
-          phone: "+34 93 000 00 20",
-          active: true,
-          departamento: "fiscal",
-          color: "green",
-          sede: "Vilassar",
-        },
-        {
-          id: 21,
-          username: "anna_l",
-          password: "Anna123",
-          name: "Anna Llinas",
-          role: "empleado",
-          email: "anna.l@rodonverges.com",
-          phone: "+34 93 000 00 21",
-          active: true,
-          departamento: "laboral",
-          color: "cyan",
-          sede: "Vilassar",
-        },
-        {
-          id: 22,
-          username: "anna_m",
-          password: "Anna123",
-          name: "Anna Maria Rodón",
-          role: "empleado",
-          email: "anna.m@rodonverges.com",
-          phone: "+34 93 000 00 22",
-          active: true,
-          departamento: "mercantil",
-          color: "yellow",
-          sede: "Vilassar",
-        },
-        {
-          id: 23,
-          username: "vanessa",
-          password: "Vanessa123",
-          name: "Vanessa Culebras",
-          role: "empleado",
-          email: "vanessa@rodonverges.com",
-          phone: "+34 93 000 00 23",
-          active: true,
-          departamento: "laboral",
-          color: "red",
-          sede: "Vilassar",
-        },
-        {
-          id: 24,
-          username: "montserrat",
-          password: "Montserrat123",
-          name: "Montserrat Mir",
-          role: "empleado",
-          email: "montserrat@rodonverges.com",
-          phone: "+34 93 000 00 24",
-          active: true,
-          departamento: "fiscal",
-          color: "brown",
-          sede: "Vilassar",
-        },
-      ];
+      let USERS = [];  // Se cargan desde localStorage
 
       let SERVICES = [
         {
@@ -4434,22 +4299,135 @@
         },
       ];
 
-      let CLIENTS = [
-        {
-          id: 201,
-          name: "Carlos Martínez López",
-          phone: "+34 666 123 456",
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 202,
-          name: "Empresa ABC SL",
-          phone: "+34 932 654 321",
-          createdAt: new Date().toISOString()
-        }
-      ];
+      let CLIENTS = [];  // Se cargan desde localStorage
 
-      let EVENTS = [
+
+      // ══════════════════════════════════════════
+      // 💾 PERSISTENCIA COMPLETA - TODOS LOS DATOS
+      // ══════════════════════════════════════════
+
+      // ── CITAS ──────────────────────────────────
+      function saveEventsToStorage() {
+        try {
+          localStorage.setItem('app_events', JSON.stringify(EVENTS));
+          console.log(`✅ ${EVENTS.length} cita(s) guardada(s)`);
+        } catch(err) { console.warn('❌ Error guardando citas:', err); }
+      }
+      function loadEventsFromStorage() {
+        try {
+          const stored = localStorage.getItem('app_events');
+          if (stored) {
+            EVENTS = JSON.parse(stored);
+            console.log(`✅ ${EVENTS.length} cita(s) cargada(s)`);
+          }
+        } catch(err) { console.warn('❌ Error cargando citas:', err); }
+      }
+
+      // ── USUARIOS ────────────────────────────────
+      function saveUsersToStorage() {
+        try {
+          localStorage.setItem('app_users', JSON.stringify(USERS));
+          console.log(`✅ ${USERS.length} usuario(s) guardado(s)`);
+        } catch(err) { console.warn('❌ Error guardando usuarios:', err); }
+      }
+      function loadUsersFromStorage() {
+        try {
+          const stored = localStorage.getItem('app_users');
+          if (stored) {
+            USERS = JSON.parse(stored);
+            console.log(`✅ ${USERS.length} usuario(s) cargado(s)`);
+          }
+        } catch(err) { console.warn('❌ Error cargando usuarios:', err); }
+      }
+
+      // ── CLIENTES ────────────────────────────────
+      function saveClientsToStorage() {
+        try {
+          localStorage.setItem('app_clients', JSON.stringify(CLIENTS));
+          console.log(`✅ ${CLIENTS.length} cliente(s) guardado(s)`);
+        } catch(err) { console.warn('❌ Error guardando clientes:', err); }
+      }
+      function loadClientsFromStorage() {
+        try {
+          const stored = localStorage.getItem('app_clients');
+          if (stored) {
+            CLIENTS = JSON.parse(stored);
+            console.log(`✅ ${CLIENTS.length} cliente(s) cargado(s)`);
+          }
+        } catch(err) { console.warn('❌ Error cargando clientes:', err); }
+      }
+
+      // ── CONVERSACIONES PRIVADAS ─────────────────
+      function saveConvsToStorage() {
+        try {
+          localStorage.setItem('app_convs', JSON.stringify(CONVS));
+          console.log(`✅ Conversaciones guardadas`);
+        } catch(err) { console.warn('❌ Error guardando conversaciones:', err); }
+      }
+      function loadConvsFromStorage() {
+        try {
+          const stored = localStorage.getItem('app_convs');
+          if (stored) {
+            CONVS = JSON.parse(stored);
+            console.log(`✅ Conversaciones cargadas`);
+          }
+        } catch(err) { console.warn('❌ Error cargando conversaciones:', err); }
+      }
+
+      // ── CHAT GENERAL ────────────────────────────
+      function saveChatToStorage() {
+        try {
+          localStorage.setItem('app_general_chat', JSON.stringify(GENERAL_CHAT));
+          console.log(`✅ ${GENERAL_CHAT.length} mensaje(s) en chat general`);
+        } catch(err) { console.warn('❌ Error guardando chat:', err); }
+      }
+      function loadChatFromStorage() {
+        try {
+          const stored = localStorage.getItem('app_general_chat');
+          if (stored) {
+            GENERAL_CHAT = JSON.parse(stored);
+            console.log(`✅ ${GENERAL_CHAT.length} mensaje(s) cargados del chat`);
+          }
+        } catch(err) { console.warn('❌ Error cargando chat:', err); }
+      }
+
+      // ── FUNCIÓN CENTRALIZADA ────────────────────
+      function saveAllDataToStorage() {
+        saveEventsToStorage();
+        saveUsersToStorage();
+        saveClientsToStorage();
+        saveConvsToStorage();
+        saveChatToStorage();
+        console.log('💾 TODOS LOS DATOS GUARDADOS EN LOCALSTORAGE');
+      }
+
+      function loadAllDataFromStorage() {
+        console.log('📂 Cargando todos los datos desde localStorage...');
+        loadEventsFromStorage();
+        loadUsersFromStorage();
+        loadClientsFromStorage();
+        loadConvsFromStorage();
+        loadChatFromStorage();
+        console.log('✅ TODOS LOS DATOS CARGADOS');
+      }
+
+      function clearAllStorage() {
+        localStorage.removeItem('app_events');
+        localStorage.removeItem('app_users');
+        localStorage.removeItem('app_clients');
+        localStorage.removeItem('app_convs');
+        localStorage.removeItem('app_general_chat');
+        console.log('🗑️ TODOS LOS DATOS LIMPIADOS');
+      }
+
+
+
+      // ══════════════════════════════════════════
+      let EVENTS = [];  // Array vacío - se cargan desde localStorage al iniciar
+      
+      // Datos de ejemplo eliminados - los eventos se cargan desde localStorage
+      
+      /* REFERENCIA DE EVENTOS DE EJEMPLO:
         {
           id: 1,
           ownerId: 1,
@@ -4572,8 +4550,9 @@
           private: false,
         },
       ];
+      */
 
-      let CONVS = {};
+      let CONVS = {};  // Se carga desde localStorage
 
       // ✅ CORRECCIÓN 6: Variables para Chat de Sede
       let activeSedeChat = null;  // 'mataro' o 'vilassar' si está abierto
@@ -4616,8 +4595,7 @@
           if (currentUser) {
             socket.emit('user_login', {
               username: currentUser.name,
-              userId: currentUser.id,
-              sede: currentUser.sede  // ✅ NUEVO: Enviar sede al servidor
+              userId: currentUser.id
             });
           }
         });
@@ -4685,218 +4663,35 @@
         
         // ✅ RECIBIR MENSAJES DEL CHAT GENERAL
         socket.on('receive_general_message', function(msg) {
-          console.log('💬 [GENERAL_CHAT] Mensaje recibido del servidor:', msg);
+          console.log('💬 [Socket] Mensaje general recibido:', msg);
+          const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
+          const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
           
-          // ✅ Validaciones
-          if (!msg) {
-            console.error('❌ [GENERAL_CHAT] msg es null/undefined');
-            return;
-          }
-          
-          if (!msg.text) {
-            console.warn('⚠️  [GENERAL_CHAT] Mensaje sin texto:', msg);
-            return;
-          }
-          
-          // ✅ FIX #3: VALIDACIÓN CRÍTICA - Rechazar si este mensaje ya existe en algún chat de sede
-          const isInSede = CONVS['sede_mataro']?.some(m => m.id === msg.id) ||
-                          CONVS['sede_vilassar']?.some(m => m.id === msg.id);
-          if (isInSede) {
-            console.warn('⚠️ [GENERAL_CHAT] Rechazando - este mensaje ya está en un chat de sede:', msg.id);
-            return;  // NO agregar a GENERAL_CHAT
-          }
-          
-          // ✅ FIX #1: Convertir timestamp a hora local correctamente
-          let time, date;
-          if (msg.timestamp) {
-            const dateObj = new Date(msg.timestamp);
-            time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-            date = dateObj.toISOString().split('T')[0];
-          } else {
-            time = nowTime();
-            date = todayStr();
-          }
-          
-          // ✅ CRÍTICO: Asegurar que GENERAL_CHAT existe Y es un array
-          if (!GENERAL_CHAT || !Array.isArray(GENERAL_CHAT)) {
-            console.warn('⚠️  [GENERAL_CHAT] GENERAL_CHAT no existe o no es array, inicializando');
-            GENERAL_CHAT = [];
-          }
-          
-          // ✅ EVITAR DUPLICADOS: Verificar si el mensaje ya existe por ID
-          const exists = GENERAL_CHAT.some(m => m.id === msg.id);
-          if (exists) {
-            console.log('⚠️  [GENERAL_CHAT] Mensaje duplicado, ignorando ID:', msg.id);
-            return;
-          }
-          
-          // ✅ Crear mensaje con estructura correcta PARA GENERAL_CHAT
-          const msgObj = {
+          // ✅ CORRECCIÓN 3: Guardar attachments en chat general también
+          GENERAL_CHAT.push({
             id: msg.id,
-            mine: (msg.sender_id === currentUser.id),  // ✅ FIX: Calcular dinámicamente
-            userId: msg.sender_id,  // ← ID REAL del usuario
-            username: msg.sender_username,  // ← Username del remitente
+            userId: msg.sender_id,
             text: msg.text,
             time: time,
             date: date,
+            username: msg.sender_username,
             attachments: msg.attachments || []
-          };
-          
-          console.log('✅ [GENERAL_CHAT] Agregando mensaje a GENERAL_CHAT:', msgObj);
-          GENERAL_CHAT.push(msgObj);
-          console.log('📊 [GENERAL_CHAT] Total mensajes en GENERAL_CHAT:', GENERAL_CHAT.length);
-          
-          // ✅ Renderizar SOLO si el chat general está visible
-          if (activeConvId === 'general-chat') {
-            console.log('🎨 [GENERAL_CHAT] Renderizando porque activeConvId === general-chat');
-            renderGeneralChat();
-          } else {
-            console.log('📌 [GENERAL_CHAT] NO renderizando (activeConvId:', activeConvId, ')');
-          }
-          
-          // Actualizar badges
-          saveMessagesToStorage();
-          updateBadge();
-          buildMsgList(document.getElementById("msg-search-inp") ? document.getElementById("msg-search-inp").value : '');
+          });
+          console.log('✅ [Socket] Mensaje general agregado');
+          renderGeneralChat();
         });
         
-        // ✅ RECIBIR HISTÓRICO DE CHAT GENERAL AL CONECTAR
-        socket.on('load_general_message_history', function(data) {
-          console.log('📚 [HISTÓRICO GENERAL] Recibidos', data.messages.length, 'mensajes');
-          if (!data.messages || !Array.isArray(data.messages)) {
-            console.warn('⚠️ [HISTÓRICO GENERAL] Datos inválidos:', data);
-            return;
-          }
-          
-          // Inicializar GENERAL_CHAT si no existe
-          if (!GENERAL_CHAT) {
-            GENERAL_CHAT = [];
-          }
-          
-          // Agregar todos los mensajes históricos
-          data.messages.forEach(msg => {
-            // Evitar duplicados por ID
-            const exists = GENERAL_CHAT.some(m => m.id === msg.id);
-            if (exists) {
-              return;  // Ya existe, saltar
-            }
-            
-            // ✅ FIX #3: VALIDACIÓN CRÍTICA - Rechazar si este mensaje pertenece a una sede
-            const isInSede = CONVS['sede_mataro']?.some(m => m.id === msg.id) ||
-                            CONVS['sede_vilassar']?.some(m => m.id === msg.id);
-            if (isInSede) {
-              console.warn(`⚠️ Ignorando mensaje de sede (${msg.id}) en carga de histórico general`);
-              return;  // NO agregar a GENERAL_CHAT
-            }
-            
-            // ✅ FIX #1: Convertir timestamp a hora local correctamente
-            let time, date;
-            if (msg.timestamp) {
-              const dateObj = new Date(msg.timestamp);
-              time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-              date = dateObj.toISOString().split('T')[0];
-            } else {
-              time = nowTime();
-              date = todayStr();
-            }
-            GENERAL_CHAT.push({
-              id: msg.id,
-              mine: (msg.sender_id === currentUser.id),  // ✅ FIX: Calcular dinámicamente
-              userId: msg.sender_id,
-              username: msg.sender_username,
-              text: msg.text,
-              time: time,
-              date: date,
-              attachments: msg.attachments || []
-            });
-          });
-          
-          console.log('✅ [HISTÓRICO GENERAL] Total mensajes en chat:', GENERAL_CHAT.length);
-          
-          // Renderizar si el chat general está abierto
-          if (activeConvId === 'general-chat') {
-            renderGeneralChat();
-          }
-          
-          saveMessagesToStorage();
-        });
-        
-        // ✅ RECIBIR HISTÓRICO DE CHAT DE SEDE AL CONECTAR
-        socket.on('load_sede_message_history', function(data) {
-          const sedeKey = data.sede_key;
-          const sedeConvId = `sede_${sedeKey}`;
-          console.log('📚 [HISTÓRICO SEDE] Recibidos', data.messages.length, 'mensajes para', sedeKey);
-          
-          if (!data.messages || !Array.isArray(data.messages)) {
-            console.warn('⚠️ [HISTÓRICO SEDE] Datos inválidos:', data);
-            return;
-          }
-          
-          // Inicializar CONVS[sedeConvId] si no existe
-          if (!CONVS[sedeConvId]) {
-            CONVS[sedeConvId] = [];
-          }
-          
-          // Agregar todos los mensajes históricos
-          data.messages.forEach(msg => {
-            // Evitar duplicados por ID
-            const exists = CONVS[sedeConvId].some(m => m.id === msg.id);
-            if (!exists) {
-              // ✅ FIX #1: Convertir timestamp a hora local correctamente
-              let time, date;
-              if (msg.timestamp) {
-                const dateObj = new Date(msg.timestamp);
-                time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-                date = dateObj.toISOString().split('T')[0];
-              } else {
-                time = nowTime();
-                date = todayStr();
-              }
-              // FIX CRÍTICO: Calcular mine dinámicamente basado en sender_id real
-              CONVS[sedeConvId].push({
-                id: msg.id,
-                mine: (msg.sender_id === currentUser.id),  // ✅ DINÁMICO: true si yo envié, false si otro
-                sender: msg.sender_username,
-                sender_id: msg.sender_id,  // ✅ ID del remitente REAL
-                text: msg.text,
-                time: time,
-                date: date,
-                read: true,
-                attachments: msg.attachments || []
-              });
-            }
-          });
-          
-          console.log('✅ [HISTÓRICO SEDE] Total mensajes en', sedeKey, ':', CONVS[sedeConvId].length);
-          
-          // Renderizar si ese chat de sede está abierto
-          if (activeSedeChat === sedeKey) {
-            renderMsgsFromArray(CONVS[sedeConvId]);
-          }
-          
-          saveMessagesToStorage();
+        // ✅ RECIBIR NOTIFICACIÓN DE CHAT GENERAL
+        socket.on('general_message_notification', function(notif) {
+          console.log('🔔 [Socket] Notificación de chat general:', notif);
+          showNotification('💬 Chat General', `${notif.from}: ${notif.message}`);
         });
 
-        // ✅ RECIBIR MENSAJES DE CHAT DE SEDE
+        // ✅ CORRECCIÓN 6: RECIBIR MENSAJES DE CHAT DE SEDE
         socket.on('receive_sede_message', function(msg) {
-          console.log('🏢 [SEDE_CHAT] Mensaje de sede recibido:', msg);
-          
-          // ✅ Validaciones
-          if (!msg) {
-            console.error('❌ [SEDE_CHAT] msg es null/undefined');
-            return;
-          }
-          
-          if (!msg.text) {
-            console.warn('⚠️  [SEDE_CHAT] Mensaje sin texto:', msg);
-            return;
-          }
-          
+          console.log('🏢 [Socket] Mensaje de sede recibido:', msg);
           const sedeKey = msg.sede_key;
-          const sede = msg.sede;
           const sedeConvId = `sede_${sedeKey}`;
-          
-          console.log('🎯 [SEDE_CHAT] Procesando para sede:', sede, 'clave:', sedeKey, 'ID:', sedeConvId);
           
           // Validar que el usuario pertenece a esta sede o es admin
           const isAdmin = currentUser.role === 'admin';
@@ -4904,67 +4699,33 @@
           const messageSede = msg.sede;
           
           if (!isAdmin && userSede !== messageSede) {
-            console.warn('❌ [SEDE_CHAT] Usuario NO autorizado para esta sede. Usuario sede:', userSede, 'Mensaje sede:', messageSede);
+            console.warn('❌ Intento de recibir mensaje de sede no autorizado');
             return;
           }
           
-          // ✅ FIX #1: Convertir timestamp a hora local correctamente
-          let time, date;
-          if (msg.timestamp) {
-            const dateObj = new Date(msg.timestamp);
-            time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-            date = dateObj.toISOString().split('T')[0];
-          } else {
-            time = nowTime();
-            date = todayStr();
-          }
-          
-          // ✅ CRÍTICO: Asegurar que CONVS[sedeConvId] existe
-          if (!CONVS[sedeConvId]) {
-            console.log('📝 [SEDE_CHAT] Creando nuevo array para:', sedeConvId);
-            CONVS[sedeConvId] = [];
-          }
-          
-          // ✅ EVITAR DUPLICADOS: Verificar si el mensaje ya existe por ID
-          const exists = CONVS[sedeConvId].some(m => m.id === msg.id);
-          if (exists) {
-            console.log('⚠️  [SEDE_CHAT] Mensaje duplicado en', sedeKey, ', ignorando ID:', msg.id);
-            return;
-          }
-          
-          // ✅ Crear mensaje con estructura correcta PARA SEDE
-          // FIX CRÍTICO: Calcular mine dinámicamente basado en sender_id real
-          const msgObj = {
-            id: msg.id,
-            mine: (msg.sender_id === currentUser.id),  // ✅ DINÁMICO: true si yo envié, false si otro
-            text: msg.text,
-            time: time,
-            date: date,
+          // Guardar el mensaje
+          if (!CONVS[sedeConvId]) CONVS[sedeConvId] = [];
+          CONVS[sedeConvId].push({
+            mine: false,
+            text: msg.message,
+            time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
             read: false,
             sender: msg.sender_username,
-            sender_id: msg.sender_id,  // ✅ ID del remitente REAL
-            userId: msg.sender_id,  // ✅ ID del remitente REAL (no debe ser currentUser.id)
-            attachments: msg.attachments || []
-          };
+            sender_id: msg.sender_id,
+            attachments: msg.attachments || [],
+            id: msg.message_id || `msg_${Date.now()}`
+          });
           
-          console.log('✅ [SEDE_CHAT] Agregando mensaje a CONVS[' + sedeConvId + ']:', msgObj);
-          CONVS[sedeConvId].push(msgObj);
-          console.log('📊 [SEDE_CHAT] Total mensajes en', sedeKey, ':', CONVS[sedeConvId].length);
-          
-          // ✅ Renderizar SOLO si el chat de sede está activo
+          // Si el chat de sede está activo, renderizar
           if (activeSedeChat === sedeKey) {
-            console.log('🎨 [SEDE_CHAT] Renderizando porque activeSedeChat === ' + sedeKey);
             CONVS[sedeConvId].forEach(m => { if (!m.mine) m.read = true; });
             renderMsgsFromArray(CONVS[sedeConvId]);
-          } else {
-            console.log('📌 [SEDE_CHAT] NO renderizando (activeSedeChat:', activeSedeChat, ')');
           }
           
-          // Actualizar almacenamiento y badges
           saveMessagesToStorage();
           updateBadge();
-          buildMsgList(document.getElementById("msg-search-inp") ? document.getElementById("msg-search-inp").value : '');
-          console.log('✅ [SEDE_CHAT] Procesamiento completado para', sedeKey);
+          buildMsgList(document.getElementById("msg-search-inp").value);
+          console.log('✅ Mensaje de sede agregado:', sedeKey);
         });
         
         socket.on('notification_received', function(notif) {
@@ -5052,22 +4813,7 @@
         ]);
       })();
 
-      let GENERAL_CHAT = [
-        {
-          id: 1,
-          userId: 1,
-          text: "Buenos días a todos. Recordad que hoy tenemos reunión de equipo a las 10h.",
-          time: "08:45",
-          date: dOff(0),
-        },
-        {
-          id: 2,
-          userId: 2,
-          text: "Anotado, gracias por el aviso!",
-          time: "08:52",
-          date: dOff(0),
-        },
-      ];
+      let GENERAL_CHAT = [];  // Se cargan desde localStorage
       let nextGchatId = 100;
 
       // ══════════════════════════════════════════
@@ -5484,19 +5230,16 @@
         }, 300);
         
         // ════════════════════════════════════════════════════════════
-        // Cargar mensajes guardados desde localStorage
+        // Cargar TODOS los datos guardados desde localStorage
         // ════════════════════════════════════════════════════════════
-        loadMessagesFromStorage();
-        
-        // ✅ FIX CRÍTICO: Validar separación de datos después de cargar
-        validateDataSeparation();
+        loadAllDataFromStorage();      // ✅ Carga: citas, usuarios, clientes, chats
+        loadMessagesFromStorage();     // ✅ Cargar mensajes de servidor
+        recoverReminders();            // ✅ Cargar recordatorios personales
         
         // Inicializar socket.io para mensajería en tiempo real
         setTimeout(() => {
           initializeSocket();
         }, 100);
-      }
-        });
       }
 
       // ══════════════════════════════════════════
@@ -5505,7 +5248,7 @@
 
       const SEC_TITLES = {
         dashboard: "Inicio",
-        "my-calendar": "Calendario",
+        "my-calendar": "Mi Calendario",
         "global-calendar": "Calendario Global",
         // NUEVO: títulos para calendarios de sede
         "mataro-calendar": "Calendario Mataró",
@@ -6435,6 +6178,10 @@
         if (currentDetailId === null) return;
         EVENTS = EVENTS.filter((e) => e.id !== currentDetailId);
         currentDetailId = null;
+        
+        // ✅ GUARDAR CAMBIOS EN LOCALSTORAGE
+        saveEventsToStorage();
+        
         closeModal("detail-modal");
         refreshCals();
         renderDashboard();
@@ -6456,6 +6203,10 @@
         if (e) e.stopPropagation();
         if (!confirm("¿Eliminar esta cita?")) return;
         EVENTS = EVENTS.filter((x) => x.id !== evId);
+        
+        // ✅ GUARDAR CAMBIOS EN LOCALSTORAGE
+        saveEventsToStorage();
+        
         refreshCals();
         renderDashboard();
       }
@@ -6549,25 +6300,9 @@
 
       function fillEmployeeSelect(selectedId, filterDept = null) {
         const grp = document.getElementById("ev-employee-group");
-        const employeeSelect = document.getElementById("ev-employee");
         const isAdmin = currentUser.role === "admin";
-        
-        // ✅ ARREGLO: Si se está viendo el calendario de otro usuario, el dropdown debe mostrar SOLO ese usuario y estar deshabilitado
-        if (viewingUserIdForCalendar !== null) {
-          // Admin abrió calendario de otro usuario
-          const targetUser = USERS.find(u => u.id === viewingUserIdForCalendar);
-          if (targetUser) {
-            grp.style.display = "";
-            employeeSelect.innerHTML = `<option value="${targetUser.id}" selected>${safeHtml(targetUser.name)} (${targetUser.departamento || 'sin depto'}, ${targetUser.sede || 'Sin sede'})</option>`;
-            employeeSelect.disabled = true;  // Deshabilitar dropdown
-            return;  // Salir sin continuar
-          }
-        }
-        
         // Admin siempre puede asignar técnico, tanto en citas propias como globales
         grp.style.display = isAdmin ? "" : "none";
-        employeeSelect.disabled = false;  // Habilitar dropdown normalmente
-        
         if (isAdmin) {
           // ✅ FILTRADO MEJORADO: Departamento + Sede
           // Los admins SOLO pueden asignar empleados de su misma sede
@@ -6588,7 +6323,7 @@
             usersToShow = usersToShow.filter(u => u.sede === filterDept);
           }
           
-          employeeSelect.innerHTML = usersToShow
+          document.getElementById("ev-employee").innerHTML = usersToShow
             .map(
               (u) =>
                 `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)} (${u.departamento || 'sin depto'}, ${u.sede || 'Sin sede'})</option>`,
@@ -6761,18 +6496,9 @@
         errEl.textContent = "Rellena los campos obligatorios (*).";
         errEl.style.display = "none";
         const isAdmin = currentUser.role === "admin";
-        
-        // ✅ ARREGLO: Si se está viendo el calendario de otro usuario, forzar asignación a ese usuario
-        let assignedTo;
-        if (viewingUserIdForCalendar !== null) {
-          // Cuando un admin abre el calendario de otro usuario, la cita SIEMPRE se asigna a ese usuario
-          assignedTo = viewingUserIdForCalendar;
-        } else {
-          // Comportamiento normal
-          assignedTo = isAdmin
-            ? parseInt(document.getElementById("ev-employee").value)
-            : currentUser.id;
-        }
+        const assignedTo = isAdmin
+          ? parseInt(document.getElementById("ev-employee").value)
+          : currentUser.id;
         
         // ✅ CAMBIO 11: Validar que el técnico asignado existe y tiene sede válida
         const assignedUser = USERS.find(u => u.id === assignedTo);
@@ -6847,6 +6573,9 @@
             } else {
               delete ev.waReminder;
             }
+            
+            // ✅ GUARDAR CAMBIOS EN LOCALSTORAGE (edición)
+            saveEventsToStorage();
           }
         } else {
           const eventObj = {
@@ -6882,6 +6611,10 @@
           
           EVENTS.push(eventObj);
         }
+        
+        // ✅ GUARDAR CITAS EN LOCALSTORAGE
+        saveEventsToStorage();
+        
         closeModal("event-modal");
         refreshCals();
         renderDashboard();
@@ -7554,6 +7287,9 @@
 
         EVENTS.push(eventObj);
 
+        // ✅ GUARDAR CITAS EN LOCALSTORAGE
+        saveEventsToStorage();
+
         closeModal("admin-event-modal");
         refreshCals();
         renderDashboard();
@@ -7899,6 +7635,10 @@
             color,
           });
         }
+        
+        // ✅ GUARDAR USUARIOS EN LOCALSTORAGE
+        saveUsersToStorage();
+        
         closeModal("user-modal");
         renderUsers();
         // ✅ CAMBIO 9: Actualizar lista de usuarios personales cuando se guarda
@@ -7915,6 +7655,10 @@
         }
         const u = USERS.find((x) => x.id === id);
         if (u) u.active = !u.active;
+        
+        // ✅ GUARDAR CAMBIOS EN LOCALSTORAGE
+        saveUsersToStorage();
+        
         renderUsers();
         // ✅ CAMBIO 10: Actualizar lista de usuarios personales cuando se activa/desactiva
         renderCalendarsUserList();
@@ -8133,6 +7877,10 @@
             createdAt: new Date().toISOString()
           });
         }
+        
+        // ✅ GUARDAR CLIENTES EN LOCALSTORAGE
+        saveClientsToStorage();
+        
         closeModal("client-modal");
         renderClients();
       }
@@ -8146,6 +7894,10 @@
         
         if (!confirm("¿Eliminar este cliente?")) return;
         CLIENTS = CLIENTS.filter((c) => c.id !== id);
+        
+        // ✅ GUARDAR CLIENTES EN LOCALSTORAGE
+        saveClientsToStorage();
+        
         renderClients();
       }
 
@@ -8313,6 +8065,10 @@
         });
 
         pendingClientsToImport = [];
+        
+        // ✅ GUARDAR CLIENTES EN LOCALSTORAGE
+        saveClientsToStorage();
+        
         closeModal("import-clients-modal");
         renderClients();
         alert(`✅ ${CLIENTS.length} cliente(s) importado(s) correctamente`);
@@ -8340,14 +8096,7 @@
       function openGeneralChat() {
         activeConvId = 'general-chat';
         activeSedeChat = null;
-        
-        // ✅ FIX: Asegurar que GENERAL_CHAT está inicializado
-        if (!GENERAL_CHAT || !Array.isArray(GENERAL_CHAT)) {
-          console.warn('⚠️ GENERAL_CHAT no está inicializado, usando array vacío');
-          GENERAL_CHAT = [];
-        }
-        
-        const generalMsgs = GENERAL_CHAT;
+        const generalMsgs = CONVS['general-chat'] || [];
         generalMsgs.forEach((m) => {
           if (!m.mine) m.read = true;
         });
@@ -8366,10 +8115,7 @@
         // Limpiar adjuntos pendientes al cambiar de conversación
         msgPendingAttachments = [];
         msgRenderChips();
-        
-        // ✅ FIX: SIEMPRE renderizar Chat General en gchat-messages usando renderGeneralChat()
-        console.log('📊 [openGeneralChat] Renderizando', GENERAL_CHAT.length, 'mensajes');
-        renderGeneralChat();
+        renderGeneralChatInMsg();
 
         // Mobile: slide animation
         if (isMobile()) {
@@ -8383,9 +8129,9 @@
       }
 
       function renderGeneralChat() {
-        const el = document.getElementById("msg-messages");
+        const el = document.getElementById("gchat-messages");
         if (!el) return;
-        if (!GENERAL_CHAT || !GENERAL_CHAT.length) {
+        if (!GENERAL_CHAT.length) {
           el.innerHTML =
             '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:40px 0">No hay mensajes aún. ¡Sé el primero en escribir!</div>';
           return;
@@ -8396,23 +8142,9 @@
         let lastUserId = null;
 
         GENERAL_CHAT.forEach((msg) => {
-          // ✅ FIX CRÍTICO: Usar mine si existe, sino calcular
-          let isMe = false;
-          if (msg.mine !== undefined) {
-            isMe = msg.mine;  // Usar el valor guardado
-          } else if (msg.userId === currentUser.id) {
-            isMe = true;
-          }
-          
-          // ✅ FIX: Obtener senderName correctamente
-          let senderName = "Usuario";
-          if (isMe) {
-            senderName = "Tú";
-          } else {
-            const sender = USERS.find((u) => u.id === msg.userId);
-            senderName = sender ? sender.name : "Usuario";
-          }
-          
+          const sender = USERS.find((u) => u.id === msg.userId);
+          const senderName = sender ? sender.name : "Usuario";
+          const isMe = msg.userId === currentUser.id;
           const msgDate = msg.date;
 
           if (msgDate !== lastDate) {
@@ -8552,6 +8284,10 @@
         };
         
         GENERAL_CHAT.push(msgObj);
+        
+        // ✅ GUARDAR CHAT EN LOCALSTORAGE
+        saveChatToStorage();
+        
         inp.value = "";
         gchatPendingAttachments = [];
         gchatRenderChips();
@@ -8563,7 +8299,6 @@
           socket.emit('send_general_message', {
             message: text,
             sender_username: currentUser.name,
-            sender_user_id: currentUser.id,  // ✅ NUEVO: Enviar ID real del usuario
             message_id: msgObj.id,
             attachments: attachments
           });
@@ -8705,8 +8440,7 @@
         // ✅ CAMBIO 5: Mostrar Chat General al inicio (accesible a todos)
         let generalChatHtml = '';
         const generalConvId = 'general-chat';
-        // ✅ FIX CRÍTICO: Leer de GENERAL_CHAT, no de CONVS['general-chat']
-        const generalMsgs = GENERAL_CHAT || [];
+        const generalMsgs = CONVS[generalConvId] || [];
         const generalLast = generalMsgs.length ? generalMsgs[generalMsgs.length - 1] : null;
         const generalUnread = generalMsgs.filter(m => !m.mine && !m.read).length;
         const isGeneralActive = activeConvId === 'general-chat' ? 'active' : '';
@@ -8890,76 +8624,35 @@
         renderMsgsFromArray(msgs);
       }
       
-      // ❌ ELIMINADO: Esta función causaba confusión porque leía de CONVS['general-chat'] que no debería existir
-      // Usar siempre renderGeneralChat() para Chat General
-      // function renderGeneralChatInMsg() {
-      //   const generalMsgs = CONVS['general-chat'] || [];
-      //   renderMsgsFromArray(generalMsgs);
-      // }
+      // ✅ CAMBIO 14: NUEVA FUNCIÓN - Renderizar chat general en la sección de Mensajería
+      function renderGeneralChatInMsg() {
+        // Convertir mensajes del chat general al formato de CONVS
+        const generalMsgs = CONVS['general-chat'] || [];
+        renderMsgsFromArray(generalMsgs);
+      }
 
       // ✅ CORRECCIÓN 6: Renderizar mensajes desde un array directamente
       function renderMsgsFromArray(msgs) {
-        // ✅ FIX CRÍTICO: Validar que msgs no es null/undefined
-        if (!msgs || !Array.isArray(msgs)) {
-          console.error('❌ renderMsgsFromArray: msgs inválido ->', msgs);
-          msgs = [];
-        }
-        
         const el = document.getElementById("msg-messages");
         el.innerHTML = msgs.length
           ? msgs
-              .map((m, idx) => {
-                // ✅ FIX CRÍTICO: Usar mine si existe, sino calcular
-                let isMe = false;
-                if (m.mine !== undefined) {
-                  isMe = m.mine;  // Usar el valor guardado
-                } else if (m.userId === currentUser.id) {
-                  isMe = true;
-                } else if (m.sender_id === currentUser.id) {
-                  isMe = true;
-                }
-                
-                // Validar coherencia
-                if (isMe && m.sender_id && m.sender_id !== currentUser.id) {
-                  console.warn('⚠️ Inconsistencia detectada: isMe=true pero sender_id es diferente', m);
-                  isMe = false;  // Corregir
-                }
-                
-                // Obtener nombre del remitente
-                let senderName = "Usuario";
-                if (isMe) {
-                  senderName = "Tú";
-                } else if (m.sender) {
-                  senderName = m.sender;
-                } else if (m.username) {
-                  senderName = m.username;
-                } else if (m.sender_id) {
-                  const user = USERS.find(u => u.id === m.sender_id);
-                  senderName = user ? user.name : "Usuario";
-                }
-                
-                // Mostrar nombre del remitente si es necesario
-                const lastMsg = idx > 0 ? msgs[idx - 1] : null;
-                const lastSenderId = lastMsg ? (lastMsg.sender_id || lastMsg.userId) : null;
-                const currentSenderId = m.sender_id || m.userId;
-                const showSenderName = !isMe && (idx === 0 || lastSenderId !== currentSenderId);
-                
+              .map((m) => {
                 // Renderizar adjuntos si existen
                 const attsHtml = (m.attachments && m.attachments.length)
                   ? m.attachments.map(att => {
                       const ext = (att.name.split(".").pop() || "").toLowerCase();
                       const isImage = ["jpg","jpeg","png","gif","webp","svg","bmp"].includes(ext);
-                      if (isImage && att.data) {
+                      if (isImage && att.dataUrl) {
                         // Previsualización de imagen inline
-                        return `<a href="${att.data}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" title="Descargar ${safeHtml(att.name)}" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;">
-                          <img src="${att.data}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:160px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
+                        return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" title="Descargar ${safeHtml(att.name)}" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;">
+                          <img src="${att.dataUrl}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:160px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
                           <span class="msg-file-info" style="margin-top:4px;">
                             <span class="msg-file-name">${safeHtml(att.name)}</span>
                             <span class="msg-file-size">${att.size}</span>
                           </span>
                         </a>`;
                       }
-                      return `<a href="${att.data}" download="${safeHtml(att.name)}" class="msg-file-card" title="Descargar ${safeHtml(att.name)}">
+                      return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card" title="Descargar ${safeHtml(att.name)}">
                         <span class="msg-file-icon">${msgGetFileIcon(att.name)}</span>
                         <span class="msg-file-info">
                           <span class="msg-file-name">${safeHtml(att.name)}</span>
@@ -8972,14 +8665,8 @@
                 const bubbleHtml = m.text
                   ? `<div class="msg-bubble">${safeHtml(m.text)}</div>`
                   : "";
-                
-                // Mostrar nombre del remitente para chats de grupo (no para privados)
-                const senderNameHtml = showSenderName && !isMe
-                  ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;font-weight:500">${safeHtml(senderName)}</div>`
-                  : "";
-                
-                return `<div class="msg-bubble-wrap ${isMe ? "me" : ""}">
-        ${senderNameHtml}${bubbleHtml}${attsHtml}
+                return `<div class="msg-bubble-wrap ${m.mine ? "me" : ""}">
+        ${bubbleHtml}${attsHtml}
         <div class="msg-time-label">${m.time}</div>
       </div>`;
               })
@@ -9007,196 +8694,48 @@
        */
       function saveMessagesToStorage() {
         try {
-          // ✅✅✅ CAMBIO RADICAL: Guardar en localStorage COMPLETAMENTE SEPARADO
-          // NUNCA usar un JSON compartido, guardar cada chat en su propia key
-          
-          // Guardar GENERAL_CHAT en su propia key
-          if (Array.isArray(GENERAL_CHAT)) {
-            // Validar que GENERAL_CHAT NO contiene mensajes de sede
-            const cleanGeneral = GENERAL_CHAT.filter(m => {
-              const isSede = CONVS['sede_mataro']?.some(sm => sm.id === m.id) ||
-                            CONVS['sede_vilassar']?.some(sm => sm.id === m.id);
-              if (isSede) {
-                console.warn(`🚨 CRÍTICO: Removiendo mensaje de sede (${m.id}) de GENERAL_CHAT antes de guardar`);
-              }
-              return !isSede;
-            });
-            
-            localStorage.setItem('general_chat_data', JSON.stringify(cleanGeneral));
-            console.log(`✅ GENERAL_CHAT guardado (${cleanGeneral.length} msgs)`);
-          }
-          
-          // Guardar SEDE MATARÓ en su propia key
-          if (Array.isArray(CONVS['sede_mataro'])) {
-            localStorage.setItem('sede_mataro_data', JSON.stringify(CONVS['sede_mataro']));
-            console.log(`✅ Chat Mataró guardado (${CONVS['sede_mataro'].length} msgs)`);
-          }
-          
-          // Guardar SEDE VILASSAR en su propia key
-          if (Array.isArray(CONVS['sede_vilassar'])) {
-            localStorage.setItem('sede_vilassar_data', JSON.stringify(CONVS['sede_vilassar']));
-            console.log(`✅ Chat Vilassar guardado (${CONVS['sede_vilassar'].length} msgs)`);
-          }
-          
-          // Guardar otros CONVS (chats privados)
-          Object.keys(CONVS).forEach(key => {
-            if (key !== 'sede_mataro' && key !== 'sede_vilassar' && Array.isArray(CONVS[key])) {
-              localStorage.setItem(`convs_${key}`, JSON.stringify(CONVS[key]));
-            }
-          });
-          
-          console.log('✅✅✅ ALMACENAMIENTO COMPLETO: Todos los chats guardados en keys SEPARADAS');
+          const data = JSON.stringify(CONVS);
+          localStorage.setItem('app_conversations', data);
+          console.log('✅ Conversaciones guardadas en localStorage');
         } catch (err) {
           console.warn('⚠️ No se pudo guardar en localStorage:', err);
         }
       }
 
       /**
-       * Cargar conversaciones desde localStorage SEPARADO
+       * Cargar conversaciones desde localStorage
        */
       function loadMessagesFromStorage() {
         try {
-          // ✅✅✅ CAMBIO RADICAL: Cargar desde localStorage keys SEPARADOS
-          // NUNCA mezclar, cada chat tiene su propia key
-          
-          console.log('🔄 Cargando datos desde localStorage SEPARADO...');
-          
-          // Cargar GENERAL_CHAT desde su key específica
-          const generalChatData = localStorage.getItem('general_chat_data');
-          if (generalChatData) {
-            GENERAL_CHAT = JSON.parse(generalChatData);
-            console.log(`✅ GENERAL_CHAT cargado: ${GENERAL_CHAT.length} mensajes`);
-          } else {
-            GENERAL_CHAT = [];
-            console.log('ℹ️ GENERAL_CHAT: empty (nuevo)');
+          const data = localStorage.getItem('app_conversations');
+          if (data) {
+            const loaded = JSON.parse(data);
+            Object.keys(loaded).forEach(key => {
+              CONVS[key] = loaded[key];
+            });
+            console.log('✅ Conversaciones cargadas desde localStorage');
+            return true;
           }
-          
-          // Cargar SEDE MATARÓ desde su key específica
-          const mataroData = localStorage.getItem('sede_mataro_data');
-          if (mataroData) {
-            CONVS['sede_mataro'] = JSON.parse(mataroData);
-            console.log(`✅ Chat Mataró cargado: ${CONVS['sede_mataro'].length} mensajes`);
-          } else {
-            CONVS['sede_mataro'] = [];
-            console.log('ℹ️ Chat Mataró: empty (nuevo)');
-          }
-          
-          // Cargar SEDE VILASSAR desde su key específica
-          const vilassarData = localStorage.getItem('sede_vilassar_data');
-          if (vilassarData) {
-            CONVS['sede_vilassar'] = JSON.parse(vilassarData);
-            console.log(`✅ Chat Vilassar cargado: ${CONVS['sede_vilassar'].length} mensajes`);
-          } else {
-            CONVS['sede_vilassar'] = [];
-            console.log('ℹ️ Chat Vilassar: empty (nuevo)');
-          }
-          
-          // Cargar otros CONVS (chats privados)
-          // Buscar todas las keys que empiezan con 'convs_'
-          const keys = Object.keys(localStorage);
-          keys.forEach(key => {
-            if (key.startsWith('convs_')) {
-              const convKey = key.replace('convs_', '');
-              const data = localStorage.getItem(key);
-              if (data) {
-                CONVS[convKey] = JSON.parse(data);
-              }
-            }
-          });
-          
-          // ✅ VALIDACIÓN FINAL: Garantizar que NO hay mezcla
-          validateDataSeparation();
-          
-          console.log('✅✅✅ CARGA COMPLETA: Todos los chats cargados desde keys SEPARADAS');
-          return true;
         } catch (err) {
           console.warn('⚠️ No se pudo cargar desde localStorage:', err);
-          return false;
         }
+        return false;
       }
 
       /**
-       * ✅ FIX CRÍTICO: Validar que GENERAL_CHAT y CONVS están completamente separados
+       * Limpiar todas las conversaciones (debug)
        */
-      function validateDataSeparation() {
-        console.log('🔍 [VALIDACIÓN] Verificando separación de datos...');
-        
-        // Validación 1: GENERAL_CHAT no debe estar en CONVS
-        if (CONVS['general-chat'] || CONVS['general_chat']) {
-          console.warn('⚠️ ADVERTENCIA: General-chat encontrado en CONVS, removiendo...');
-          delete CONVS['general-chat'];
-          delete CONVS['general_chat'];
+      function clearMessagesStorage() {
+        try {
+          localStorage.removeItem('app_conversations');
+          console.log('✅ Almacenamiento de mensajes limpiado');
+        } catch (err) {
+          console.warn('⚠️ Error al limpiar storage:', err);
         }
-        
-        // Validación 2: CONVS de sede no deben estar en GENERAL_CHAT
-        if (GENERAL_CHAT && Array.isArray(GENERAL_CHAT)) {
-          const sedes = ['sede_mataro', 'sede_vilassar'];
-          let foundSede = 0;
-          
-          sedes.forEach(sedeName => {
-            const sedeMessages = GENERAL_CHAT.filter(m => {
-              // Buscar mensajes que parecen ser de sede
-              return CONVS[sedeName]?.some(sm => sm.id === m.id);
-            });
-            
-            if (sedeMessages.length > 0) {
-              foundSede += sedeMessages.length;
-              console.warn(`⚠️ ADVERTENCIA: ${sedeMessages.length} mensajes de ${sedeName} encontrados en GENERAL_CHAT, removiendo...`);
-              // Remover del chat general
-              GENERAL_CHAT = GENERAL_CHAT.filter(m => !sedeMessages.includes(m));
-            }
-          });
-          
-          if (foundSede > 0) {
-            saveMessagesToStorage();
-          }
-        }
-        
-        // Validación 3: Imprimir reporte de separación
-        console.log('✅ [VALIDACIÓN] Reporte de separación:');
-        console.log(`   - GENERAL_CHAT: ${GENERAL_CHAT?.length || 0} mensajes`);
-        
-        Object.keys(CONVS).forEach(key => {
-          if (Array.isArray(CONVS[key])) {
-            console.log(`   - CONVS['${key}']: ${CONVS[key].length} mensajes`);
-          }
-        });
-        
-        // Validación 4: Verificar que no hay duplicados por ID entre chats
-        const allIds = new Set();
-        let duplicates = 0;
-        
-        if (GENERAL_CHAT && Array.isArray(GENERAL_CHAT)) {
-          GENERAL_CHAT.forEach(m => {
-            if (allIds.has(m.id)) {
-              console.warn(`⚠️ DUPLICADO encontrado: ${m.id} en múltiples chats`);
-              duplicates++;
-            }
-            allIds.add(m.id);
-          });
-        }
-        
-        Object.keys(CONVS).forEach(key => {
-          if (Array.isArray(CONVS[key])) {
-            CONVS[key].forEach(m => {
-              if (allIds.has(m.id)) {
-                console.warn(`⚠️ DUPLICADO encontrado: ${m.id} en múltiples chats`);
-                duplicates++;
-              }
-              allIds.add(m.id);
-            });
-          }
-        });
-        
-        if (duplicates === 0) {
-          console.log('✅ [VALIDACIÓN] No hay duplicados por ID');
-        }
-        
-        console.log('✅ [VALIDACIÓN] Separación de datos verificada');
       }
 
       function sendMsg() {
-        // ✅ CORRECCIÓN: Soportar tanto conversaciones privadas como chats de sede y chat general
+        // ✅ CORRECCIÓN 6: Soportar tanto conversaciones privadas como chats de sede y chat general
         if (activeConvId === null && activeSedeChat === null) return;
         
         const inp = document.getElementById("msg-input");
@@ -9215,12 +8754,8 @@
             }))
           : [];
         
-        // ✅ FIX CRÍTICO: Estandarizar estructura de mensajes
         const msgObj = { 
-          mine: true,
-          userId: currentUser.id,  // ✅ ID del usuario actual (para mensajes enviados)
-          sender_id: currentUser.id,  // ✅ Agregar sender_id para consistencia
-          sender: currentUser.name,  // ✅ Agregar sender para mensajes de sede
+          mine: true, 
           text, 
           time, 
           read: true, 
@@ -9228,14 +8763,12 @@
           id: `msg_${Date.now()}`
         };
         
-        // ✅ CAMBIO: Manejar chat general
+        // ✅ CAMBIO 15: Manejar chat general
         if (activeConvId === 'general-chat') {
           // Enviar a chat general
-          if (!GENERAL_CHAT) GENERAL_CHAT = [];
-          
-          // ✅ VALIDACIÓN: Asegurar que NO se agrega a CONVS
-          GENERAL_CHAT.push(msgObj);
-          renderGeneralChat();
+          if (!CONVS['general-chat']) CONVS['general-chat'] = [];
+          CONVS['general-chat'].push(msgObj);
+          renderGeneralChatInMsg();
           
           // Guardar y sincronizar
           saveMessagesToStorage();
@@ -9243,7 +8776,6 @@
             socket.emit('send_general_message', {
               message: text,
               sender_username: currentUser.name,
-              sender_user_id: currentUser.id,
               message_id: msgObj.id,
               attachments: attachments
             });
@@ -9251,14 +8783,6 @@
         } else if (activeSedeChat) {
           // Enviar a chat de sede
           const sedeConvId = `sede_${activeSedeChat}`;
-          
-          // ✅ VALIDACIÓN: Asegurar que la estructura de sede es correcta
-          if (!CONVS[sedeConvId]) {
-            CONVS[sedeConvId] = [];
-            console.warn(`⚠️ CONVS['${sedeConvId}'] no existe, inicializando`);
-          }
-          
-          // ✅ VALIDACIÓN: Asegurar que NO se agrega a GENERAL_CHAT
           CONVS[sedeConvId].push(msgObj);
           renderMsgsFromArray(CONVS[sedeConvId]);
           
@@ -9268,7 +8792,7 @@
             socket.emit('send_sede_message', {
               message: text,
               sender_username: currentUser.name,
-              sender_user_id: currentUser.id,
+              sender_id: currentUser.id,
               sede: SEDE_CHATS[activeSedeChat].sede,
               sede_key: activeSedeChat,
               message_id: msgObj.id,
@@ -9314,6 +8838,9 @@
         msgPendingAttachments = [];
         msgRenderChips();
         buildMsgList(document.getElementById("msg-search-inp").value);
+        
+        // ✅ GUARDAR CONVERSACIONES EN LOCALSTORAGE
+        saveConvsToStorage();
       }
 
       // ══════════════════════════════════════════
