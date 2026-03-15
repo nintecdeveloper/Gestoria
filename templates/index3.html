@@ -4647,10 +4647,10 @@
       let currentSocketId = null;
       
       function initializeSocket() {
-        // Importar socket.io desde CDN si no está disponible
+        // Importar socket.io desde Flask (está servido en /socket.io/socket.io.js)
         if (typeof io === 'undefined') {
           const script = document.createElement('script');
-          script.src = 'https://cdn.socket.io/4.5.4/socket.io.min.js';
+          script.src = '/socket.io/socket.io.js';  // ✅ CORREGIDO: Usar Flask en lugar de CDN
           script.onload = connectSocket;
           document.head.appendChild(script);
         } else {
