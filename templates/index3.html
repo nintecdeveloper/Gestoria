@@ -4697,9 +4697,24 @@
             return;
           }
           
-          // Procesar timestamp
-          const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
-          const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
+          // ✅ FIX #3: VALIDACIÓN CRÍTICA - Rechazar si este mensaje ya existe en algún chat de sede
+          const isInSede = CONVS['sede_mataro']?.some(m => m.id === msg.id) ||
+                          CONVS['sede_vilassar']?.some(m => m.id === msg.id);
+          if (isInSede) {
+            console.warn('⚠️ [GENERAL_CHAT] Rechazando - este mensaje ya está en un chat de sede:', msg.id);
+            return;  // NO agregar a GENERAL_CHAT
+          }
+          
+          // ✅ FIX #1: Convertir timestamp a hora local correctamente
+          let time, date;
+          if (msg.timestamp) {
+            const dateObj = new Date(msg.timestamp);
+            time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+            date = dateObj.toISOString().split('T')[0];
+          } else {
+            time = nowTime();
+            date = todayStr();
+          }
           
           // ✅ CRÍTICO: Asegurar que GENERAL_CHAT existe Y es un array
           if (!GENERAL_CHAT || !Array.isArray(GENERAL_CHAT)) {
@@ -4761,20 +4776,38 @@
           data.messages.forEach(msg => {
             // Evitar duplicados por ID
             const exists = GENERAL_CHAT.some(m => m.id === msg.id);
-            if (!exists) {
-              const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
-              const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
-              GENERAL_CHAT.push({
-                id: msg.id,
-                mine: (msg.sender_id === currentUser.id),  // ✅ FIX: Calcular dinámicamente
-                userId: msg.sender_id,
-                username: msg.sender_username,
-                text: msg.text,
-                time: time,
-                date: date,
-                attachments: msg.attachments || []
-              });
+            if (exists) {
+              return;  // Ya existe, saltar
             }
+            
+            // ✅ FIX #3: VALIDACIÓN CRÍTICA - Rechazar si este mensaje pertenece a una sede
+            const isInSede = CONVS['sede_mataro']?.some(m => m.id === msg.id) ||
+                            CONVS['sede_vilassar']?.some(m => m.id === msg.id);
+            if (isInSede) {
+              console.warn(`⚠️ Ignorando mensaje de sede (${msg.id}) en carga de histórico general`);
+              return;  // NO agregar a GENERAL_CHAT
+            }
+            
+            // ✅ FIX #1: Convertir timestamp a hora local correctamente
+            let time, date;
+            if (msg.timestamp) {
+              const dateObj = new Date(msg.timestamp);
+              time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+              date = dateObj.toISOString().split('T')[0];
+            } else {
+              time = nowTime();
+              date = todayStr();
+            }
+            GENERAL_CHAT.push({
+              id: msg.id,
+              mine: (msg.sender_id === currentUser.id),  // ✅ FIX: Calcular dinámicamente
+              userId: msg.sender_id,
+              username: msg.sender_username,
+              text: msg.text,
+              time: time,
+              date: date,
+              attachments: msg.attachments || []
+            });
           });
           
           console.log('✅ [HISTÓRICO GENERAL] Total mensajes en chat:', GENERAL_CHAT.length);
@@ -4808,8 +4841,16 @@
             // Evitar duplicados por ID
             const exists = CONVS[sedeConvId].some(m => m.id === msg.id);
             if (!exists) {
-              const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
-              const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
+              // ✅ FIX #1: Convertir timestamp a hora local correctamente
+              let time, date;
+              if (msg.timestamp) {
+                const dateObj = new Date(msg.timestamp);
+                time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+                date = dateObj.toISOString().split('T')[0];
+              } else {
+                time = nowTime();
+                date = todayStr();
+              }
               // FIX CRÍTICO: Calcular mine dinámicamente basado en sender_id real
               CONVS[sedeConvId].push({
                 id: msg.id,
@@ -4866,9 +4907,16 @@
             return;
           }
           
-          // Procesar timestamp
-          const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
-          const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
+          // ✅ FIX #1: Convertir timestamp a hora local correctamente
+          let time, date;
+          if (msg.timestamp) {
+            const dateObj = new Date(msg.timestamp);
+            time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+            date = dateObj.toISOString().split('T')[0];
+          } else {
+            time = nowTime();
+            date = todayStr();
+          }
           
           // ✅ CRÍTICO: Asegurar que CONVS[sedeConvId] existe
           if (!CONVS[sedeConvId]) {
@@ -8963,12 +9011,17 @@
           Object.keys(CONVS).forEach(key => {
             // Asegurar que CONVS NO contiene datos de GENERAL_CHAT
             if (Array.isArray(CONVS[key])) {
-              // Validar que los mensajes tienen estructura correcta
-              convsCopy[key] = CONVS[key].map(m => ({
-                ...m,
-                // ✅ Asegurar que los mensajes de sede NUNCA tienen mine sin definir
-                mine: m.mine !== undefined ? m.mine : (m.sender_id === currentUser.id)
-              }));
+              // ✅ FIX #2: NO recalcular 'mine' basado en currentUser.id
+              // mine debe estar basado SOLO en sender_id, NUNCA recalcularse
+              convsCopy[key] = CONVS[key].map(m => {
+                // Si mine ya existe, usarlo tal cual
+                // Si no existe, calcularlo basado en sender_id PERMANENTEMENTE
+                const finalMine = m.mine !== undefined ? m.mine : (m.sender_id === m.userId);
+                return {
+                  ...m,
+                  mine: finalMine  // Usar el valor calculado, NUNCA basado en currentUser.id
+                };
+              });
             } else {
               convsCopy[key] = CONVS[key];
             }
@@ -8978,17 +9031,21 @@
           let generalChatCopy = [];
           if (Array.isArray(GENERAL_CHAT)) {
             generalChatCopy = GENERAL_CHAT.filter(m => {
-              // Remover mensajes que parecen ser de sede
-              const isSede = m.sender_id && (
-                CONVS['sede_mataro']?.some(sm => sm.id === m.id) ||
-                CONVS['sede_vilassar']?.some(sm => sm.id === m.id)
-              );
+              // ✅ FIX #3: Mejor validación - si existe en algún CONVS de sede, remover de general
+              const isSede = CONVS['sede_mataro']?.some(sm => sm.id === m.id) ||
+                            CONVS['sede_vilassar']?.some(sm => sm.id === m.id);
+              if (isSede) {
+                console.warn(`⚠️ Removiendo mensaje de sede (${m.id}) de GENERAL_CHAT`);
+              }
               return !isSede;
-            }).map(m => ({
-              ...m,
-              // ✅ Asegurar que los mensajes de general SIEMPRE tienen mine
-              mine: m.mine !== undefined ? m.mine : (m.userId === currentUser.id)
-            }));
+            }).map(m => {
+              // ✅ FIX #2: NO recalcular 'mine' basado en currentUser.id
+              const finalMine = m.mine !== undefined ? m.mine : (m.userId === m.sender_id);
+              return {
+                ...m,
+                mine: finalMine
+              };
+            });
           }
           
           const data = {
@@ -9034,16 +9091,20 @@
               // ✅ NUEVA VALIDACIÓN: Asegurar que GENERAL_CHAT es un array limpio
               GENERAL_CHAT = JSON.parse(JSON.stringify(loaded.general_chat));
               
-              // ✅ VALIDACIÓN: Verificar que NO hay mensajes de sede en GENERAL_CHAT
-              const sedeMessagesInGeneral = GENERAL_CHAT.filter(m => 
-                m.sender_id && (m.sender === 'admin_mataro' || m.sender === 'admin_vilassar')
-              );
-              if (sedeMessagesInGeneral.length > 0) {
-                console.warn('⚠️ ADVERTENCIA: Se encontraron', sedeMessagesInGeneral.length, 'mensajes de sede en GENERAL_CHAT. Limpiando...');
-                // Remover mensajes de sede del chat general
-                GENERAL_CHAT = GENERAL_CHAT.filter(m => 
-                  !m.sender_id || (m.sender !== 'admin_mataro' && m.sender !== 'admin_vilassar')
-                );
+              // ✅ FIX #3: VALIDACIÓN CRÍTICA - Remover cualquier mensaje que pertenezca a una sede
+              const initialCount = GENERAL_CHAT.length;
+              GENERAL_CHAT = GENERAL_CHAT.filter(m => {
+                // Verificar si este mensaje existe en algún chat de sede
+                const isInSede = (CONVS['sede_mataro'] && CONVS['sede_mataro'].some(sm => sm.id === m.id)) ||
+                                (CONVS['sede_vilassar'] && CONVS['sede_vilassar'].some(sm => sm.id === m.id));
+                if (isInSede) {
+                  console.warn(`⚠️ Removiendo mensaje de sede (${m.id}) de GENERAL_CHAT al cargar`);
+                }
+                return !isInSede;
+              });
+              
+              if (GENERAL_CHAT.length < initialCount) {
+                console.log(`⚠️ Se removieron ${initialCount - GENERAL_CHAT.length} mensajes de sede de GENERAL_CHAT`);
               }
               
               console.log('✅ GENERAL_CHAT cargado desde localStorage, total:', GENERAL_CHAT.length);
