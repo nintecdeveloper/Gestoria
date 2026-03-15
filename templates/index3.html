@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="es">
   <head>
@@ -2977,16 +2976,6 @@
           <div class="nav-section-title">Comunicación</div>
           <div
             class="nav-item"
-            data-sec="general-chat"
-            onclick="showSection('general-chat')"
-          >
-            <span class="icon">&#9635;</span> Chat General
-            <span class="nav-badge" id="gchat-badge" style="display: none"
-              >0</span
-            >
-          </div>
-          <div
-            class="nav-item"
             data-sec="messages"
             onclick="showSection('messages')"
           >
@@ -3553,7 +3542,7 @@
                 <h2>Clientes</h2>
                 <p>Gestiona tu cartera de clientes</p>
               </div>
-              <div style="display:flex;gap:8px">
+              <div style="display:flex;gap:8px" class="admin-only">
                 <button
                   class="btn btn-outline btn-sm"
                   onclick="openClientsImportModal()"
@@ -3586,59 +3575,6 @@
             <div class="clients-list" id="clients-list"></div>
           </div>
 
-          <!-- CHAT GENERAL -->
-          <div class="section" id="section-general-chat">
-            <div class="sec-hdr">
-              <div class="sec-hdr-text">
-                <h2>Chat General</h2>
-                <p id="gchat-members-label">
-                  Canal compartido por todo el equipo
-                </p>
-              </div>
-            </div>
-            <div class="gchat-wrap">
-              <div class="gchat-header">
-                <div class="gchat-header-icon">#</div>
-                <div class="gchat-header-info">
-                  <div class="gchat-header-name">Chat General</div>
-                  <div class="gchat-header-sub" id="gchat-online-count">
-                    Cargando...
-                  </div>
-                </div>
-              </div>
-              <div class="gchat-messages" id="gchat-messages"></div>
-              <!-- Adjuntos chat general -->
-              <div class="msg-attach-bar" id="gchat-attach-bar">
-                <label
-                  for="gchat-file-input"
-                  class="msg-attach-btn"
-                  title="Adjuntar archivo (máx. 5 MB)"
-                  role="button"
-                  tabindex="0"
-                  onkeydown="if(event.key==='Enter'||event.key===' '){document.getElementById('gchat-file-input').click();}"
-                >📎 Adjuntar</label>
-                <input
-                  type="file"
-                  id="gchat-file-input"
-                  multiple
-                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.mp3,.mp4,.odt,.ods,.odp,.csv,.rtf,.gif,.webp,.svg,.bmp,.wav,.m4a,.ogg,.flac,.aac,.mov,.avi,.mkv,.webm,.m4v,.7z,.tar,.gz,.bz2"
-                  style="position:fixed;top:-9999px;left:-9999px;opacity:0;width:1px;height:1px;"
-                  onchange="gchatHandleFiles(event)"
-                />
-                <div id="gchat-attach-chips" style="display:flex;flex-wrap:wrap;gap:4px;min-width:0;flex:1;"></div>
-              </div>
-              <div class="msg-composer">
-                <textarea
-                  id="gchat-input"
-                  placeholder="Escribe un mensaje para todo el equipo... (Enter para enviar)"
-                  onkeydown="gchatKeydown(event)"
-                ></textarea>
-                <button class="msg-send-btn" onclick="sendGchatMsg()">
-                  Enviar &uarr;
-                </button>
-              </div>
-            </div>
-          </div>
 
           <!-- MENSAJERIA PRIVADA -->
           <div class="section" id="section-messages">
@@ -4782,7 +4718,6 @@
         socket.on('online_users_list', function(data) {
           console.log('👥 Usuarios online:', data.count);
         });
-
       }
       
       // ✅ MOSTRAR NOTIFICACIONES
@@ -4897,33 +4832,32 @@
       let gchatUnreadCount = 0;
 
       // ══════════════════════════════════════════
-      //  CONFIGURACIÓN WHATSAPP (Meta Cloud API + APScheduler)
+      //  CONFIGURACIÓN WHATSAPP (Twilio + APScheduler)
       //  El envío real lo gestiona el servidor (app.py).
       //  No hay nada que tocar aquí: todo se configura en Render
       //  mediante variables de entorno (ver comentarios en app.py).
       // ══════════════════════════════════════════
       let WA_CONFIG = {
-        serverReady:    null,  // true = Meta + Scheduler llestos (enviament 100% automàtic)
-        metaReady:      null,  // true = Meta API llesta (enviament immediat 'now' funciona)
-        schedulerReady: null,  // true = APScheduler llest (programació futura funciona)
+        serverReady:    null,  // true = Twilio + Scheduler listos (envío 100% automático)
+        twilioReady:    null,  // true = solo Twilio listo (envío inmediato 'now' funciona)
+        schedulerReady: null,  // true = APScheduler listo (programación futura funciona)
       };
 
       /**
-       * Comprueba si el servidor tiene Meta API + APScheduler configurados.
+       * Comprueba si el servidor tiene Twilio + APScheduler configurados.
        * Se llama una vez al arrancar la app.
        */
       async function checkWaStatus() {
         try {
-          const res  = await fetch('/api/status');
+          const res  = await fetch('/api/whatsapp/status');
           const data = await res.json();
-          WA_CONFIG.metaReady      = data.meta_ready      === true;
+          WA_CONFIG.twilioReady    = data.twilio_ready    === true;
           WA_CONFIG.schedulerReady = data.scheduler_ready === true;
-          WA_CONFIG.serverReady    = (data.meta_ready === true && data.scheduler_ready === true);
+          WA_CONFIG.serverReady    = data.fully_ready     === true;
         } catch(e) {
-          WA_CONFIG.metaReady      = false;
+          WA_CONFIG.twilioReady    = false;
           WA_CONFIG.schedulerReady = false;
           WA_CONFIG.serverReady    = false;
-          console.error("Error comprobando estado de WhatsApp:", e);
         }
       }
       // Comprobar estado al cargar
@@ -5268,6 +5202,28 @@
 
         showSection("dashboard");
         
+        // ✅ CAMBIO 9: Mostrar calendario por defecto según sede al login
+        // Vilassar → Pau (id 3), Mataró → Antonio (id 1)
+        setTimeout(() => {
+          if (currentUser.role !== 'admin') {
+            let defaultAdminId = null;
+            if (currentUser.sede === 'Vilassar') {
+              // Buscar a Pau (admin de Vilassar)
+              defaultAdminId = USERS.find(u => u.role === 'admin' && u.sede === 'Vilassar')?.id;
+            } else if (currentUser.sede === 'Mataró') {
+              // Buscar a Antonio (admin de Mataró)
+              defaultAdminId = USERS.find(u => u.role === 'admin' && u.sede === 'Mataró')?.id;
+            }
+            
+            if (defaultAdminId && canViewUserCalendar(defaultAdminId)) {
+              const adminUser = USERS.find(u => u.id === defaultAdminId);
+              if (adminUser) {
+                openUserCalendar(defaultAdminId, adminUser.name);
+              }
+            }
+          }
+        }, 300);
+        
         // ════════════════════════════════════════════════════════════
         // Cargar mensajes guardados desde localStorage
         // ════════════════════════════════════════════════════════════
@@ -5336,11 +5292,18 @@
         
         // ✅ CAMBIO 1: Obtener TODOS los usuarios activos del array USERS (dinámico)
         // Anteriormente solo mostraba 3 usuarios hardcodeados
-        const activeUsers = USERS.filter(u => u.active && u.id !== currentUser.id).sort((a, b) => {
+        let activeUsers = USERS.filter(u => u.active && u.id !== currentUser.id).sort((a, b) => {
           // Ordenar por sede primero, luego por nombre
           if (a.sede !== b.sede) return a.sede.localeCompare(b.sede);
           return a.name.localeCompare(b.name);
         });
+        
+        // ✅ CAMBIO 7.1: Restricción de acceso según sede
+        // No-admins solo ven usuarios de su propia sede
+        const isAdmin = currentUser.role === 'admin';
+        if (!isAdmin) {
+          activeUsers = activeUsers.filter(u => u.sede === currentUser.sede);
+        }
         
         // Agrupar usuarios por sede
         const usersBysede = {};
@@ -5368,9 +5331,30 @@
         container.innerHTML = html || '<div style="padding:12px;color:var(--text-muted);font-size:13px">No hay usuarios disponibles</div>';
       }
 
+      // ✅ CAMBIO 7.2: NUEVA FUNCIÓN - Validar si puede ver el calendario de otro usuario
+      function canViewUserCalendar(targetUserId) {
+        if (!targetUserId) return false;
+        
+        const isAdmin = currentUser.role === 'admin';
+        if (isAdmin) return true; // Admin ve todos
+        
+        const targetUser = USERS.find(u => u.id === targetUserId);
+        if (!targetUser) return false;
+        
+        // No-admin solo ve calendarios de su misma sede
+        return targetUser.sede === currentUser.sede;
+      }
+
       // ✅ NUEVA FUNCIÓN: Abre el calendario de un usuario específico
       function openUserCalendar(userId, userName) {
         console.log('📅 Abriendo calendario de:', userName, '(ID:', userId, ')');
+        
+        // ✅ CAMBIO 7.3: Validar permisos antes de abrir
+        if (!canViewUserCalendar(userId)) {
+          alert('❌ No tienes permiso para ver este calendario');
+          return;
+        }
+        
         selectedCalendarUserId = userId;
         selectedCalendarUserName = userName;
         viewingUserIdForCalendar = userId; // ✅ Esto es lo importante
@@ -6519,31 +6503,29 @@
             private: isPrivate,
             clientPhone: clientPhoneForWa || null,
           };
-
+          
+          // ✅ CAMBIO: Agregar múltiples recordatorios personales
           if (prReminders.length > 0) {
-            eventObj.prReminders = prReminders;
+            eventObj.prReminders = prReminders; // Guardar como array
+            
+            // Programar notificaciones
+            requestNotificationPermission();
+            prReminders.forEach(reminder => {
+              scheduleReminder(eventObj, reminder.timing);
+            });
           }
-
-          // Guardar SEMPRE la cita primer
+          
+          // Agregar recordatorio WhatsApp si está configurado
+          if (waFirstTiming) {
+            eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
+            scheduleWaReminder(eventObj, waFirstTiming);
+          }
+          
           EVENTS.push(eventObj);
-          closeModal("event-modal");
-          refreshCals();
-          renderDashboard();
-
-          // Després programar recordatoris (mai abans del push)
-          try {
-            if (prReminders.length > 0) {
-              requestNotificationPermission();
-              prReminders.forEach(reminder => scheduleReminder(eventObj, reminder.timing));
-            }
-            if (waFirstTiming) {
-              eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
-              scheduleWaReminder(eventObj, waFirstTiming);
-            }
-          } catch (e) {
-            console.error("Error programando recordatorios:", e);
-          }
         }
+        closeModal("event-modal");
+        refreshCals();
+        renderDashboard();
       }
 
       function populateGlobalFilter() {
@@ -7196,29 +7178,26 @@
           clientPhone: clientPhoneForWa || null,
         };
 
+        // ✅ CAMBIO: Agregar múltiples recordatorios personales si están configurados
         if (prReminders.length > 0) {
-          eventObj.prReminders = prReminders;
+          eventObj.prReminders = prReminders; // Guardar como array
+          requestNotificationPermission();
+          prReminders.forEach(reminder => {
+            scheduleReminder(eventObj, reminder.timing);
+          });
         }
 
-        // Guardar SEMPRE la cita primer
+        // Agregar recordatorio WhatsApp si está configurado
+        if (waFirstTiming) {
+          eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
+          scheduleWaReminder(eventObj, waFirstTiming);
+        }
+
         EVENTS.push(eventObj);
+
         closeModal("admin-event-modal");
         refreshCals();
         renderDashboard();
-
-        // Després programar recordatoris (mai abans del push)
-        try {
-          if (prReminders.length > 0) {
-            requestNotificationPermission();
-            prReminders.forEach(reminder => scheduleReminder(eventObj, reminder.timing));
-          }
-          if (waFirstTiming) {
-            eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
-            scheduleWaReminder(eventObj, waFirstTiming);
-          }
-        } catch (e) {
-          console.error("Error programando recordatorios:", e);
-        }
       }
 
       // Validación en tiempo real del horario al cambiar fecha/hora en el modal del admin
@@ -7737,6 +7716,12 @@
       }
 
       function openClientModal() {
+        // ✅ CAMBIO 10: Validar que solo admins pueden agregar clientes
+        if (currentUser.role !== 'admin') {
+          alert('❌ Solo los administradores pueden añadir clientes');
+          return;
+        }
+        
         editingClientId = null;
         document.getElementById("client-modal-title").textContent = "Nuevo cliente";
         document.getElementById("client-save-btn").textContent = "Guardar";
@@ -7747,6 +7732,12 @@
       }
 
       function editClient(id) {
+        // ✅ CAMBIO 11: Validar que solo admins pueden editar clientes
+        if (currentUser.role !== 'admin') {
+          alert('❌ Solo los administradores pueden editar clientes');
+          return;
+        }
+        
         const c = CLIENTS.find((x) => x.id === id);
         if (!c) return;
         editingClientId = id;
@@ -7788,6 +7779,12 @@
       }
 
       function deleteClient(id) {
+        // ✅ CAMBIO 13: Validar que solo admins pueden eliminar clientes
+        if (currentUser.role !== 'admin') {
+          alert('❌ Solo los administradores pueden eliminar clientes');
+          return;
+        }
+        
         if (!confirm("¿Eliminar este cliente?")) return;
         CLIENTS = CLIENTS.filter((c) => c.id !== id);
         renderClients();
@@ -7795,6 +7792,12 @@
 
       // ─── IMPORTACIÓN DE EXCEL ─────────────────────────
       function openClientsImportModal() {
+        // ✅ CAMBIO 12: Validar que solo admins pueden importar clientes
+        if (currentUser.role !== 'admin') {
+          alert('❌ Solo los administradores pueden importar clientes');
+          return;
+        }
+        
         pendingClientsToImport = [];
         document.getElementById("import-preview").style.display = "none";
         document.getElementById("import-err").style.display = "none";
@@ -7976,12 +7979,37 @@
       }
 
       function openGeneralChat() {
-        gchatUnreadCount = 0;
+        activeConvId = 'general-chat';
+        activeSedeChat = null;
+        const generalMsgs = CONVS['general-chat'] || [];
+        generalMsgs.forEach((m) => {
+          if (!m.mine) m.read = true;
+        });
+        
+        // Guardar en localStorage para persistencia
+        saveMessagesToStorage();
+        
         updateBadge();
-        updateGchatHeader();
-        renderGeneralChat();
+        buildMsgList(document.getElementById("msg-search-inp").value);
+        document.getElementById("msg-empty-state").style.display = "none";
+        const chat = document.getElementById("msg-active-chat");
+        chat.style.display = "flex";
+        document.getElementById("chat-avatar").textContent = "#";
+        document.getElementById("chat-name").textContent = "Chat General";
+        
+        // Limpiar adjuntos pendientes al cambiar de conversación
+        msgPendingAttachments = [];
+        msgRenderChips();
+        renderGeneralChatInMsg();
+
+        // Mobile: slide animation
+        if (isMobile()) {
+          document.getElementById("msg-main").classList.add("conv-open");
+          document.querySelector(".msg-sidebar").classList.add("conv-open");
+        }
         setTimeout(() => {
-          document.getElementById("gchat-input").focus();
+          const inp = document.getElementById("msg-input");
+          if (inp && !isMobile()) inp.focus();
         }, 50);
       }
 
@@ -8290,7 +8318,27 @@
       }
 
       function buildMsgList(filter) {
-        // ✅ CORRECCIÓN 6: Mostrar chats de sede primero
+        // ✅ CAMBIO 5: Mostrar Chat General al inicio (accesible a todos)
+        let generalChatHtml = '';
+        const generalConvId = 'general-chat';
+        const generalMsgs = CONVS[generalConvId] || [];
+        const generalLast = generalMsgs.length ? generalMsgs[generalMsgs.length - 1] : null;
+        const generalUnread = generalMsgs.filter(m => !m.mine && !m.read).length;
+        const isGeneralActive = activeConvId === 'general-chat' ? 'active' : '';
+        
+        generalChatHtml = `<div class="msg-conv ${isGeneralActive}" onclick="openGeneralChat()">
+          <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:18px;flex-shrink:0">#</div>
+          <div class="msg-conv-info">
+            <div class="msg-conv-name" style="font-weight:600">Chat General</div>
+            <div class="msg-conv-preview">${generalLast ? (generalLast.mine ? "Tú: " : "") + (generalLast.text ? safeHtml(generalLast.text) : (generalLast.attachments && generalLast.attachments.length ? "📎 " + safeHtml(generalLast.attachments[0].name) : "")) : "Sin mensajes aún"}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            ${generalLast ? `<div class="msg-conv-time">${generalLast.time}</div>` : ""}
+            ${generalUnread > 0 ? `<div class="nav-badge">${generalUnread}</div>` : ""}
+          </div>
+        </div>`;
+        
+        // ✅ CORRECCIÓN 6: Mostrar chats de sede
         let sedeChatsHtml = '';
         const isAdmin = currentUser.role === 'admin';
         const userSede = currentUser.sede;
@@ -8348,7 +8396,7 @@
           })
           .join("");
 
-        document.getElementById("msg-list").innerHTML = sedeChatsHtml + privateChatsHtml;
+        document.getElementById("msg-list").innerHTML = generalChatHtml + sedeChatsHtml + privateChatsHtml;
       }
 
       function filterConvs() {
@@ -8456,6 +8504,13 @@
         const msgs = convData(otherId);
         renderMsgsFromArray(msgs);
       }
+      
+      // ✅ CAMBIO 14: NUEVA FUNCIÓN - Renderizar chat general en la sección de Mensajería
+      function renderGeneralChatInMsg() {
+        // Convertir mensajes del chat general al formato de CONVS
+        const generalMsgs = CONVS['general-chat'] || [];
+        renderMsgsFromArray(generalMsgs);
+      }
 
       // ✅ CORRECCIÓN 6: Renderizar mensajes desde un array directamente
       function renderMsgsFromArray(msgs) {
@@ -8561,7 +8616,7 @@
       }
 
       function sendMsg() {
-        // ✅ CORRECCIÓN 6: Soportar tanto conversaciones privadas como chats de sede
+        // ✅ CORRECCIÓN 6: Soportar tanto conversaciones privadas como chats de sede y chat general
         if (activeConvId === null && activeSedeChat === null) return;
         
         const inp = document.getElementById("msg-input");
@@ -8589,8 +8644,24 @@
           id: `msg_${Date.now()}`
         };
         
-        // ✅ CORRECCIÓN 6: Determinar si es chat de sede o conversación privada
-        if (activeSedeChat) {
+        // ✅ CAMBIO 15: Manejar chat general
+        if (activeConvId === 'general-chat') {
+          // Enviar a chat general
+          if (!CONVS['general-chat']) CONVS['general-chat'] = [];
+          CONVS['general-chat'].push(msgObj);
+          renderGeneralChatInMsg();
+          
+          // Guardar y sincronizar
+          saveMessagesToStorage();
+          if (socket && socket.connected) {
+            socket.emit('send_general_message', {
+              message: text,
+              sender_username: currentUser.name,
+              message_id: msgObj.id,
+              attachments: attachments
+            });
+          }
+        } else if (activeSedeChat) {
           // Enviar a chat de sede
           const sedeConvId = `sede_${activeSedeChat}`;
           CONVS[sedeConvId].push(msgObj);
@@ -8873,9 +8944,49 @@
       // ══════════════════════════════════════════════════════════════
 
       function registerServiceWorker() {
-        // Service Worker con blob URL no está soportado por los navegadores.
-        // Las notificaciones funcionan directamente con la API Notification.
-        console.log('ℹ️ Service Worker omitido — notificaciones via API Notification');
+        if ('serviceWorker' in navigator) {
+          // Crear un blob con el código del Service Worker
+          const swCode = `
+            self.addEventListener('push', event => {
+              const data = event.data ? event.data.json() : {};
+              const options = {
+                body: data.body || 'Recordatorio de cita',
+                icon: '🔔',
+                badge: '🔔',
+                tag: 'gestionpro-reminder',
+                requireInteraction: true,
+                ...data
+              };
+              event.waitUntil(self.registration.showNotification(data.title || 'Recordatorio', options));
+            });
+
+            self.addEventListener('notificationclick', event => {
+              event.notification.close();
+              event.waitUntil(
+                clients.matchAll({ type: 'window' }).then(clientList => {
+                  if (clientList.length > 0) {
+                    return clientList[0].focus();
+                  }
+                  return clients.openWindow('/');
+                })
+              );
+            });
+          `;
+          
+          const blob = new Blob([swCode], { type: 'application/javascript' });
+          const swUrl = URL.createObjectURL(blob);
+          
+          navigator.serviceWorker.register(swUrl)
+            .then(reg => {
+              console.log('✅ Service Worker registrado correctamente');
+              // Guardar referencia global para usar después
+              window._swRegistration = reg;
+            })
+            .catch(err => {
+              console.warn('⚠️ Error al registrar Service Worker:', err);
+              // No es crítico, las notificaciones seguirán funcionando sin SW
+            });
+        }
       }
 
       function requestNotificationPermission() {
@@ -9091,16 +9202,16 @@ ${dateStr} a las ${eventData.time}`,
       }
 
       /**
-       * Envía el WhatsApp llamando al servidor (Meta Cloud API).
-       * Si Meta no está listo, cae al modo manual (wa.me).
+       * Envía el WhatsApp llamando al servidor (Twilio).
+       * Si Twilio no está listo, cae al modo manual (wa.me).
        */
       async function fireWaReminder(eventData) {
         const clientPhone = eventData.clientPhone || lookupClientPhone(eventData.client);
         const phoneFormatted = formatPhoneForWa(clientPhone);
         const message = buildWaMessage(eventData);
 
-        // ── Modo automático: envío via Meta Cloud API ──────────
-        if (WA_CONFIG.metaReady && phoneFormatted) {
+        // ── Modo automático: envío via servidor Twilio ──────
+        if (WA_CONFIG.twilioReady && phoneFormatted) {
           try {
             const res = await fetch('/api/whatsapp/send', {
               method: 'POST',
@@ -9110,11 +9221,12 @@ ${dateStr} a las ${eventData.time}`,
             const data = await res.json();
             if (data.ok) {
               console.log(`✅ WhatsApp enviado automáticamente a ${phoneFormatted}`);
+              // Notificación visual discreta (no intrusiva)
               _showWaToast(`✅ WhatsApp enviado a ${eventData.client}`);
               return;
             } else {
-              console.warn('⚠️ Meta API respondió con error:', data.error);
-              // Si falla Meta, caer al modo manual
+              console.warn('⚠️ Twilio respondió con error:', data.error);
+              // Si falla Twilio, caer al modo manual
             }
           } catch(e) {
             console.warn('⚠️ Error llamando al servidor WhatsApp:', e);
@@ -9123,7 +9235,7 @@ ${dateStr} a las ${eventData.time}`,
         }
 
         // ── Modo manual: abrir wa.me (fallback) ─────────────
-        // Se usa cuando: Meta no está configurado aún,
+        // Se usa cuando: Twilio no está configurado aún,
         // el cliente no tiene teléfono, o hay un error del servidor.
         if (phoneFormatted) {
           window.open(`https://wa.me/${phoneFormatted}?text=${encodeURIComponent(message)}`, '_blank');
@@ -9163,12 +9275,12 @@ ${dateStr} a las ${eventData.time}`,
        *
        * LÓGICA DE DECISIÓN:
        *
-       * Timing 'now'  → envío inmediato via /api/whatsapp/send (Meta directo)
+       * Timing 'now'  → envío inmediato via /api/whatsapp/send (Twilio directo)
        * Timing futuro → programación en el servidor via /api/whatsapp/schedule
        *                 (APScheduler lo ejecuta aunque el navegador esté cerrado)
        *
        * Fallback automático:
-       *   Si el servidor no está listo (Meta o Scheduler sin configurar),
+       *   Si el servidor no está listo (Twilio o Scheduler sin configurar),
        *   cae al modo manual (wa.me) para no perder el recordatorio.
        */
             function scheduleWaReminder(eventData, reminderTiming) {
@@ -9198,7 +9310,7 @@ ${dateStr} a las ${eventData.time}`,
         }
 
         // ── Timing futuro: programar en el servidor ──────────
-        if (WA_CONFIG.schedulerReady && WA_CONFIG.metaReady && phoneClean) {
+        if (WA_CONFIG.schedulerReady && WA_CONFIG.twilioReady && phoneClean) {
           const jobId = `wa_ev${eventData.id || Date.now()}_${reminderTiming}`;
 
           // ✅ CORRECCIÓN: Enviar hora en formato local correcto
@@ -9248,6 +9360,11 @@ ${dateStr} a las ${eventData.time}`,
 
 
       /**
+       * Fallback: programa el envío con setTimeout en el navegador.
+       * Solo se usa si el servidor no está configurado.
+       * AVISO: se pierde si se cierra la pestaña.
+       */
+            /**
        * Fallback: programa el envío con setTimeout en el navegador.
        * Solo se usa si el servidor no está configurado.
        * AVISO: se pierde si se cierra la pestaña.
@@ -9519,7 +9636,23 @@ ${dateStr} a las ${eventData.time}`,
           document.querySelectorAll('.pr-dropdown.open').forEach(d => d.classList.remove('open'));
         }
       });
+// 🔔 ESCOLTAR NOTIFICACIONS DEL SERVIDOR
+socket.on("notification_received", function(data) {
 
+  console.log("🔔 Notificació rebuda:", data);
+
+  if (Notification.permission === "granted") {
+      new Notification(data.title, {
+          body: data.message
+      });
+  }
+
+});
+
+// DEMANAR PERMÍS DE NOTIFICACIONS
+if (Notification.permission !== "granted") {
+    Notification.requestPermission();
+}
       // ══════════════════════════════════════════════════════════════
       // INICIALIZAR SERVICE WORKER Y NOTIFICACIONES
       // ══════════════════════════════════════════════════════════════
