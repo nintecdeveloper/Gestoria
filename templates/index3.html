@@ -4714,12 +4714,12 @@
             return;
           }
           
-          // FIX MESSAGE OWNERSHIP: Calcular mine basado en el ID real del usuario
+          // ✅ Crear mensaje con estructura correcta PARA GENERAL_CHAT
           const msgObj = {
             id: msg.id,
-            mine: (msg.sender_id === currentUser.id),  // FIX MESSAGE OWNERSHIP
-            userId: msg.sender_id,
-            username: msg.sender_username,
+            mine: (msg.sender_id === currentUser.id),  // ✅ FIX: Calcular dinámicamente
+            userId: msg.sender_id,  // ← ID REAL del usuario
+            username: msg.sender_username,  // ← Username del remitente
             text: msg.text,
             time: time,
             date: date,
@@ -4766,6 +4766,7 @@
               const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
               GENERAL_CHAT.push({
                 id: msg.id,
+                mine: (msg.sender_id === currentUser.id),  // ✅ FIX: Calcular dinámicamente
                 userId: msg.sender_id,
                 username: msg.sender_username,
                 text: msg.text,
@@ -4809,11 +4810,12 @@
             if (!exists) {
               const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
               const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
+              // FIX CRÍTICO: Calcular mine dinámicamente basado en sender_id real
               CONVS[sedeConvId].push({
                 id: msg.id,
-                mine: false,
+                mine: (msg.sender_id === currentUser.id),  // ✅ DINÁMICO: true si yo envié, false si otro
                 sender: msg.sender_username,
-                sender_id: msg.sender_id,
+                sender_id: msg.sender_id,  // ✅ ID del remitente REAL
                 text: msg.text,
                 time: time,
                 date: date,
@@ -4882,16 +4884,17 @@
           }
           
           // ✅ Crear mensaje con estructura correcta PARA SEDE
+          // FIX CRÍTICO: Calcular mine dinámicamente basado en sender_id real
           const msgObj = {
             id: msg.id,
-            mine: (msg.sender_id === currentUser.id),  // FIX MESSAGE OWNERSHIP: Calcular basado en ID real
+            mine: (msg.sender_id === currentUser.id),  // ✅ DINÁMICO: true si yo envié, false si otro
             text: msg.text,
             time: time,
             date: date,
             read: false,
             sender: msg.sender_username,
-            sender_id: msg.sender_id,
-            userId: msg.sender_id,
+            sender_id: msg.sender_id,  // ✅ ID del remitente REAL
+            userId: msg.sender_id,  // ✅ ID del remitente REAL (no debe ser currentUser.id)
             attachments: msg.attachments || []
           };
           
@@ -5435,6 +5438,9 @@
         // Cargar mensajes guardados desde localStorage
         // ════════════════════════════════════════════════════════════
         loadMessagesFromStorage();
+        
+        // ✅ FIX CRÍTICO: Validar separación de datos después de cargar
+        validateDataSeparation();
         
         // Inicializar socket.io para mensajería en tiempo real
         setTimeout(() => {
@@ -8328,7 +8334,7 @@
       function renderGeneralChat() {
         const el = document.getElementById("gchat-messages");
         if (!el) return;
-        if (!GENERAL_CHAT.length) {
+        if (!GENERAL_CHAT || !GENERAL_CHAT.length) {
           el.innerHTML =
             '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:40px 0">No hay mensajes aún. ¡Sé el primero en escribir!</div>';
           return;
@@ -8339,9 +8345,23 @@
         let lastUserId = null;
 
         GENERAL_CHAT.forEach((msg) => {
-          const sender = USERS.find((u) => u.id === msg.userId);
-          const senderName = sender ? sender.name : "Usuario";
-          const isMe = msg.userId === currentUser.id;
+          // ✅ FIX CRÍTICO: Usar mine si existe, sino calcular
+          let isMe = false;
+          if (msg.mine !== undefined) {
+            isMe = msg.mine;  // Usar el valor guardado
+          } else if (msg.userId === currentUser.id) {
+            isMe = true;
+          }
+          
+          // ✅ FIX: Obtener senderName correctamente
+          let senderName = "Usuario";
+          if (isMe) {
+            senderName = "Tú";
+          } else {
+            const sender = USERS.find((u) => u.id === msg.userId);
+            senderName = sender ? sender.name : "Usuario";
+          }
+          
           const msgDate = msg.date;
 
           if (msgDate !== lastDate) {
@@ -8828,12 +8848,31 @@
 
       // ✅ CORRECCIÓN 6: Renderizar mensajes desde un array directamente
       function renderMsgsFromArray(msgs) {
+        // ✅ FIX CRÍTICO: Validar que msgs no es null/undefined
+        if (!msgs || !Array.isArray(msgs)) {
+          console.error('❌ renderMsgsFromArray: msgs inválido ->', msgs);
+          msgs = [];
+        }
+        
         const el = document.getElementById("msg-messages");
         el.innerHTML = msgs.length
           ? msgs
               .map((m, idx) => {
-                // Determinar si el mensaje es mío
-                const isMe = m.mine || m.userId === currentUser.id;
+                // ✅ FIX CRÍTICO: Usar mine si existe, sino calcular
+                let isMe = false;
+                if (m.mine !== undefined) {
+                  isMe = m.mine;  // Usar el valor guardado
+                } else if (m.userId === currentUser.id) {
+                  isMe = true;
+                } else if (m.sender_id === currentUser.id) {
+                  isMe = true;
+                }
+                
+                // Validar coherencia
+                if (isMe && m.sender_id && m.sender_id !== currentUser.id) {
+                  console.warn('⚠️ Inconsistencia detectada: isMe=true pero sender_id es diferente', m);
+                  isMe = false;  // Corregir
+                }
                 
                 // Obtener nombre del remitente
                 let senderName = "Usuario";
@@ -8848,7 +8887,7 @@
                   senderName = user ? user.name : "Usuario";
                 }
                 
-                // Mostrar nombre del remitente si es necesario (cuando no es mío o cuando cambia el remitente)
+                // Mostrar nombre del remitente si es necesario
                 const lastMsg = idx > 0 ? msgs[idx - 1] : null;
                 const lastSenderId = lastMsg ? (lastMsg.sender_id || lastMsg.userId) : null;
                 const currentSenderId = m.sender_id || m.userId;
@@ -8917,13 +8956,50 @@
        */
       function saveMessagesToStorage() {
         try {
-          // ✅ FIX CRÍTICO: Guardar TANTO CONVS como GENERAL_CHAT
+          // ✅ FIX CRÍTICO: Validar separación ANTES de guardar
+          
+          // Hacer deep copy para evitar referencias compartidas
+          const convsCopy = {};
+          Object.keys(CONVS).forEach(key => {
+            // Asegurar que CONVS NO contiene datos de GENERAL_CHAT
+            if (Array.isArray(CONVS[key])) {
+              // Validar que los mensajes tienen estructura correcta
+              convsCopy[key] = CONVS[key].map(m => ({
+                ...m,
+                // ✅ Asegurar que los mensajes de sede NUNCA tienen mine sin definir
+                mine: m.mine !== undefined ? m.mine : (m.sender_id === currentUser.id)
+              }));
+            } else {
+              convsCopy[key] = CONVS[key];
+            }
+          });
+          
+          // Validar que GENERAL_CHAT no contiene mensajes de sede
+          let generalChatCopy = [];
+          if (Array.isArray(GENERAL_CHAT)) {
+            generalChatCopy = GENERAL_CHAT.filter(m => {
+              // Remover mensajes que parecen ser de sede
+              const isSede = m.sender_id && (
+                CONVS['sede_mataro']?.some(sm => sm.id === m.id) ||
+                CONVS['sede_vilassar']?.some(sm => sm.id === m.id)
+              );
+              return !isSede;
+            }).map(m => ({
+              ...m,
+              // ✅ Asegurar que los mensajes de general SIEMPRE tienen mine
+              mine: m.mine !== undefined ? m.mine : (m.userId === currentUser.id)
+            }));
+          }
+          
           const data = {
-            convs: CONVS,           // Chats privados y de sede
-            general_chat: GENERAL_CHAT  // Chat general
+            convs: convsCopy,           // Chats privados y de sede
+            general_chat: generalChatCopy  // Chat general - COMPLETAMENTE SEPARADO
           };
+          
           localStorage.setItem('app_conversations', JSON.stringify(data));
-          console.log('✅ Conversaciones guardadas en localStorage (CONVS + GENERAL_CHAT)');
+          console.log('✅ Conversaciones guardadas en localStorage (CONVS + GENERAL_CHAT separados)');
+          console.log(`   - CONVS: ${Object.keys(convsCopy).length} chats, ${Object.values(convsCopy).reduce((s, c) => s + (Array.isArray(c) ? c.length : 0), 0)} mensajes`);
+          console.log(`   - GENERAL_CHAT: ${generalChatCopy.length} mensajes`);
         } catch (err) {
           console.warn('⚠️ No se pudo guardar en localStorage:', err);
         }
@@ -8938,22 +9014,46 @@
           if (data) {
             const loaded = JSON.parse(data);
             
-            // ✅ FIX CRÍTICO: Cargar TANTO CONVS como GENERAL_CHAT
+            // ✅ FIX CRÍTICO: Cargar TANTO CONVS como GENERAL_CHAT CON VALIDACIÓN ESTRICTA
             
             // Cargar CONVS (chats privados y de sede)
             if (loaded.convs && typeof loaded.convs === 'object') {
+              // ✅ NUEVA VALIDACIÓN: Asegurar que NO se cargan datos de GENERAL_CHAT en CONVS
               Object.keys(loaded.convs).forEach(key => {
-                CONVS[key] = loaded.convs[key];
+                // No cargar 'general-chat' en CONVS (pertenece a GENERAL_CHAT)
+                if (key !== 'general-chat' && !key.startsWith('general_')) {
+                  // Hacer deep copy para evitar referencias compartidas
+                  CONVS[key] = JSON.parse(JSON.stringify(loaded.convs[key]));
+                  console.log(`✅ CONVS['${key}'] cargado desde localStorage (${CONVS[key].length} msgs)`);
+                }
               });
-              console.log('✅ CONVS cargadas desde localStorage');
             }
             
-            // Cargar GENERAL_CHAT (chat general)
+            // Cargar GENERAL_CHAT (chat general) - COMPLETAMENTE SEPARADO
             if (loaded.general_chat && Array.isArray(loaded.general_chat)) {
-              GENERAL_CHAT = loaded.general_chat;
+              // ✅ NUEVA VALIDACIÓN: Asegurar que GENERAL_CHAT es un array limpio
+              GENERAL_CHAT = JSON.parse(JSON.stringify(loaded.general_chat));
+              
+              // ✅ VALIDACIÓN: Verificar que NO hay mensajes de sede en GENERAL_CHAT
+              const sedeMessagesInGeneral = GENERAL_CHAT.filter(m => 
+                m.sender_id && (m.sender === 'admin_mataro' || m.sender === 'admin_vilassar')
+              );
+              if (sedeMessagesInGeneral.length > 0) {
+                console.warn('⚠️ ADVERTENCIA: Se encontraron', sedeMessagesInGeneral.length, 'mensajes de sede en GENERAL_CHAT. Limpiando...');
+                // Remover mensajes de sede del chat general
+                GENERAL_CHAT = GENERAL_CHAT.filter(m => 
+                  !m.sender_id || (m.sender !== 'admin_mataro' && m.sender !== 'admin_vilassar')
+                );
+              }
+              
               console.log('✅ GENERAL_CHAT cargado desde localStorage, total:', GENERAL_CHAT.length);
             }
             
+            // ✅ NUEVA VALIDACIÓN: Asegurar que Chats de Sede están inicializados
+            if (!CONVS['sede_mataro']) CONVS['sede_mataro'] = [];
+            if (!CONVS['sede_vilassar']) CONVS['sede_vilassar'] = [];
+            
+            console.log('✅ Separación de datos verificada - GENERAL_CHAT y CONVS están separados');
             return true;
           }
         } catch (err) {
@@ -8974,8 +9074,88 @@
         }
       }
 
+      /**
+       * ✅ FIX CRÍTICO: Validar que GENERAL_CHAT y CONVS están completamente separados
+       */
+      function validateDataSeparation() {
+        console.log('🔍 [VALIDACIÓN] Verificando separación de datos...');
+        
+        // Validación 1: GENERAL_CHAT no debe estar en CONVS
+        if (CONVS['general-chat'] || CONVS['general_chat']) {
+          console.warn('⚠️ ADVERTENCIA: General-chat encontrado en CONVS, removiendo...');
+          delete CONVS['general-chat'];
+          delete CONVS['general_chat'];
+        }
+        
+        // Validación 2: CONVS de sede no deben estar en GENERAL_CHAT
+        if (GENERAL_CHAT && Array.isArray(GENERAL_CHAT)) {
+          const sedes = ['sede_mataro', 'sede_vilassar'];
+          let foundSede = 0;
+          
+          sedes.forEach(sedeName => {
+            const sedeMessages = GENERAL_CHAT.filter(m => {
+              // Buscar mensajes que parecen ser de sede
+              return CONVS[sedeName]?.some(sm => sm.id === m.id);
+            });
+            
+            if (sedeMessages.length > 0) {
+              foundSede += sedeMessages.length;
+              console.warn(`⚠️ ADVERTENCIA: ${sedeMessages.length} mensajes de ${sedeName} encontrados en GENERAL_CHAT, removiendo...`);
+              // Remover del chat general
+              GENERAL_CHAT = GENERAL_CHAT.filter(m => !sedeMessages.includes(m));
+            }
+          });
+          
+          if (foundSede > 0) {
+            saveMessagesToStorage();
+          }
+        }
+        
+        // Validación 3: Imprimir reporte de separación
+        console.log('✅ [VALIDACIÓN] Reporte de separación:');
+        console.log(`   - GENERAL_CHAT: ${GENERAL_CHAT?.length || 0} mensajes`);
+        
+        Object.keys(CONVS).forEach(key => {
+          if (Array.isArray(CONVS[key])) {
+            console.log(`   - CONVS['${key}']: ${CONVS[key].length} mensajes`);
+          }
+        });
+        
+        // Validación 4: Verificar que no hay duplicados por ID entre chats
+        const allIds = new Set();
+        let duplicates = 0;
+        
+        if (GENERAL_CHAT && Array.isArray(GENERAL_CHAT)) {
+          GENERAL_CHAT.forEach(m => {
+            if (allIds.has(m.id)) {
+              console.warn(`⚠️ DUPLICADO encontrado: ${m.id} en múltiples chats`);
+              duplicates++;
+            }
+            allIds.add(m.id);
+          });
+        }
+        
+        Object.keys(CONVS).forEach(key => {
+          if (Array.isArray(CONVS[key])) {
+            CONVS[key].forEach(m => {
+              if (allIds.has(m.id)) {
+                console.warn(`⚠️ DUPLICADO encontrado: ${m.id} en múltiples chats`);
+                duplicates++;
+              }
+              allIds.add(m.id);
+            });
+          }
+        });
+        
+        if (duplicates === 0) {
+          console.log('✅ [VALIDACIÓN] No hay duplicados por ID');
+        }
+        
+        console.log('✅ [VALIDACIÓN] Separación de datos verificada');
+      }
+
       function sendMsg() {
-        // ✅ CORRECCIÓN 6: Soportar tanto conversaciones privadas como chats de sede y chat general
+        // ✅ CORRECCIÓN: Soportar tanto conversaciones privadas como chats de sede y chat general
         if (activeConvId === null && activeSedeChat === null) return;
         
         const inp = document.getElementById("msg-input");
@@ -8994,9 +9174,12 @@
             }))
           : [];
         
+        // ✅ FIX CRÍTICO: Estandarizar estructura de mensajes
         const msgObj = { 
           mine: true,
-          userId: currentUser.id,  // ✅ NUEVO: Agregar ID del usuario
+          userId: currentUser.id,  // ✅ ID del usuario actual (para mensajes enviados)
+          sender_id: currentUser.id,  // ✅ Agregar sender_id para consistencia
+          sender: currentUser.name,  // ✅ Agregar sender para mensajes de sede
           text, 
           time, 
           read: true, 
@@ -9004,10 +9187,12 @@
           id: `msg_${Date.now()}`
         };
         
-        // ✅ CAMBIO 15: Manejar chat general
+        // ✅ CAMBIO: Manejar chat general
         if (activeConvId === 'general-chat') {
           // Enviar a chat general
           if (!GENERAL_CHAT) GENERAL_CHAT = [];
+          
+          // ✅ VALIDACIÓN: Asegurar que NO se agrega a CONVS
           GENERAL_CHAT.push(msgObj);
           renderGeneralChat();
           
@@ -9017,7 +9202,7 @@
             socket.emit('send_general_message', {
               message: text,
               sender_username: currentUser.name,
-              sender_user_id: currentUser.id,  // ✅ NUEVO: Enviar ID real del usuario
+              sender_user_id: currentUser.id,
               message_id: msgObj.id,
               attachments: attachments
             });
@@ -9025,9 +9210,14 @@
         } else if (activeSedeChat) {
           // Enviar a chat de sede
           const sedeConvId = `sede_${activeSedeChat}`;
-          // Agregar campo 'sender' que falta
-          msgObj.sender = currentUser.name;  // ✅ NUEVO: Agregar nombre del remitente
-          msgObj.sender_id = currentUser.id;  // ✅ NUEVO: Agregar ID del remitente
+          
+          // ✅ VALIDACIÓN: Asegurar que la estructura de sede es correcta
+          if (!CONVS[sedeConvId]) {
+            CONVS[sedeConvId] = [];
+            console.warn(`⚠️ CONVS['${sedeConvId}'] no existe, inicializando`);
+          }
+          
+          // ✅ VALIDACIÓN: Asegurar que NO se agrega a GENERAL_CHAT
           CONVS[sedeConvId].push(msgObj);
           renderMsgsFromArray(CONVS[sedeConvId]);
           
@@ -9037,7 +9227,7 @@
             socket.emit('send_sede_message', {
               message: text,
               sender_username: currentUser.name,
-              sender_user_id: currentUser.id,  // ✅ CAMBIO: Renombrado a sender_user_id para consistencia
+              sender_user_id: currentUser.id,
               sede: SEDE_CHATS[activeSedeChat].sede,
               sede_key: activeSedeChat,
               message_id: msgObj.id,
