@@ -1790,15 +1790,17 @@
         flex-direction: column;
         min-height: 0;
         height: 100%;
-        overflow: visible;
+        overflow: hidden;
       }
       .msg-sidebar-header {
         padding: 16px 18px;
         border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
       }
       .msg-search {
         padding: 10px 18px;
         border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
       }
       .msg-search input {
         width: 100%;
@@ -1817,7 +1819,7 @@
       .msg-list {
         flex: 1;
         min-height: 0;
-        overflow-y: scroll !important;
+        overflow-y: auto;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
