@@ -453,7 +453,7 @@
         display: none;
         min-height: 100vh;
         width: 100%;
-        overflow-x: hidden;
+        max-width: 100vw;
       }
       .sidebar {
         position: fixed;
@@ -708,11 +708,11 @@
       .main {
         margin-left: var(--sidebar-w);
         width: calc(100vw - var(--sidebar-w));
+        max-width: calc(100vw - var(--sidebar-w));
         min-width: 0;
         min-height: 100vh;
         display: flex;
         flex-direction: column;
-        overflow-x: hidden;
       }
       .topbar {
         height: var(--header-h);
@@ -2428,6 +2428,7 @@
         .main {
           margin-left: 0 !important;
           width: 100vw !important;
+          max-width: 100vw !important;
           min-height: 100vh;
         }
         .sidebar-toggle {
