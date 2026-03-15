@@ -4707,7 +4707,7 @@
             GENERAL_CHAT = [];
           }
           
-          // ✅ EVITAR DUPLICADOS: Verificar si el mensaje ya existe
+          // ✅ EVITAR DUPLICADOS: Verificar si el mensaje ya existe por ID
           const exists = GENERAL_CHAT.some(m => m.id === msg.id);
           if (exists) {
             console.log('⚠️  [GENERAL_CHAT] Mensaje duplicado, ignorando ID:', msg.id);
@@ -8274,11 +8274,9 @@
       function openGeneralChat() {
         activeConvId = 'general-chat';
         activeSedeChat = null;
-        
-        // ✅ FIX: Usar GENERAL_CHAT, no CONVS['general-chat']
         const generalMsgs = GENERAL_CHAT || [];
         generalMsgs.forEach((m) => {
-          if (!m.userId || m.userId !== currentUser.id) m.read = true;
+          if (!m.mine) m.read = true;
         });
         
         // Guardar en localStorage para persistencia
@@ -8295,8 +8293,6 @@
         // Limpiar adjuntos pendientes al cambiar de conversación
         msgPendingAttachments = [];
         msgRenderChips();
-        
-        // ✅ FIX: Usar renderGeneralChat(), no renderGeneralChatInMsg()
         renderGeneralChat();
 
         // Mobile: slide animation
@@ -8973,21 +8969,9 @@
         
         // ✅ CAMBIO 15: Manejar chat general
         if (activeConvId === 'general-chat') {
-          // ✅ FIX CRÍTICO: Usar GENERAL_CHAT, no CONVS['general-chat']
+          // Enviar a chat general
           if (!GENERAL_CHAT) GENERAL_CHAT = [];
-          
-          // Crear objeto compatible
-          const generalMsgObj = {
-            id: msgObj.id,
-            userId: currentUser.id,
-            username: currentUser.name,
-            text: text,
-            time: time,
-            date: todayStr(),
-            attachments: attachments
-          };
-          
-          GENERAL_CHAT.push(generalMsgObj);
+          GENERAL_CHAT.push(msgObj);
           renderGeneralChat();
           
           // Guardar y sincronizar
