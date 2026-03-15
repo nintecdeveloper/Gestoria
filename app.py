@@ -928,6 +928,33 @@ def create_seat_chats(user_id, user_name, user_sede):
 # WEBHOOK PARA RECIBIR MENSAJES DE META (Opcional)
 # ═══════════════════════════════════════════════════════════════
 
+@app.route('/api/messages/clear', methods=['POST'])
+def clear_messages():
+    """
+    Limpia los mensajes del servidor para testing.
+    Body JSON: { "chat_type": "all" | "general" | "mataro" | "vilassar" }
+    """
+    data = request.get_json(silent=True) or {}
+    chat_type = data.get('chat_type', 'all')
+
+    if chat_type == 'all':
+        message_storage.clear()
+        logger.info('🗑️  [Clear] Todos los mensajes eliminados del servidor')
+    elif chat_type == 'general':
+        message_storage.pop('general_chat', None)
+        logger.info('🗑️  [Clear] Chat General eliminado del servidor')
+    elif chat_type == 'mataro':
+        message_storage.pop('sede_mataro', None)
+        logger.info('🗑️  [Clear] Chat Mataró eliminado del servidor')
+    elif chat_type == 'vilassar':
+        message_storage.pop('sede_vilassar', None)
+        logger.info('🗑️  [Clear] Chat Vilassar eliminado del servidor')
+    else:
+        return jsonify({'ok': False, 'error': f'chat_type desconocido: {chat_type}'}), 400
+
+    return jsonify({'ok': True, 'cleared': chat_type})
+
+
 @app.route('/api/whatsapp/webhook', methods=['GET'])
 def whatsapp_webhook_verify():
     """Verifica el webhook con Meta"""

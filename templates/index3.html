@@ -3585,10 +3585,22 @@
               </div>
             </div>
             <div class="msg-layout">
-              <div class="msg-sidebar">
-                <div class="msg-sidebar-header">
-                  <div class="card-title">Conversaciones</div>
+              <div class=\"msg-sidebar\">
+                <div class=\"msg-sidebar-header\">
+                  <div class=\"card-title\">Conversaciones</div>
                 </div>
+                
+                <!-- ✅ BOTONES DE LIMPIAR DATOS PARA TESTING -->
+                <div style="padding: 8px; border-bottom: 1px solid var(--border-light); display: block;" id="testing-buttons">
+                  <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">⚙️ LIMPIEZA (Testing):</div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                    <button onclick="clearMessagesStorage('general')" style="padding: 4px 6px; font-size: 11px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer;">Limpiar General</button>
+                    <button onclick="clearMessagesStorage('mataro')" style="padding: 4px 6px; font-size: 11px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer;">Limpiar Mataró</button>
+                    <button onclick="clearMessagesStorage('vilassar')" style="padding: 4px 6px; font-size: 11px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer;">Limpiar Vilassar</button>
+                    <button onclick="clearMessagesStorage('all')" style="padding: 4px 6px; font-size: 11px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Limpiar TODO</button>
+                  </div>
+                </div>
+                
                 <div class="msg-search">
                   <input
                     type="text"
@@ -5494,6 +5506,20 @@
         setTimeout(() => {
           initializeSocket();
         }, 100);
+        
+        // ✅✅✅ ATAJO DE TECLADO PARA BOTONES DE TESTING
+        // Presionar Ctrl+Shift+K para mostrar/ocultar botones de limpiar
+        document.addEventListener('keydown', (e) => {
+          if (e.ctrlKey && e.shiftKey && e.key === 'K') {
+            e.preventDefault();
+            const testingButtons = document.getElementById('testing-buttons');
+            if (testingButtons) {
+              const isHidden = testingButtons.style.display === 'none';
+              testingButtons.style.display = isHidden ? 'block' : 'none';
+              console.log(isHidden ? '✅ Botones de Testing VISIBLES' : '✅ Botones de Testing OCULTOS');
+            }
+          }
+        });
       }
 
       // ══════════════════════════════════════════
@@ -8380,7 +8406,7 @@
       }
 
       function renderGeneralChat() {
-        const el = document.getElementById("gchat-messages");
+        const el = document.getElementById("msg-messages");
         if (!el) return;
         if (!GENERAL_CHAT || !GENERAL_CHAT.length) {
           el.innerHTML =
@@ -9004,134 +9030,156 @@
        */
       function saveMessagesToStorage() {
         try {
-          // ✅ FIX CRÍTICO: Validar separación ANTES de guardar
+          // ✅✅✅ CAMBIO RADICAL: Guardar en localStorage COMPLETAMENTE SEPARADO
+          // NUNCA usar un JSON compartido, guardar cada chat en su propia key
           
-          // Hacer deep copy para evitar referencias compartidas
-          const convsCopy = {};
-          Object.keys(CONVS).forEach(key => {
-            // Asegurar que CONVS NO contiene datos de GENERAL_CHAT
-            if (Array.isArray(CONVS[key])) {
-              // ✅ FIX #2: NO recalcular 'mine' basado en currentUser.id
-              // mine debe estar basado SOLO en sender_id, NUNCA recalcularse
-              convsCopy[key] = CONVS[key].map(m => {
-                // Si mine ya existe, usarlo tal cual
-                // Si no existe, calcularlo basado en sender_id PERMANENTEMENTE
-                const finalMine = m.mine !== undefined ? m.mine : (m.sender_id === m.userId);
-                return {
-                  ...m,
-                  mine: finalMine  // Usar el valor calculado, NUNCA basado en currentUser.id
-                };
-              });
-            } else {
-              convsCopy[key] = CONVS[key];
-            }
-          });
-          
-          // Validar que GENERAL_CHAT no contiene mensajes de sede
-          let generalChatCopy = [];
+          // Guardar GENERAL_CHAT en su propia key
           if (Array.isArray(GENERAL_CHAT)) {
-            generalChatCopy = GENERAL_CHAT.filter(m => {
-              // ✅ FIX #3: Mejor validación - si existe en algún CONVS de sede, remover de general
+            // Validar que GENERAL_CHAT NO contiene mensajes de sede
+            const cleanGeneral = GENERAL_CHAT.filter(m => {
               const isSede = CONVS['sede_mataro']?.some(sm => sm.id === m.id) ||
                             CONVS['sede_vilassar']?.some(sm => sm.id === m.id);
               if (isSede) {
-                console.warn(`⚠️ Removiendo mensaje de sede (${m.id}) de GENERAL_CHAT`);
+                console.warn(`🚨 CRÍTICO: Removiendo mensaje de sede (${m.id}) de GENERAL_CHAT antes de guardar`);
               }
               return !isSede;
-            }).map(m => {
-              // ✅ FIX #2: NO recalcular 'mine' basado en currentUser.id
-              const finalMine = m.mine !== undefined ? m.mine : (m.userId === m.sender_id);
-              return {
-                ...m,
-                mine: finalMine
-              };
             });
+            
+            localStorage.setItem('general_chat_data', JSON.stringify(cleanGeneral));
+            console.log(`✅ GENERAL_CHAT guardado (${cleanGeneral.length} msgs)`);
           }
           
-          const data = {
-            convs: convsCopy,           // Chats privados y de sede
-            general_chat: generalChatCopy  // Chat general - COMPLETAMENTE SEPARADO
-          };
+          // Guardar SEDE MATARÓ en su propia key
+          if (Array.isArray(CONVS['sede_mataro'])) {
+            localStorage.setItem('sede_mataro_data', JSON.stringify(CONVS['sede_mataro']));
+            console.log(`✅ Chat Mataró guardado (${CONVS['sede_mataro'].length} msgs)`);
+          }
           
-          localStorage.setItem('app_conversations', JSON.stringify(data));
-          console.log('✅ Conversaciones guardadas en localStorage (CONVS + GENERAL_CHAT separados)');
-          console.log(`   - CONVS: ${Object.keys(convsCopy).length} chats, ${Object.values(convsCopy).reduce((s, c) => s + (Array.isArray(c) ? c.length : 0), 0)} mensajes`);
-          console.log(`   - GENERAL_CHAT: ${generalChatCopy.length} mensajes`);
+          // Guardar SEDE VILASSAR en su propia key
+          if (Array.isArray(CONVS['sede_vilassar'])) {
+            localStorage.setItem('sede_vilassar_data', JSON.stringify(CONVS['sede_vilassar']));
+            console.log(`✅ Chat Vilassar guardado (${CONVS['sede_vilassar'].length} msgs)`);
+          }
+          
+          // Guardar otros CONVS (chats privados)
+          Object.keys(CONVS).forEach(key => {
+            if (key !== 'sede_mataro' && key !== 'sede_vilassar' && Array.isArray(CONVS[key])) {
+              localStorage.setItem(`convs_${key}`, JSON.stringify(CONVS[key]));
+            }
+          });
+          
+          console.log('✅✅✅ ALMACENAMIENTO COMPLETO: Todos los chats guardados en keys SEPARADAS');
         } catch (err) {
           console.warn('⚠️ No se pudo guardar en localStorage:', err);
         }
       }
 
       /**
-       * Cargar conversaciones desde localStorage
+       * Cargar conversaciones desde localStorage SEPARADO
        */
       function loadMessagesFromStorage() {
         try {
-          const data = localStorage.getItem('app_conversations');
-          if (data) {
-            const loaded = JSON.parse(data);
-            
-            // ✅ FIX CRÍTICO: Cargar TANTO CONVS como GENERAL_CHAT CON VALIDACIÓN ESTRICTA
-            
-            // Cargar CONVS (chats privados y de sede)
-            if (loaded.convs && typeof loaded.convs === 'object') {
-              // ✅ NUEVA VALIDACIÓN: Asegurar que NO se cargan datos de GENERAL_CHAT en CONVS
-              Object.keys(loaded.convs).forEach(key => {
-                // No cargar 'general-chat' en CONVS (pertenece a GENERAL_CHAT)
-                if (key !== 'general-chat' && !key.startsWith('general_')) {
-                  // Hacer deep copy para evitar referencias compartidas
-                  CONVS[key] = JSON.parse(JSON.stringify(loaded.convs[key]));
-                  console.log(`✅ CONVS['${key}'] cargado desde localStorage (${CONVS[key].length} msgs)`);
-                }
-              });
-            }
-            
-            // Cargar GENERAL_CHAT (chat general) - COMPLETAMENTE SEPARADO
-            if (loaded.general_chat && Array.isArray(loaded.general_chat)) {
-              // ✅ NUEVA VALIDACIÓN: Asegurar que GENERAL_CHAT es un array limpio
-              GENERAL_CHAT = JSON.parse(JSON.stringify(loaded.general_chat));
-              
-              // ✅ FIX #3: VALIDACIÓN CRÍTICA - Remover cualquier mensaje que pertenezca a una sede
-              const initialCount = GENERAL_CHAT.length;
-              GENERAL_CHAT = GENERAL_CHAT.filter(m => {
-                // Verificar si este mensaje existe en algún chat de sede
-                const isInSede = (CONVS['sede_mataro'] && CONVS['sede_mataro'].some(sm => sm.id === m.id)) ||
-                                (CONVS['sede_vilassar'] && CONVS['sede_vilassar'].some(sm => sm.id === m.id));
-                if (isInSede) {
-                  console.warn(`⚠️ Removiendo mensaje de sede (${m.id}) de GENERAL_CHAT al cargar`);
-                }
-                return !isInSede;
-              });
-              
-              if (GENERAL_CHAT.length < initialCount) {
-                console.log(`⚠️ Se removieron ${initialCount - GENERAL_CHAT.length} mensajes de sede de GENERAL_CHAT`);
-              }
-              
-              console.log('✅ GENERAL_CHAT cargado desde localStorage, total:', GENERAL_CHAT.length);
-            }
-            
-            // ✅ NUEVA VALIDACIÓN: Asegurar que Chats de Sede están inicializados
-            if (!CONVS['sede_mataro']) CONVS['sede_mataro'] = [];
-            if (!CONVS['sede_vilassar']) CONVS['sede_vilassar'] = [];
-            
-            console.log('✅ Separación de datos verificada - GENERAL_CHAT y CONVS están separados');
-            return true;
+          // ✅✅✅ CAMBIO RADICAL: Cargar desde localStorage keys SEPARADOS
+          // NUNCA mezclar, cada chat tiene su propia key
+          
+          console.log('🔄 Cargando datos desde localStorage SEPARADO...');
+          
+          // Cargar GENERAL_CHAT desde su key específica
+          const generalChatData = localStorage.getItem('general_chat_data');
+          if (generalChatData) {
+            GENERAL_CHAT = JSON.parse(generalChatData);
+            console.log(`✅ GENERAL_CHAT cargado: ${GENERAL_CHAT.length} mensajes`);
+          } else {
+            GENERAL_CHAT = [];
+            console.log('ℹ️ GENERAL_CHAT: empty (nuevo)');
           }
+          
+          // Cargar SEDE MATARÓ desde su key específica
+          const mataroData = localStorage.getItem('sede_mataro_data');
+          if (mataroData) {
+            CONVS['sede_mataro'] = JSON.parse(mataroData);
+            console.log(`✅ Chat Mataró cargado: ${CONVS['sede_mataro'].length} mensajes`);
+          } else {
+            CONVS['sede_mataro'] = [];
+            console.log('ℹ️ Chat Mataró: empty (nuevo)');
+          }
+          
+          // Cargar SEDE VILASSAR desde su key específica
+          const vilassarData = localStorage.getItem('sede_vilassar_data');
+          if (vilassarData) {
+            CONVS['sede_vilassar'] = JSON.parse(vilassarData);
+            console.log(`✅ Chat Vilassar cargado: ${CONVS['sede_vilassar'].length} mensajes`);
+          } else {
+            CONVS['sede_vilassar'] = [];
+            console.log('ℹ️ Chat Vilassar: empty (nuevo)');
+          }
+          
+          // Cargar otros CONVS (chats privados)
+          // Buscar todas las keys que empiezan con 'convs_'
+          const keys = Object.keys(localStorage);
+          keys.forEach(key => {
+            if (key.startsWith('convs_')) {
+              const convKey = key.replace('convs_', '');
+              const data = localStorage.getItem(key);
+              if (data) {
+                CONVS[convKey] = JSON.parse(data);
+              }
+            }
+          });
+          
+          // ✅ VALIDACIÓN FINAL: Garantizar que NO hay mezcla
+          validateDataSeparation();
+          
+          console.log('✅✅✅ CARGA COMPLETA: Todos los chats cargados desde keys SEPARADAS');
+          return true;
         } catch (err) {
           console.warn('⚠️ No se pudo cargar desde localStorage:', err);
+          return false;
         }
-        return false;
       }
 
       /**
        * Limpiar todas las conversaciones (debug)
        */
-      function clearMessagesStorage() {
+      /**
+       * ✅✅✅ LIMPIAR DATOS DE TESTING - VERSIÓN MEJORADA
+       */
+      function clearMessagesStorage(chatType = 'all') {
         try {
-          localStorage.removeItem('app_conversations');
-          console.log('✅ Almacenamiento de mensajes limpiado');
+          // 1. Limpiar localStorage
+          if (chatType === 'all') {
+            localStorage.removeItem('app_conversations');
+            localStorage.removeItem('general_chat_data');
+            localStorage.removeItem('sede_mataro_data');
+            localStorage.removeItem('sede_vilassar_data');
+            Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('convs_')) localStorage.removeItem(key);
+            });
+            GENERAL_CHAT = [];
+            CONVS['sede_mataro'] = [];
+            CONVS['sede_vilassar'] = [];
+          } else if (chatType === 'general') {
+            localStorage.removeItem('general_chat_data');
+            GENERAL_CHAT = [];
+          } else if (chatType === 'mataro') {
+            localStorage.removeItem('sede_mataro_data');
+            CONVS['sede_mataro'] = [];
+          } else if (chatType === 'vilassar') {
+            localStorage.removeItem('sede_vilassar_data');
+            CONVS['sede_vilassar'] = [];
+          }
+          // 2. Limpiar servidor (evita que reenvie historico al reconectar)
+          fetch('/api/messages/clear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_type: chatType })
+          })
+          .then(r => r.json())
+          .then(() => { alert('Mensajes eliminados: ' + chatType); location.reload(); })
+          .catch(() => { alert('Mensajes locales eliminados'); location.reload(); });
         } catch (err) {
-          console.warn('⚠️ Error al limpiar storage:', err);
+          console.warn('Error al limpiar storage:', err);
+          alert('Error al limpiar: ' + err.message);
         }
       }
 
