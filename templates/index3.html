@@ -4615,7 +4615,8 @@
           if (currentUser) {
             socket.emit('user_login', {
               username: currentUser.name,
-              userId: currentUser.id
+              userId: currentUser.id,
+              sede: currentUser.sede  // ✅ NUEVO: Enviar sede al servidor
             });
           }
         });
@@ -8315,6 +8316,7 @@
           socket.emit('send_general_message', {
             message: text,
             sender_username: currentUser.name,
+            sender_user_id: currentUser.id,  // ✅ NUEVO: Enviar ID real del usuario
             message_id: msgObj.id,
             attachments: attachments
           });
@@ -8771,7 +8773,8 @@
           : [];
         
         const msgObj = { 
-          mine: true, 
+          mine: true,
+          userId: currentUser.id,  // ✅ NUEVO: Agregar ID del usuario
           text, 
           time, 
           read: true, 
@@ -8792,6 +8795,7 @@
             socket.emit('send_general_message', {
               message: text,
               sender_username: currentUser.name,
+              sender_user_id: currentUser.id,  // ✅ NUEVO: Enviar ID real del usuario
               message_id: msgObj.id,
               attachments: attachments
             });
@@ -8808,7 +8812,7 @@
             socket.emit('send_sede_message', {
               message: text,
               sender_username: currentUser.name,
-              sender_id: currentUser.id,
+              sender_user_id: currentUser.id,  // ✅ CAMBIO: Renombrado a sender_user_id para consistencia
               sede: SEDE_CHATS[activeSedeChat].sede,
               sede_key: activeSedeChat,
               message_id: msgObj.id,

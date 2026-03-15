@@ -210,6 +210,7 @@ socketio = SocketIO(
 # Almacenar usuarios conectados en tiempo real
 connected_users = {}  # {sid: {username, sid, connected_at}}
 username_to_sid = {}  # {username: sid} - MAPEO PARA ENCONTRAR USUARIOS
+user_to_sede = {}     # ✅ NUEVO: {sid: sede} - MAPEO PARA FILTRAR POR SEDE
 active_chats = {}
 message_storage = {}  # {conv_id: [messages]} - ALMACENAR MENSAJES EN SERVIDOR
 
@@ -258,9 +259,11 @@ def handle_disconnect():
     if user_id in connected_users:
         username = connected_users[user_id].get('username', 'Usuario')
         del connected_users[user_id]
-        # LIMPIAR MAPEO USERNAME-SID
+        # LIMPIAR MAPEOS
         if username in username_to_sid:
             del username_to_sid[username]
+        if user_id in user_to_sede:  # ✅ NUEVO: limpiar mapeo de sede
+            del user_to_sede[user_id]
         logger.info(f"❌ [Socket] {username} desconectado")
     else:
         logger.info(f"❌ [Socket] Usuario desconectado: {user_id}")
@@ -270,19 +273,25 @@ def handle_user_login(data):
     """Registra un usuario como conectado"""
     user_id = request.sid
     username = data.get('username', f'User_{user_id[:8]}')
+    sede = data.get('sede', 'Desconocida')  # ✅ NUEVO: recibir sede
+    
     connected_users[user_id] = {
         'username': username,
         'sid': user_id,
+        'sede': sede,  # ✅ NUEVO: guardar sede
         'connected_at': datetime.now().isoformat()
     }
     # MAPEAR USERNAME A SID PARA BÚSQUEDA RÁPIDA
     username_to_sid[username] = user_id
-    logger.info(f"✅ [Chat] {username} conectado (SID: {user_id})")
+    user_to_sede[user_id] = sede  # ✅ NUEVO: mapear SID a sede
+    
+    logger.info(f"✅ [Chat] {username} conectado (SID: {user_id}, Sede: {sede})")
     
     # Notificar a todos que hay un nuevo usuario online
     socketio.emit('user_status_update', {
         'user_id': user_id,
         'username': username,
+        'sede': sede,  # ✅ NUEVO: enviar sede
         'status': 'online',
         'online_users': len(connected_users)
     }, broadcast=True)
@@ -349,6 +358,7 @@ def handle_general_message(data):
     """Recibe un mensaje del chat general y lo retransmite a todos"""
     sender_id = request.sid
     sender_username = data.get('sender_username', 'Usuario')
+    sender_user_id = data.get('sender_user_id', None)  # ✅ NUEVO: user ID real
     message_text = data.get('message', '')
     message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
     
@@ -358,7 +368,7 @@ def handle_general_message(data):
     # Crear objeto de mensaje
     message_obj = {
         'id': message_id,
-        'sender_id': sender_id,
+        'sender_id': sender_user_id,  # ✅ CAMBIO: Usar user ID, no SID
         'sender_username': sender_username,
         'text': message_text,
         'timestamp': datetime.now().isoformat()
@@ -379,9 +389,10 @@ def handle_general_message(data):
 
 @socketio.on('send_sede_message')
 def handle_sede_message(data):
-    """Recibe un mensaje del chat de sede (Mataró/Vilassar) y lo retransmite"""
+    """Recibe un mensaje del chat de sede (Mataró/Vilassar) y lo retransmite SOLO a esa sede"""
     sender_id = request.sid
     sender_username = data.get('sender_username', 'Usuario')
+    sender_user_id = data.get('sender_user_id', None)  # ✅ NUEVO: user ID real
     message_text = data.get('message', '')
     message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
     sede = data.get('sede', '')
@@ -394,7 +405,7 @@ def handle_sede_message(data):
     # Crear objeto de mensaje
     message_obj = {
         'id': message_id,
-        'sender_id': sender_id,
+        'sender_id': sender_user_id,  # ✅ CAMBIO: Usar user ID, no SID
         'sender_username': sender_username,
         'text': message_text,
         'timestamp': datetime.now().isoformat(),
@@ -405,17 +416,27 @@ def handle_sede_message(data):
     
     logger.info(f"💬 [Chat Sede {sede}] {sender_username}: {message_text[:50]}")
     
-    # Emitir a una sala específica de sede (para que solo reciban los de esa sede)
-    # Por ahora, retransmitir a todos (implementar salas por sede en join_room)
-    socketio.emit('receive_sede_message', message_obj, broadcast=True)
+    # ✅ CAMBIO IMPORTANTE: Emitir SOLO a usuarios de esa sede
+    # Obtener los SIDs de usuarios conectados de esa sede
+    sede_user_sids = []
+    for username, sid in username_to_sid.items():
+        if sid in connected_users and sid in user_to_sede:
+            if user_to_sede[sid] == sede or user_to_sede.get(sid) == 'admin':
+                sede_user_sids.append(sid)
     
-    # ENVIAR NOTIFICACIÓN A TODOS (excepto al remitente)
+    # Retransmitir a usuarios de esa sede
+    for sid in sede_user_sids:
+        socketio.emit('receive_sede_message', message_obj, room=sid)
+    
+    logger.info(f"✅ [Mensaje Sede {sede}] Entregado a {len(sede_user_sids)} usuarios")
+    
+    # ENVIAR NOTIFICACIÓN A USUARIOS DE LA SEDE (excepto al remitente)
     socketio.emit('sede_message_notification', {
         'from': sender_username,
         'sede': sede,
         'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
         'timestamp': datetime.now().isoformat()
-    }, broadcast=True, skip_sid=sender_id)
+    }, skip_sid=sender_id)
     logger.info(f"🔔 [Notificación Chat Sede {sede} Enviada] De {sender_username}")
 
 @socketio.on('typing')
