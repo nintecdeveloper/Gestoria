@@ -4622,18 +4622,22 @@
         },
       ];
 
-      let CONVS = {};
-
-      // ✅ CORRECCIÓN 6: Variables para Chat de Sede
+      // ═══════════════════════════════════════════════════════════════
+      // ALMACENAMIENTO DE MENSAJES — ESTRUCTURA LIMPIA
+      // ═══════════════════════════════════════════════════════════════
+      
+      let GENERAL_CHAT = [];  // Chat general — todos los usuarios
+      let CONVS = {};         // Chats privados — {id_user: [messages]}
       let activeSedeChat = null;  // 'mataro' o 'vilassar' si está abierto
+      
       const SEDE_CHATS = {
-        mataro: { name: 'Chat Mataró', sede: 'Mataró', icon: '🏢', messages: [] },
-        vilassar: { name: 'Chat Vilassar', sede: 'Vilassar', icon: '🏢', messages: [] }
+        mataro: { name: 'Chat Mataró', sede: 'Mataró', icon: '🏢' },
+        vilassar: { name: 'Chat Vilassar', sede: 'Vilassar', icon: '🏢' }
       };
       
-      // Inicializar conversaciones de sede en CONVS si no existen
-      if (!CONVS['sede_mataro']) CONVS['sede_mataro'] = [];
-      if (!CONVS['sede_vilassar']) CONVS['sede_vilassar'] = [];
+      // Inicializar almacenamiento de sede
+      CONVS['sede_mataro'] = [];
+      CONVS['sede_vilassar'] = [];
 
       // ══════════════════════════════════════════
       //  SOCKET.IO - MENSAJERÍA EN TIEMPO REAL
@@ -4736,121 +4740,86 @@
         socket.on('receive_general_message', function(msg) {
           console.log('💬 [GENERAL_CHAT] Mensaje recibido del servidor:', msg);
           
-          // ✅ Validaciones
-          if (!msg) {
-            console.error('❌ [GENERAL_CHAT] msg es null/undefined');
+          // Validación básica
+          if (!msg || !msg.id) {
+            console.error('❌ [GENERAL_CHAT] Mensaje inválido:', msg);
             return;
           }
           
-          if (!msg.text) {
-            console.warn('⚠️  [GENERAL_CHAT] Mensaje sin texto:', msg);
+          // Evitar duplicados
+          if (GENERAL_CHAT.some(m => m.id === msg.id)) {
+            console.log('⚠️  [GENERAL_CHAT] Mensaje duplicado, ignorando:', msg.id);
             return;
           }
           
-          // ✅ FIX #3: VALIDACIÓN CRÍTICA - Rechazar si este mensaje ya existe en algún chat de sede
-          const isInSede = CONVS['sede_mataro']?.some(m => m.id === msg.id) ||
-                          CONVS['sede_vilassar']?.some(m => m.id === msg.id);
-          if (isInSede) {
-            console.warn('⚠️ [GENERAL_CHAT] Rechazando - este mensaje ya está en un chat de sede:', msg.id);
-            return;  // NO agregar a GENERAL_CHAT
-          }
-          
-          // ✅ FIX #1: Convertir timestamp a hora local correctamente
-          let time, date;
+          // Convertir timestamp
+          let time = nowTime(), date = todayStr();
           if (msg.timestamp) {
-            const dateObj = new Date(msg.timestamp);
-            time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-            date = dateObj.toISOString().split('T')[0];
-          } else {
-            time = nowTime();
-            date = todayStr();
+            try {
+              const dateObj = new Date(msg.timestamp);
+              time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+              date = dateObj.toISOString().split('T')[0];
+            } catch(e) {
+              console.warn('⚠️  [GENERAL_CHAT] Error al parsear timestamp:', msg.timestamp);
+            }
           }
           
-          // ✅ CRÍTICO: Asegurar que GENERAL_CHAT existe Y es un array
-          if (!GENERAL_CHAT || !Array.isArray(GENERAL_CHAT)) {
-            console.warn('⚠️  [GENERAL_CHAT] GENERAL_CHAT no existe o no es array, inicializando');
-            GENERAL_CHAT = [];
-          }
-          
-          // ✅ EVITAR DUPLICADOS: Verificar si el mensaje ya existe por ID
-          const exists = GENERAL_CHAT.some(m => m.id === msg.id);
-          if (exists) {
-            console.log('⚠️  [GENERAL_CHAT] Mensaje duplicado, ignorando ID:', msg.id);
-            return;
-          }
-          
-          // ✅ Crear mensaje con estructura correcta PARA GENERAL_CHAT
+          // Agregar a GENERAL_CHAT
           const msgObj = {
             id: msg.id,
-            mine: (msg.sender_id === currentUser.id),  // ✅ FIX: Calcular dinámicamente
-            userId: msg.sender_id,  // ← ID REAL del usuario
-            username: msg.sender_username,  // ← Username del remitente
+            mine: (msg.sender_id === currentUser.id),
+            userId: msg.sender_id,
+            username: msg.sender_username,
             text: msg.text,
             time: time,
             date: date,
             attachments: msg.attachments || []
           };
           
-          console.log('✅ [GENERAL_CHAT] Agregando mensaje a GENERAL_CHAT:', msgObj);
           GENERAL_CHAT.push(msgObj);
-          console.log('📊 [GENERAL_CHAT] Total mensajes en GENERAL_CHAT:', GENERAL_CHAT.length);
+          console.log('✅ [GENERAL_CHAT] Agregado. Total:', GENERAL_CHAT.length);
           
-          // ✅ Renderizar SOLO si el chat general está visible
+          // Renderizar si está activo
           if (activeConvId === 'general-chat') {
-            console.log('🎨 [GENERAL_CHAT] Renderizando porque activeConvId === general-chat');
             renderGeneralChat();
-          } else {
-            console.log('📌 [GENERAL_CHAT] NO renderizando (activeConvId:', activeConvId, ')');
           }
           
-          // Actualizar badges
           saveMessagesToStorage();
           updateBadge();
-          buildMsgList(document.getElementById("msg-search-inp") ? document.getElementById("msg-search-inp").value : '');
+          buildMsgList(document.getElementById("msg-search-inp")?.value || '');
         });
         
         // ✅ RECIBIR HISTÓRICO DE CHAT GENERAL AL CONECTAR
-        socket.on('load_general_message_history', function(data) {
+        socket.on('load_general_history', function(data) {
           console.log('📚 [HISTÓRICO GENERAL] Recibidos', data.messages.length, 'mensajes');
+          
           if (!data.messages || !Array.isArray(data.messages)) {
-            console.warn('⚠️ [HISTÓRICO GENERAL] Datos inválidos:', data);
+            console.warn('⚠️ [HISTÓRICO GENERAL] Datos inválidos');
             return;
           }
           
-          // Inicializar GENERAL_CHAT si no existe
-          if (!GENERAL_CHAT) {
-            GENERAL_CHAT = [];
-          }
-          
-          // Agregar todos los mensajes históricos
+          // Agregar mensajes del histórico
           data.messages.forEach(msg => {
-            // Evitar duplicados por ID
-            const exists = GENERAL_CHAT.some(m => m.id === msg.id);
-            if (exists) {
-              return;  // Ya existe, saltar
+            // Evitar duplicados
+            if (GENERAL_CHAT.some(m => m.id === msg.id)) {
+              return;
             }
             
-            // ✅ FIX #3: VALIDACIÓN CRÍTICA - Rechazar si este mensaje pertenece a una sede
-            const isInSede = CONVS['sede_mataro']?.some(m => m.id === msg.id) ||
-                            CONVS['sede_vilassar']?.some(m => m.id === msg.id);
-            if (isInSede) {
-              console.warn(`⚠️ Ignorando mensaje de sede (${msg.id}) en carga de histórico general`);
-              return;  // NO agregar a GENERAL_CHAT
-            }
-            
-            // ✅ FIX #1: Convertir timestamp a hora local correctamente
-            let time, date;
+            // Convertir timestamp
+            let time = nowTime(), date = todayStr();
             if (msg.timestamp) {
-              const dateObj = new Date(msg.timestamp);
-              time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-              date = dateObj.toISOString().split('T')[0];
-            } else {
-              time = nowTime();
-              date = todayStr();
+              try {
+                const dateObj = new Date(msg.timestamp);
+                time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+                date = dateObj.toISOString().split('T')[0];
+              } catch(e) {
+                console.warn('⚠️  Error al parsear timestamp');
+              }
             }
+            
             GENERAL_CHAT.push({
               id: msg.id,
-              mine: (msg.sender_id === currentUser.id),  // ✅ FIX: Calcular dinámicamente
+              mine: (msg.sender_id === currentUser.id),
               userId: msg.sender_id,
               username: msg.sender_username,
               text: msg.text,
@@ -4860,7 +4829,7 @@
             });
           });
           
-          console.log('✅ [HISTÓRICO GENERAL] Total mensajes en chat:', GENERAL_CHAT.length);
+          console.log('✅ [HISTÓRICO GENERAL] Total:', GENERAL_CHAT.length);
           
           // Renderizar si el chat general está abierto
           if (activeConvId === 'general-chat') {
@@ -4871,54 +4840,56 @@
         });
         
         // ✅ RECIBIR HISTÓRICO DE CHAT DE SEDE AL CONECTAR
-        socket.on('load_sede_message_history', function(data) {
+        socket.on('load_sede_history', function(data) {
           const sedeKey = data.sede_key;
           const sedeConvId = `sede_${sedeKey}`;
           console.log('📚 [HISTÓRICO SEDE] Recibidos', data.messages.length, 'mensajes para', sedeKey);
           
           if (!data.messages || !Array.isArray(data.messages)) {
-            console.warn('⚠️ [HISTÓRICO SEDE] Datos inválidos:', data);
+            console.warn('⚠️ [HISTÓRICO SEDE] Datos inválidos');
             return;
           }
           
-          // Inicializar CONVS[sedeConvId] si no existe
+          // Inicializar si no existe
           if (!CONVS[sedeConvId]) {
             CONVS[sedeConvId] = [];
           }
           
-          // Agregar todos los mensajes históricos
+          // Agregar mensajes del histórico
           data.messages.forEach(msg => {
-            // Evitar duplicados por ID
-            const exists = CONVS[sedeConvId].some(m => m.id === msg.id);
-            if (!exists) {
-              // ✅ FIX #1: Convertir timestamp a hora local correctamente
-              let time, date;
-              if (msg.timestamp) {
+            // Evitar duplicados
+            if (CONVS[sedeConvId].some(m => m.id === msg.id)) {
+              return;
+            }
+            
+            // Convertir timestamp
+            let time = nowTime(), date = todayStr();
+            if (msg.timestamp) {
+              try {
                 const dateObj = new Date(msg.timestamp);
                 time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
                 date = dateObj.toISOString().split('T')[0];
-              } else {
-                time = nowTime();
-                date = todayStr();
+              } catch(e) {
+                console.warn('⚠️  Error al parsear timestamp');
               }
-              // FIX CRÍTICO: Calcular mine dinámicamente basado en sender_id real
-              CONVS[sedeConvId].push({
-                id: msg.id,
-                mine: (msg.sender_id === currentUser.id),  // ✅ DINÁMICO: true si yo envié, false si otro
-                sender: msg.sender_username,
-                sender_id: msg.sender_id,  // ✅ ID del remitente REAL
-                text: msg.text,
-                time: time,
-                date: date,
-                read: true,
-                attachments: msg.attachments || []
-              });
             }
+            
+            CONVS[sedeConvId].push({
+              id: msg.id,
+              mine: (msg.sender_id === currentUser.id),
+              sender: msg.sender_username,
+              sender_id: msg.sender_id,
+              text: msg.text,
+              time: time,
+              date: date,
+              read: true,
+              attachments: msg.attachments || []
+            });
           });
           
-          console.log('✅ [HISTÓRICO SEDE] Total mensajes en', sedeKey, ':', CONVS[sedeConvId].length);
+          console.log('✅ [HISTÓRICO SEDE] Total en', sedeKey, ':', CONVS[sedeConvId].length);
           
-          // Renderizar si ese chat de sede está abierto
+          // Renderizar si ese chat está abierto
           if (activeSedeChat === sedeKey) {
             renderMsgsFromArray(CONVS[sedeConvId]);
           }
@@ -4930,90 +4901,62 @@
         socket.on('receive_sede_message', function(msg) {
           console.log('🏢 [SEDE_CHAT] Mensaje de sede recibido:', msg);
           
-          // ✅ Validaciones
-          if (!msg) {
-            console.error('❌ [SEDE_CHAT] msg es null/undefined');
-            return;
-          }
-          
-          if (!msg.text) {
-            console.warn('⚠️  [SEDE_CHAT] Mensaje sin texto:', msg);
+          if (!msg || !msg.id) {
+            console.error('❌ [SEDE_CHAT] Mensaje inválido');
             return;
           }
           
           const sedeKey = msg.sede_key;
-          const sede = msg.sede;
           const sedeConvId = `sede_${sedeKey}`;
           
-          console.log('🎯 [SEDE_CHAT] Procesando para sede:', sede, 'clave:', sedeKey, 'ID:', sedeConvId);
-          
-          // Validar que el usuario pertenece a esta sede o es admin
-          const isAdmin = currentUser.role === 'admin';
-          const userSede = currentUser.sede;
-          const messageSede = msg.sede;
-          
-          if (!isAdmin && userSede !== messageSede) {
-            console.warn('❌ [SEDE_CHAT] Usuario NO autorizado para esta sede. Usuario sede:', userSede, 'Mensaje sede:', messageSede);
-            return;
-          }
-          
-          // ✅ FIX #1: Convertir timestamp a hora local correctamente
-          let time, date;
-          if (msg.timestamp) {
-            const dateObj = new Date(msg.timestamp);
-            time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-            date = dateObj.toISOString().split('T')[0];
-          } else {
-            time = nowTime();
-            date = todayStr();
-          }
-          
-          // ✅ CRÍTICO: Asegurar que CONVS[sedeConvId] existe
+          // Inicializar si no existe
           if (!CONVS[sedeConvId]) {
-            console.log('📝 [SEDE_CHAT] Creando nuevo array para:', sedeConvId);
             CONVS[sedeConvId] = [];
           }
           
-          // ✅ EVITAR DUPLICADOS: Verificar si el mensaje ya existe por ID
-          const exists = CONVS[sedeConvId].some(m => m.id === msg.id);
-          if (exists) {
-            console.log('⚠️  [SEDE_CHAT] Mensaje duplicado en', sedeKey, ', ignorando ID:', msg.id);
+          // Evitar duplicados
+          if (CONVS[sedeConvId].some(m => m.id === msg.id)) {
+            console.log('⚠️  [SEDE_CHAT] Mensaje duplicado, ignorando:', msg.id);
             return;
           }
           
-          // ✅ Crear mensaje con estructura correcta PARA SEDE
-          // FIX CRÍTICO: Calcular mine dinámicamente basado en sender_id real
+          // Convertir timestamp
+          let time = nowTime(), date = todayStr();
+          if (msg.timestamp) {
+            try {
+              const dateObj = new Date(msg.timestamp);
+              time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+              date = dateObj.toISOString().split('T')[0];
+            } catch(e) {
+              console.warn('⚠️  Error al parsear timestamp');
+            }
+          }
+          
+          // Agregar mensaje
           const msgObj = {
             id: msg.id,
-            mine: (msg.sender_id === currentUser.id),  // ✅ DINÁMICO: true si yo envié, false si otro
+            mine: (msg.sender_id === currentUser.id),
             text: msg.text,
             time: time,
             date: date,
             read: false,
             sender: msg.sender_username,
-            sender_id: msg.sender_id,  // ✅ ID del remitente REAL
-            userId: msg.sender_id,  // ✅ ID del remitente REAL (no debe ser currentUser.id)
+            sender_id: msg.sender_id,
             attachments: msg.attachments || []
           };
           
-          console.log('✅ [SEDE_CHAT] Agregando mensaje a CONVS[' + sedeConvId + ']:', msgObj);
           CONVS[sedeConvId].push(msgObj);
-          console.log('📊 [SEDE_CHAT] Total mensajes en', sedeKey, ':', CONVS[sedeConvId].length);
+          console.log('✅ [SEDE_CHAT] Agregado. Total en', sedeKey, ':', CONVS[sedeConvId].length);
           
-          // ✅ Renderizar SOLO si el chat de sede está activo
+          // Renderizar si está activo
           if (activeSedeChat === sedeKey) {
-            console.log('🎨 [SEDE_CHAT] Renderizando porque activeSedeChat === ' + sedeKey);
             CONVS[sedeConvId].forEach(m => { if (!m.mine) m.read = true; });
             renderMsgsFromArray(CONVS[sedeConvId]);
-          } else {
-            console.log('📌 [SEDE_CHAT] NO renderizando (activeSedeChat:', activeSedeChat, ')');
           }
           
-          // Actualizar almacenamiento y badges
           saveMessagesToStorage();
           updateBadge();
-          buildMsgList(document.getElementById("msg-search-inp") ? document.getElementById("msg-search-inp").value : '');
-          console.log('✅ [SEDE_CHAT] Procesamiento completado para', sedeKey);
+          buildMsgList(document.getElementById("msg-search-inp")?.value || '');
         });
         
         socket.on('notification_received', function(notif) {
@@ -9309,74 +9252,110 @@
       }
 
       function sendMsg() {
-        // ✅ CORRECCIÓN: Soportar tanto conversaciones privadas como chats de sede y chat general
-        if (activeConvId === null && activeSedeChat === null) return;
+        // Validar que hay un chat activo
+        if (activeConvId === null && activeSedeChat === null) {
+          console.warn('⚠️ [sendMsg] No hay chat activo');
+          return;
+        }
         
         const inp = document.getElementById("msg-input");
         const text = inp.value.trim();
-        // Permitir envío sin texto si hay adjuntos
-        if (!text && msgPendingAttachments.length === 0) return;
-        const time = nowTime();
         
-        // Clonar adjuntos pendientes para el mensaje (deep copy garantizado)
+        // Validar contenido
+        if (!text && msgPendingAttachments.length === 0) {
+          console.warn('⚠️ [sendMsg] Mensaje vacío');
+          return;
+        }
+        
+        const time = nowTime();
+        const date = todayStr();
+        
+        // Preparar adjuntos
         const attachments = msgPendingAttachments.length
           ? msgPendingAttachments.map(a => ({
               name: a.name,
               size: a.size,
-              data: a.dataUrl,  // ✅ Guardar data en base64 para transmisión
+              data: a.dataUrl,
               type: a.type
             }))
           : [];
         
-        // ✅ FIX CRÍTICO: Estandarizar estructura de mensajes
-        const msgObj = { 
-          mine: true,
-          userId: currentUser.id,  // ✅ ID del usuario actual (para mensajes enviados)
-          sender_id: currentUser.id,  // ✅ Agregar sender_id para consistencia
-          sender: currentUser.name,  // ✅ Agregar sender para mensajes de sede
-          text, 
-          time, 
-          read: true, 
-          attachments,
-          id: `msg_${Date.now()}`
-        };
+        const msgId = `msg_${Date.now()}`;
         
-        // ✅ CAMBIO: Manejar chat general
+        // ═══════════════════════════════════════════════════════════════
+        // CASO 1: CHAT GENERAL
+        // ═══════════════════════════════════════════════════════════════
         if (activeConvId === 'general-chat') {
-          // Enviar a chat general
-          if (!GENERAL_CHAT) GENERAL_CHAT = [];
+          console.log('📤 [sendMsg] Enviando a CHAT GENERAL');
           
-          // ✅ VALIDACIÓN: Asegurar que NO se agrega a CONVS
+          // Crear objeto local
+          const msgObj = {
+            id: msgId,
+            mine: true,
+            userId: currentUser.id,
+            username: currentUser.name,
+            text: text,
+            time: time,
+            date: date,
+            attachments: attachments
+          };
+          
+          // Agregar localmente (NO esperar socket para evitar duplicado)
           GENERAL_CHAT.push(msgObj);
+          console.log('✅ [sendMsg] Mensaje agregado localmente. Total:', GENERAL_CHAT.length);
           renderGeneralChat();
           
-          // Guardar y sincronizar
+          // Guardar
           saveMessagesToStorage();
+          
+          // Enviar al servidor (NO se recibirá de vuelta por skip_sid)
           if (socket && socket.connected) {
             socket.emit('send_general_message', {
               message: text,
               sender_username: currentUser.name,
               sender_user_id: currentUser.id,
-              message_id: msgObj.id,
+              message_id: msgId,
               attachments: attachments
             });
+            console.log('✅ [sendMsg] Emitido a servidor');
           }
-        } else if (activeSedeChat) {
-          // Enviar a chat de sede
+        }
+        // ═══════════════════════════════════════════════════════════════
+        // CASO 2: CHAT DE SEDE
+        // ═══════════════════════════════════════════════════════════════
+        else if (activeSedeChat) {
+          console.log('📤 [sendMsg] Enviando a CHAT SEDE:', activeSedeChat);
+          
           const sedeConvId = `sede_${activeSedeChat}`;
           
-          // ✅ VALIDACIÓN: Asegurar que la estructura de sede es correcta
+          // Inicializar si no existe
           if (!CONVS[sedeConvId]) {
             CONVS[sedeConvId] = [];
-            console.warn(`⚠️ CONVS['${sedeConvId}'] no existe, inicializando`);
           }
           
-          // ✅ VALIDACIÓN: Asegurar que NO se agrega a GENERAL_CHAT
+          // Crear objeto local
+          const msgObj = {
+            id: msgId,
+            mine: true,
+            userId: currentUser.id,
+            sender: currentUser.name,
+            sender_id: currentUser.id,
+            text: text,
+            time: time,
+            date: date,
+            read: true,
+            attachments: attachments
+          };
+          
+          // Agregar localmente
           CONVS[sedeConvId].push(msgObj);
+          console.log('✅ [sendMsg] Mensaje agregado a sede. Total:', CONVS[sedeConvId].length);
           renderMsgsFromArray(CONVS[sedeConvId]);
           
-          // Guardar y sincronizar
+          // Guardar
           saveMessagesToStorage();
+          
+          // Enviar al servidor
           if (socket && socket.connected) {
             socket.emit('send_sede_message', {
               message: text,
@@ -9384,49 +9363,60 @@
               sender_user_id: currentUser.id,
               sede: SEDE_CHATS[activeSedeChat].sede,
               sede_key: activeSedeChat,
-              message_id: msgObj.id,
+              message_id: msgId,
               attachments: attachments
             });
+            console.log('✅ [sendMsg] Emitido a servidor');
           }
-        } else {
-          // Conversación privada existente
-          convData(activeConvId).push(msgObj);
+        }
+        // ═══════════════════════════════════════════════════════════════
+        // CASO 3: CHAT PRIVADO
+        // ═══════════════════════════════════════════════════════════════
+        else {
+          console.log('📤 [sendMsg] Enviando CHAT PRIVADO a usuario ID:', activeConvId);
+          
+          // Agregar localmente
+          const msgs = convData(activeConvId);
+          msgs.push({
+            mine: true,
+            userId: currentUser.id,
+            sender: currentUser.name,
+            text: text,
+            time: time,
+            date: date,
+            read: true,
+            attachments: attachments,
+            id: msgId
+          });
+          console.log('✅ [sendMsg] Mensaje agregado localmente');
           renderMsgs(activeConvId);
           
+          // Guardar
           saveMessagesToStorage();
+          
+          // Enviar al servidor
           if (socket && socket.connected && currentUser) {
             const recipientUser = USERS.find(u => u.id === activeConvId);
             const recipientName = recipientUser ? recipientUser.name : String(activeConvId);
-            console.log('📤 [Socket] Enviando mensaje privado a:', recipientName, 'con', attachments.length, 'adjunto(s)');
             
-            if (attachments.length > 0) {
-              socket.emit('send_message_with_attachment', {
-                message: text,
-                sender_username: currentUser.name,
-                recipient_username: recipientName,
-                conv_id: `${currentUser.name}_${recipientName}`,
-                message_id: msgObj.id,
-                attachments: attachments
-              });
-            } else {
-              socket.emit('send_message', {
-                message: text,
-                sender_username: currentUser.name,
-                recipient_username: recipientName,
-                conv_id: `${currentUser.name}_${recipientName}`,
-                message_id: msgObj.id
-              });
-            }
-          } else {
-            console.log('✅ Mensaje guardado localmente (sin servidor)');
+            socket.emit('send_message', {
+              message: text,
+              sender_username: currentUser.name,
+              recipient_username: recipientName,
+              conv_id: `${currentUser.name}_${recipientName}`,
+              message_id: msgId,
+              attachments: attachments
+            });
+            console.log('✅ [sendMsg] Emitido a servidor');
           }
         }
         
+        // Limpiar UI
         inp.value = "";
-        // Limpiar adjuntos pendientes
         msgPendingAttachments = [];
         msgRenderChips();
-        buildMsgList(document.getElementById("msg-search-inp").value);
+        buildMsgList(document.getElementById("msg-search-inp")?.value || '');
+        updateBadge();
       }
 
       // ══════════════════════════════════════════

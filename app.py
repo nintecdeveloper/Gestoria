@@ -1,29 +1,25 @@
 import os
 import json
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_file
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
+from io import BytesIO
 import requests
 import logging
+import base64
 
 # ═══════════════════════════════════════════════════════════════
-# LOGGING — CONFIGURACIÓN INMEDIATA (ANTES DE CUALQUIER USO)
+# LOGGING — CONFIGURACIÓN INMEDIATA
 # ═══════════════════════════════════════════════════════════════
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════
-# META WHATSAPP API — IMPORTACIÓN CONDICIONAL
-# Ahora usamos Meta Cloud API en lugar de Twilio
+# META WHATSAPP API — CONFIGURACIÓN
 # ═══════════════════════════════════════════════════════════════
 META_AVAILABLE = True
 REQUESTS_AVAILABLE = True
 
-# ═══════════════════════════════════════════════════════════════
-# APSCHEDULER — IMPORTACIÓN CONDICIONAL
-# Programa el envío de WhatsApp desde el servidor, independiente
-# de si el navegador está abierto o cerrado.
-# ═══════════════════════════════════════════════════════════════
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.date import DateTrigger
@@ -33,24 +29,6 @@ except ImportError:
     SCHEDULER_AVAILABLE = False
     print("⚠️  [Scheduler] APScheduler no instalado. pip install apscheduler para activarlo.")
 
-# ═══════════════════════════════════════════════════════════════
-# CONFIGURACIÓN META WHATSAPP API
-# ─────────────────────────────────────────────────────────────
-# PASOS PARA ACTIVAR (cuando tengas las credenciales de Meta):
-#
-#   1. Ve a https://developers.facebook.com/
-#   2. Crea un proyecto y selecciona "WhatsApp"
-#   3. En la sección "Getting Started", obtén:
-#        · Phone Number ID (de tu número de negocio)
-#        · Access Token (con permisos whatsapp_business_messaging)
-#        · Business Account ID
-#   4. En Render, ve a tu servicio → Environment → Add Environment Variable
-#        · META_PHONE_NUMBER_ID = 1234567890123456789
-#        · META_ACCESS_TOKEN = EAAxxxxxxxxxxxxxxxxxxxxxxxx
-#        · META_BUSINESS_ACCOUNT_ID = xxxxxxxxxx
-#   5. El código está adaptado para usar estas variables
-#
-# ─────────────────────────────────────────────────────────────
 META_PHONE_NUMBER_ID = os.environ.get('META_PHONE_NUMBER_ID', None)
 META_ACCESS_TOKEN = os.environ.get('META_ACCESS_TOKEN', None)
 META_BUSINESS_ACCOUNT_ID = os.environ.get('META_BUSINESS_ACCOUNT_ID', None)
@@ -61,7 +39,6 @@ META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/mes
 # USUARIOS Y CALENDARIOS — DATOS INICIALES
 # ═══════════════════════════════════════════════════════════════
 
-# Lista de usuarios (sin Sara)
 USUARIOS = [
     {'id': 1, 'nombre': 'Antonio', 'departamento': 'admin', 'email': 'antonio@rodonverges.com', 'rol': 'admin', 'sede': 'Mataró'},
     {'id': 3, 'nombre': 'Pau', 'departamento': 'admin', 'email': 'pau@rodonverges.com', 'rol': 'admin', 'sede': 'Vilassar'},
@@ -70,7 +47,6 @@ USUARIOS = [
     {'id': 5, 'nombre': 'Anna Fabregà', 'departamento': 'fiscal', 'email': 'anna@rodonverges.com', 'rol': 'user', 'sede': 'Vilassar'},
 ]
 
-# Estructura de calendarios
 CALENDARIOS = {
     'personales': [
         {'id': 1, 'usuario_id': 1, 'usuario': 'Antonio', 'nombre': 'Mi calendario personal'},
@@ -85,18 +61,12 @@ CALENDARIOS = {
     ]
 }
 
+# ═══════════════════════════════════════════════════════════════
+# WHATSAPP — FUNCIONES DE ENVÍO
+# ═══════════════════════════════════════════════════════════════
+
 def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
-    """
-    Envía un mensaje de WhatsApp via Meta Cloud API.
-    
-    Args:
-        to_phone: Número de teléfono destino (ej: +34612345678)
-        message: Contenido del mensaje
-        message_type: Tipo de mensaje ('text', 'template', etc.)
-    
-    Returns:
-        dict: {'ok': True/False, 'message_id': '...', 'error': '...'}
-    """
+    """Envía un mensaje de WhatsApp via Meta Cloud API."""
     if not META_PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
         return {
             'ok': False,
@@ -104,16 +74,14 @@ def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
             'configured': False
         }
     
-    # Normalizar número
     phone = to_phone.strip()
     if not phone.startswith('+'):
         phone = '+34' + phone.lstrip('0')
     
-    # Preparar payload según tipo de mensaje
     if message_type == "text":
         payload = {
             "messaging_product": "whatsapp",
-            "to": phone.replace('+', ''),  # Meta API requiere sin el +
+            "to": phone.replace('+', ''),
             "type": "text",
             "text": {
                 "preview_url": False,
@@ -152,33 +120,26 @@ def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
             'message_id': result.get('messages', [{}])[0].get('id'),
             'phone': phone
         }
-    except requests.exceptions.RequestException as e:
-        logger.error(f"❌ [Meta API] Error al enviar a {phone}: {str(e)}")
-        return {
-            'ok': False,
-            'error': f'Error Meta API: {str(e)}'
-        }
     except Exception as e:
-        logger.error(f"❌ [Meta API] Error inesperado: {str(e)}")
+        logger.error(f"❌ [Meta API] Error: {str(e)}")
         return {
             'ok': False,
             'error': str(e)
         }
 
 # ═══════════════════════════════════════════════════════════════
-# SCHEDULER — INICIALIZACIÓN
+# SCHEDULER — FUNCIONES
 # ═══════════════════════════════════════════════════════════════
+
 def send_whatsapp_job(to_phone: str, message: str):
-
-    # 1. Enviar WhatsApp
+    """Trabajo del scheduler para enviar WhatsApp"""
     result = send_whatsapp_meta(to_phone, message)
-
     if result['ok']:
         logger.info(f"✅ [Scheduler/Meta] Recordatorio enviado a {to_phone}")
     else:
-        logger.error(f"❌ [Scheduler/Meta] No se pudo enviar a {to_phone}: {result.get('error')}")
-
-    # 2. Enviar notificación al CRM (usuarios conectados)
+        logger.error(f"❌ [Scheduler/Meta] Error: {result.get('error')}")
+    
+    # Notificar a usuarios conectados
     socketio.emit(
         'notification_received',
         {
@@ -190,15 +151,44 @@ def send_whatsapp_job(to_phone: str, message: str):
         broadcast=True
     )
 
+def create_seat_chats(user_id, user_name, user_sede):
+    """Crea automáticamente los chats de sede cuando se añade un usuario."""
+    try:
+        logger.info(f"📱 [Chats Sede] Creando chats para {user_name} en {user_sede}")
+        
+        # Crear chat de sede si no existe
+        seat_chat_id = f"seat_{user_sede.lower()}"
+        if seat_chat_id not in message_storage:
+            message_storage[seat_chat_id] = []
+            logger.info(f"✅ [Chat Sede] Creado: {seat_chat_id}")
+        
+        # Crear chats individuales con otros usuarios de la misma sede
+        same_sede_users = [u for u in USUARIOS if u.get('sede') == user_sede or u['departamento'] == 'admin']
+        
+        for other_user in same_sede_users:
+            if other_user['id'] != user_id:
+                conv_id = f"{user_name}_{other_user['nombre']}"
+                if conv_id not in message_storage:
+                    message_storage[conv_id] = []
+                    logger.info(f"✅ [Chat Individual] Creado: {conv_id}")
+                    
+                # También crear en orden inverso
+                conv_id_inv = f"{other_user['nombre']}_{user_name}"
+                if conv_id_inv not in message_storage:
+                    message_storage[conv_id_inv] = []
+        
+    except Exception as e:
+        logger.error(f"❌ Error al crear chats de sede: {str(e)}")
+
 # ═══════════════════════════════════════════════════════════════
 # INICIALIZAR FLASK Y SOCKETIO
 # ═══════════════════════════════════════════════════════════════
+
 app = Flask(__name__, template_folder='templates')
 app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
 app.config['DEBUG'] = False if app.config['ENV'] == 'production' else True
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 
-# Configurar SocketIO con soporte para Render
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
@@ -207,12 +197,22 @@ socketio = SocketIO(
     async_mode='threading'
 )
 
-# Almacenar usuarios conectados en tiempo real
-connected_users = {}  # {sid: {username, sid, connected_at}}
-username_to_sid = {}  # {username: sid} - MAPEO PARA ENCONTRAR USUARIOS
-user_to_sede = {}     # ✅ NUEVO: {sid: sede} - MAPEO PARA FILTRAR POR SEDE
-active_chats = {}
-message_storage = {}  # {conv_id: [messages]} - ALMACENAR MENSAJES EN SERVIDOR
+# ═══════════════════════════════════════════════════════════════
+# ALMACENAMIENTO GLOBAL — ESTRUCTURA CLARA
+# ═══════════════════════════════════════════════════════════════
+
+# Usuarios conectados en tiempo real
+connected_users = {}  # {sid: {username, sid, sede, rol, connected_at}}
+username_to_sid = {}  # {username: sid}
+user_to_sede = {}     # {sid: sede}
+
+# ALMACENAMIENTO DE MENSAJES — ESTRUCTURA LIMPIA
+message_storage = {
+    'general': [],              # Chat general (todos)
+    'sede_mataro': [],         # Chat de sede Mataró
+    'sede_vilassar': [],       # Chat de sede Vilassar
+    # Los chats privados se crean dinámicamente como: private_user1_user2
+}
 
 # ═══════════════════════════════════════════════════════════════
 # RUTAS PRINCIPALES
@@ -220,7 +220,7 @@ message_storage = {}  # {conv_id: [messages]} - ALMACENAR MENSAJES EN SERVIDOR
 
 @app.route('/')
 def home():
-    """Ruta principal - Servir GestióPro"""
+    """Ruta principal"""
     return render_template('index3.html')
 
 @app.route('/app')
@@ -259,10 +259,9 @@ def handle_disconnect():
     if user_id in connected_users:
         username = connected_users[user_id].get('username', 'Usuario')
         del connected_users[user_id]
-        # LIMPIAR MAPEOS
         if username in username_to_sid:
             del username_to_sid[username]
-        if user_id in user_to_sede:  # ✅ NUEVO: limpiar mapeo de sede
+        if user_id in user_to_sede:
             del user_to_sede[user_id]
         logger.info(f"❌ [Socket] {username} desconectado")
     else:
@@ -273,131 +272,84 @@ def handle_user_login(data):
     """Registra un usuario como conectado"""
     user_id = request.sid
     username = data.get('username', f'User_{user_id[:8]}')
-    sede = data.get('sede', 'Desconocida')  # ✅ NUEVO: recibir sede
+    sede = data.get('sede', 'Desconocida')
+    user_role = data.get('role', 'user')
     
     connected_users[user_id] = {
         'username': username,
         'sid': user_id,
-        'sede': sede,  # ✅ NUEVO: guardar sede
+        'sede': sede,
+        'rol': user_role,
         'connected_at': datetime.now().isoformat()
     }
-    # MAPEAR USERNAME A SID PARA BÚSQUEDA RÁPIDA
     username_to_sid[username] = user_id
-    user_to_sede[user_id] = sede  # ✅ NUEVO: mapear SID a sede
+    user_to_sede[user_id] = sede
     
     logger.info(f"✅ [Chat] {username} conectado (SID: {user_id}, Sede: {sede})")
     
-    # Enviar histórico de mensajes generales al usuario
-    if 'general_chat' in message_storage:
-        socketio.emit('load_general_message_history', {
-            'messages': message_storage['general_chat'][-50:]
-        }, room=user_id)
-        logger.info(f"📨 [Histórico] Enviados {len(message_storage['general_chat'][-50:])} mensajes generales a {username}")
+    # ═══════════════════════════════════════════════════════════════
+    # ENVIAR HISTÓRICOS AL CONECTAR
+    # ═══════════════════════════════════════════════════════════════
     
-    # Enviar histórico de mensajes de sede
-    # Usar sede_key enviado por cliente (ya normalizado sin acentos), si no, normalizarlo aquí
-    import unicodedata
-    def _normalize(s):
-        return unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode('ascii').replace(' ', '_')
-    sede_key = data.get('sede_key') or _normalize(sede)
-    sede_storage_key = f'sede_{sede_key}'
-    if sede_storage_key in message_storage:
-        socketio.emit('load_sede_message_history', {
-            'messages': message_storage[sede_storage_key][-50:],
-            'sede_key': sede_key
+    # 1. HISTÓRICO GENERAL — Para todos los usuarios
+    if message_storage['general']:
+        socketio.emit('load_general_history', {
+            'messages': message_storage['general'][-50:]
         }, room=user_id)
-        logger.info(f"📨 [Histórico] Enviados {len(message_storage[sede_storage_key][-50:])} mensajes de sede a {username}")
+        logger.info(f"📨 [Histórico] Enviados {len(message_storage['general'][-50:])} mensajes generales a {username}")
+    
+    # 2. HISTÓRICO DE SEDE — Solo para usuarios de esa sede + admins
+    if user_role == 'admin' or sede == 'Mataró':
+        if message_storage['sede_mataro']:
+            socketio.emit('load_sede_history', {
+                'messages': message_storage['sede_mataro'][-50:],
+                'sede_key': 'mataro'
+            }, room=user_id)
+            logger.info(f"📨 [Histórico Mataró] Enviados {len(message_storage['sede_mataro'][-50:])} mensajes a {username}")
+    
+    if user_role == 'admin' or sede == 'Vilassar':
+        if message_storage['sede_vilassar']:
+            socketio.emit('load_sede_history', {
+                'messages': message_storage['sede_vilassar'][-50:],
+                'sede_key': 'vilassar'
+            }, room=user_id)
+            logger.info(f"📨 [Histórico Vilassar] Enviados {len(message_storage['sede_vilassar'][-50:])} mensajes a {username}")
     
     # Notificar a todos que hay un nuevo usuario online
     socketio.emit('user_status_update', {
         'user_id': user_id,
         'username': username,
-        'sede': sede,  # ✅ NUEVO: enviar sede
+        'sede': sede,
         'status': 'online',
         'online_users': len(connected_users)
     }, broadcast=True)
+    
+    logger.info(f"✅ [Históricos] Completados para {username}")
 
-@socketio.on('send_message')
-def handle_message(data):
-    """Recibe un mensaje privado y lo retransmite"""
-    sender_id = request.sid
-    sender_username = data.get('sender_username', 'Usuario')
-    recipient_username = data.get('recipient_username', '')  # NOMBRE DE USUARIO, NO ID
-    message_text = data.get('message', '')
-    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
-    conv_id = data.get('conv_id', f'{sender_username}_{recipient_username}')
-    
-    if not message_text.strip():
-        logger.warning(f"⚠️ [Chat] Mensaje vacío de {sender_username}")
-        return
-    
-    # Crear objeto de mensaje
-    message_obj = {
-        'id': message_id,
-        'sender_id': sender_id,
-        'sender_username': sender_username,
-        'recipient_username': recipient_username,
-        'text': message_text,
-        'timestamp': datetime.now().isoformat(),
-        'read': False
-    }
-    
-    # ALMACENAR MENSAJE EN SERVIDOR
-    if conv_id not in message_storage:
-        message_storage[conv_id] = []
-    message_storage[conv_id].append(message_obj)
-    
-    logger.info(f"💬 [Chat Privado] {sender_username} → {recipient_username}: {message_text[:50]}")
-    
-    # BUSCAR EL SID DEL RECEPTOR POR USERNAME
-    recipient_sid = username_to_sid.get(recipient_username)
-    
-    if recipient_sid and recipient_sid in connected_users:
-        # ENVIAR MENSAJE AL DESTINATARIO
-        socketio.emit('receive_message', message_obj, room=recipient_sid)
-        logger.info(f"✅ [Mensaje Entregado] A {recipient_username} (SID: {recipient_sid})")
-        
-        # ENVIAR NOTIFICACIÓN AL DESTINATARIO
-        socketio.emit('message_notification', {
-            'from': sender_username,
-            'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
-            'timestamp': datetime.now().isoformat()
-        }, room=recipient_sid)
-        logger.info(f"🔔 [Notificación Enviada] A {recipient_username}")
-    else:
-        logger.warning(f"⚠️ [Mensaje No Entregado] {recipient_username} no conectado")
-    
-    # CONFIRMAR AL REMITENTE
-    socketio.emit('message_sent', {
-        'message_id': message_id,
-        'status': 'sent',
-        'timestamp': datetime.now().isoformat()
-    }, room=sender_id)
+# ═══════════════════════════════════════════════════════════════
+# CHAT GENERAL — Disponible para todos
+# ═══════════════════════════════════════════════════════════════
 
 @socketio.on('send_general_message')
 def handle_general_message(data):
-    """
-    Recibe un mensaje del chat general y lo retransmite a TODOS.
-    ✅ VERIFICADO: Broadcast a todos sin duplicación
-    """
+    """Envía un mensaje al chat general"""
     sender_id = request.sid
     sender_username = data.get('sender_username', 'Usuario')
     sender_user_id = data.get('sender_user_id', None)
-    message_text = data.get('message', '')
+    message_text = data.get('message', '').strip()
     message_id = data.get('message_id', f'msg_{int(datetime.now().timestamp() * 1000)}')
     attachments = data.get('attachments', [])
     
-    # Validar que hay contenido (permite mensajes solo con adjuntos)
-    if not (message_text or '').strip() and not attachments:
+    # Validación
+    if not message_text and not attachments:
         logger.warning(f"⚠️ [Chat General] Mensaje vacío de {sender_username}")
         return
     
-    # Validar que tenemos ID de usuario
     if not sender_user_id:
         logger.error(f"❌ [Chat General] Sin sender_user_id de {sender_username}")
         return
     
-    # Crear objeto de mensaje con estructura correcta
+    # Crear objeto de mensaje
     message_obj = {
         'id': message_id,
         'sender_id': sender_user_id,
@@ -407,48 +359,43 @@ def handle_general_message(data):
         'attachments': attachments
     }
     
-    logger.info(f"💬 [Chat General] {sender_username} ({sender_user_id}): {message_text[:50]}")
+    # Almacenar en servidor
+    message_storage['general'].append(message_obj)
+    logger.info(f"💬 [Chat General] {sender_username}: {message_text[:50] if message_text else '(adjuntos)'}")
+    logger.info(f"✅ [Almacenado] Mensaje {message_id}. Total: {len(message_storage['general'])}")
     
-    # ALMACENAR EN SERVIDOR
-    if 'general_chat' not in message_storage:
-        message_storage['general_chat'] = []
-    message_storage['general_chat'].append(message_obj)
-    logger.info(f"✅ [Almacenado] Mensaje {message_id}. Total en servidor: {len(message_storage['general_chat'])}")
-    
-    # FIX CHAT DUPLICATION: Excluir al remitente para evitar duplicado
-    # (el remitente ya lo agregó localmente en sendMsg())
+    # FIX: Excluir remitente para evitar duplicado
     socketio.emit('receive_general_message', message_obj, broadcast=True, skip_sid=sender_id)
-    logger.info(f"📤 [Broadcast] Mensaje {message_id} enviado a TODOS excepto remitente (se duplicaría)")
+    logger.info(f"📤 [Broadcast] Mensaje {message_id} enviado a TODOS excepto remitente")
     
-    # NOTIFICACIÓN A TODOS (excepto remitente)
+    # Notificación
     socketio.emit('general_message_notification', {
         'from': sender_username,
         'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
         'timestamp': datetime.now().isoformat()
     }, broadcast=True, skip_sid=sender_id)
-    logger.info(f"🔔 [Notificación] Chat General enviada")
+
+# ═══════════════════════════════════════════════════════════════
+# CHAT DE SEDE — Solo para usuarios de esa sede + admins
+# ═══════════════════════════════════════════════════════════════
 
 @socketio.on('send_sede_message')
 def handle_sede_message(data):
-    """
-    Recibe un mensaje del chat de sede y lo retransmite SOLO a esa sede.
-    ✅ VERIFICADO: Solo usuarios de esa sede + admins reciben
-    """
+    """Envía un mensaje al chat de sede"""
     sender_id = request.sid
     sender_username = data.get('sender_username', 'Usuario')
     sender_user_id = data.get('sender_user_id', None)
-    message_text = data.get('message', '')
+    message_text = data.get('message', '').strip()
     message_id = data.get('message_id', f'msg_{int(datetime.now().timestamp() * 1000)}')
     sede = data.get('sede', '')
     sede_key = data.get('sede_key', '')
     attachments = data.get('attachments', [])
     
-    # Validar contenido (permite mensajes solo con adjuntos)
-    if not (message_text or '').strip() and not attachments:
+    # Validación
+    if not message_text and not attachments:
         logger.warning(f"⚠️ [Chat Sede] Mensaje vacío de {sender_username}")
         return
     
-    # Validar datos requeridos
     if not sender_user_id or not sede_key:
         logger.error(f"❌ [Chat Sede] Datos incompletos de {sender_username}")
         return
@@ -465,35 +412,30 @@ def handle_sede_message(data):
         'sede_key': sede_key
     }
     
-    logger.info(f"💬 [Chat Sede {sede}] {sender_username} ({sender_user_id}): {message_text[:50]}")
+    # Almacenar en servidor
+    storage_key = f'sede_{sede_key}'
+    message_storage[storage_key].append(message_obj)
+    logger.info(f"💬 [Chat Sede {sede}] {sender_username}: {message_text[:50] if message_text else '(adjuntos)'}")
+    logger.info(f"✅ [Almacenado] Mensaje {message_id} en {storage_key}. Total: {len(message_storage[storage_key])}")
     
-    # ALMACENAR EN SERVIDOR
-    sede_storage_key = f'sede_{sede_key}'
-    if sede_storage_key not in message_storage:
-        message_storage[sede_storage_key] = []
-    message_storage[sede_storage_key].append(message_obj)
-    logger.info(f"✅ [Almacenado] Mensaje {message_id} en {sede_storage_key}. Total: {len(message_storage[sede_storage_key])}")
-    
-    # OBTENER USUARIOS DE ESTA SEDE
+    # Obtener usuarios de esta sede (+ admins)
     sede_user_sids = []
     for username, sid in username_to_sid.items():
-        if sid in connected_users and sid in user_to_sede:
-            user_sede = user_to_sede.get(sid, '')
+        if sid in connected_users:
+            user_sede = connected_users[sid].get('sede', '')
             user_rol = connected_users[sid].get('rol', 'user')
-            # Enviar a usuarios de esa sede O si son admins
             if user_sede == sede or user_rol == 'admin':
                 sede_user_sids.append(sid)
                 logger.debug(f"  ✓ {username} ({sid}) en {sede}")
     
-    # FIX SEDE CHAT DUPLICATION: Retransmitir SOLO a otros usuarios, excluir remitente
-    # (el remitente ya lo agregó localmente en sendMsg())
+    # Enviar a usuarios de esta sede (excepto remitente)
     for sid in sede_user_sids:
-        if sid != sender_id:  # FIX CHAT DUPLICATION: No enviar al remitente
+        if sid != sender_id:
             socketio.emit('receive_sede_message', message_obj, room=sid)
     
     logger.info(f"📤 [Enviado] Mensaje {message_id} a {len(sede_user_sids)} usuarios de {sede}")
     
-    # NOTIFICACIÓN A USUARIOS (excepto remitente)
+    # Notificación
     for sid in sede_user_sids:
         if sid != sender_id:
             socketio.emit('sede_message_notification', {
@@ -502,8 +444,135 @@ def handle_sede_message(data):
                 'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
                 'timestamp': datetime.now().isoformat()
             }, room=sid)
+
+# ═══════════════════════════════════════════════════════════════
+# CHAT PRIVADO — Entre dos usuarios
+# ═══════════════════════════════════════════════════════════════
+
+@socketio.on('send_message')
+def handle_private_message(data):
+    """Envía un mensaje privado"""
+    sender_id = request.sid
+    sender_username = data.get('sender_username', 'Usuario')
+    recipient_username = data.get('recipient_username', '')
+    message_text = data.get('message', '').strip()
+    message_id = data.get('message_id', f'msg_{int(datetime.now().timestamp() * 1000)}')
+    attachments = data.get('attachments', [])
+    conv_id = data.get('conv_id', f'{sender_username}_{recipient_username}')
     
-    logger.info(f"🔔 [Notificación] Chat Sede {sede} a {len(sede_user_sids)-1} usuarios")
+    # Validación
+    if not message_text and not attachments:
+        logger.warning(f"⚠️ [Chat Privado] Mensaje vacío de {sender_username}")
+        return
+    
+    # Crear objeto de mensaje
+    message_obj = {
+        'id': message_id,
+        'sender_id': sender_id,
+        'sender_username': sender_username,
+        'recipient_username': recipient_username,
+        'text': message_text,
+        'timestamp': datetime.now().isoformat(),
+        'attachments': attachments
+    }
+    
+    # Almacenar en servidor con clave privada normalizada
+    private_key = f'private_{sender_username}_{recipient_username}'
+    if private_key not in message_storage:
+        message_storage[private_key] = []
+    message_storage[private_key].append(message_obj)
+    
+    logger.info(f"💬 [Chat Privado] {sender_username} → {recipient_username}: {message_text[:50] if message_text else '(adjuntos)'}")
+    
+    # Buscar receptor por username
+    recipient_sid = username_to_sid.get(recipient_username)
+    
+    if recipient_sid and recipient_sid in connected_users:
+        # Enviar mensaje al receptor
+        socketio.emit('receive_message', message_obj, room=recipient_sid)
+        logger.info(f"✅ [Mensaje Entregado] A {recipient_username} (SID: {recipient_sid})")
+        
+        # Notificación
+        socketio.emit('message_notification', {
+            'from': sender_username,
+            'message': "📎 Archivo adjunto" if attachments else (message_text[:50] + '...' if len(message_text) > 50 else message_text),
+            'timestamp': datetime.now().isoformat()
+        }, room=recipient_sid)
+    else:
+        logger.warning(f"⚠️ [Mensaje No Entregado] {recipient_username} no conectado")
+    
+    # Confirmar envío al remitente
+    socketio.emit('message_sent', {
+        'message_id': message_id,
+        'status': 'sent',
+        'timestamp': datetime.now().isoformat()
+    }, room=sender_id)
+
+# ═══════════════════════════════════════════════════════════════
+# CHAT PRIVADO CON ADJUNTOS (Backward compatibility)
+# ═══════════════════════════════════════════════════════════════
+
+@socketio.on('send_message_with_attachment')
+def handle_message_with_attachment(data):
+    """Recibe un mensaje con adjunto y lo retransmite"""
+    sender_id = request.sid
+    sender_username = data.get('sender_username', 'Usuario')
+    recipient_username = data.get('recipient_username', '')
+    message_text = data.get('message', '')
+    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
+    conv_id = data.get('conv_id', f'{sender_username}_{recipient_username}')
+    attachments = data.get('attachments', [])
+    
+    if not message_text.strip() and not attachments:
+        logger.warning(f"⚠️ [Chat] Mensaje vacío de {sender_username}")
+        return
+    
+    # Crear objeto de mensaje
+    message_obj = {
+        'id': message_id,
+        'sender_id': sender_id,
+        'sender_username': sender_username,
+        'recipient_username': recipient_username,
+        'text': message_text,
+        'timestamp': datetime.now().isoformat(),
+        'read': False,
+        'attachments': attachments
+    }
+    
+    # ALMACENAR MENSAJE EN SERVIDOR
+    if conv_id not in message_storage:
+        message_storage[conv_id] = []
+    message_storage[conv_id].append(message_obj)
+    
+    logger.info(f"💬 [Chat Privado] {sender_username} → {recipient_username}: {len(attachments)} archivo(s)")
+    
+    # BUSCAR EL SID DEL RECEPTOR POR USERNAME
+    recipient_sid = username_to_sid.get(recipient_username)
+    
+    if recipient_sid and recipient_sid in connected_users:
+        # ENVIAR MENSAJE AL DESTINATARIO
+        socketio.emit('receive_message', message_obj, room=recipient_sid)
+        logger.info(f"✅ [Mensaje Entregado] A {recipient_username} (SID: {recipient_sid})")
+        
+        # ENVIAR NOTIFICACIÓN AL DESTINATARIO
+        socketio.emit('message_notification', {
+            'from': sender_username,
+            'message': "📎 Archivo adjunto" if len(attachments) > 0 else (message_text[:50] + '...' if len(message_text) > 50 else message_text),
+            'timestamp': datetime.now().isoformat()
+        }, room=recipient_sid)
+    else:
+        logger.warning(f"⚠️ [Mensaje No Entregado] {recipient_username} no conectado")
+    
+    # CONFIRMAR AL REMITENTE
+    socketio.emit('message_sent', {
+        'message_id': message_id,
+        'status': 'sent',
+        'timestamp': datetime.now().isoformat()
+    }, room=sender_id)
+
+# ═══════════════════════════════════════════════════════════════
+# EVENTOS ADICIONALES
+# ═══════════════════════════════════════════════════════════════
 
 @socketio.on('typing')
 def handle_typing(data):
@@ -512,7 +581,6 @@ def handle_typing(data):
     recipient_username = data.get('recipient_username', '')
     sender_username = data.get('sender_username', 'Usuario')
     
-    # BUSCAR RECEPTOR POR USERNAME
     recipient_sid = username_to_sid.get(recipient_username)
     if recipient_sid and recipient_sid in connected_users:
         socketio.emit('user_typing', {
@@ -526,7 +594,6 @@ def handle_stop_typing(data):
     sender_id = request.sid
     recipient_username = data.get('recipient_username', '')
     
-    # BUSCAR RECEPTOR POR USERNAME
     recipient_sid = username_to_sid.get(recipient_username)
     if recipient_sid and recipient_sid in connected_users:
         socketio.emit('user_stop_typing', {
@@ -546,21 +613,19 @@ def handle_get_online_users():
 def handle_notification(data):
     """Envía una notificación a un usuario específico"""
     recipient_username = data.get('recipient_username', '')
-    notification_type = data.get('type', 'info')  # info, warning, error, success
+    notification_type = data.get('type', 'info')
     message = data.get('message', '')
     title = data.get('title', '')
     
-    # BUSCAR RECEPTOR POR USERNAME
     recipient_sid = username_to_sid.get(recipient_username)
     if recipient_sid and recipient_sid in connected_users:
-        # ✅ CORRECCIÓN: Cambiar recipient_id por recipient_sid
         socketio.emit('notification_received', {
             'type': notification_type,
             'title': title,
             'message': message,
             'timestamp': datetime.now().isoformat()
-        }, room=recipient_sid)  # ← AQUÍ ESTÁ LA CORRECCIÓN
-        logger.info(f"🔔 [Notification] Enviada a {recipient_sid[:8]}: {title}")
+        }, room=recipient_sid)
+        logger.info(f"🔔 [Notification] Enviada a {recipient_username}: {title}")
 
 @socketio.on('broadcast_notification')
 def handle_broadcast_notification(data):
@@ -578,107 +643,92 @@ def handle_broadcast_notification(data):
     logger.info(f"🔔 [Broadcast Notification] {title}")
 
 # ═══════════════════════════════════════════════════════════════
-# API MENSAJERÍA — RECUPERAR HISTÓRICO
+# API REST — RECUPERAR MENSAJES Y ADJUNTOS
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/api/messages/<conv_id>', methods=['GET'])
 def get_messages(conv_id):
-    """
-    Recupera el histórico de mensajes de una conversación.
-    conv_id puede ser 'userA_userB' o 'userB_userA' (bidireccional).
-    """
+    """Recupera el histórico de mensajes de una conversación"""
     if not conv_id:
         return jsonify({'ok': False, 'error': 'conv_id requerido', 'messages': []}), 400
-
-    # Buscar en ambas direcciones (userA_userB o userB_userA)
+    
+    # Búsqueda bidireccional para privados
     messages = message_storage.get(conv_id)
     resolved_id = conv_id
-    if messages is None:
-        parts = conv_id.split('_', 1)
+    
+    if messages is None and conv_id.startswith('private_'):
+        parts = conv_id.replace('private_', '').split('_', 1)
         if len(parts) == 2:
-            alt_id = f"{parts[1]}_{parts[0]}"
+            alt_id = f"private_{parts[1]}_{parts[0]}"
             messages = message_storage.get(alt_id)
             resolved_id = alt_id if messages is not None else conv_id
-
+    
     if messages is None:
         return jsonify({'ok': True, 'conv_id': conv_id, 'messages': []})
-
+    
     logger.info(f"📥 [Mensajes] Recuperando {len(messages)} mensajes de {resolved_id}")
     return jsonify({'ok': True, 'conv_id': resolved_id, 'messages': messages})
 
-
 @app.route('/api/messages/<conv_id>/read', methods=['POST'])
 def mark_messages_read(conv_id):
-    """Marca todos los mensajes de una conversación como leídos."""
+    """Marca todos los mensajes de una conversación como leídos"""
     messages = message_storage.get(conv_id, [])
-    reader = request.get_json(silent=True, force=True) or {}
-    reader_username = reader.get('username', '')
     for m in messages:
-        if m.get('recipient_username') == reader_username:
-            m['read'] = True
+        m['read'] = True
     return jsonify({'ok': True})
 
+@app.route('/api/messages/attachment/<msg_id>/<filename>', methods=['GET'])
+def get_message_attachment(msg_id, filename):
+    """Descargar un archivo adjunto de un mensaje"""
+    try:
+        # Buscar el mensaje en el almacenamiento
+        for conv_id, messages in message_storage.items():
+            for msg in messages:
+                if msg.get('id') == msg_id and msg.get('attachments'):
+                    for att in msg['attachments']:
+                        if att.get('name') == filename:
+                            # El archivo está almacenado como base64
+                            file_data = att.get('data', '')
+                            if file_data.startswith('data:'):
+                                # Extraer la parte base64
+                                file_data = file_data.split(',')[1]
+                            
+                            binary_data = base64.b64decode(file_data)
+                            
+                            return send_file(
+                                BytesIO(binary_data),
+                                download_name=filename,
+                                as_attachment=True
+                            )
+        
+        logger.warning(f"⚠️ Archivo no encontrado: {msg_id}/{filename}")
+        return jsonify({'ok': False, 'error': 'Archivo no encontrado'}), 404
+    except Exception as e:
+        logger.error(f"❌ Error al descargar adjunto: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
 # ═══════════════════════════════════════════════════════════════
-# API WHATSAPP — ENVÍO AUTOMÁTICO VÍA META
+# API WHATSAPP — ENVÍO AUTOMÁTICO
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/api/whatsapp/send', methods=['POST'])
 def send_whatsapp():
-    """
-    Envía un mensaje de WhatsApp INMEDIATAMENTE via Meta Cloud API.
-    Usado para el timing 'now' (envío al guardar la cita).
-
-    Body JSON esperado:
-    {
-        "to":      "+34612345678",
-        "message": "Hola, le recordamos su cita..."
-    }
-
-    Respuesta OK:    { "ok": true,  "message_id": "wamid..." }
-    Respuesta error: { "ok": false, "error": "motivo" }
-    """
+    """Envía un mensaje de WhatsApp"""
     data = request.get_json(silent=True) or {}
     to_phone = data.get('to', '').strip()
-    message  = data.get('message', '').strip()
-
+    message = data.get('message', '').strip()
+    
     if not to_phone:
-        return jsonify({'ok': False, 'error': 'Falta el campo "to" (teléfono destino)'}), 400
+        return jsonify({'ok': False, 'error': 'Falta el campo "to"'}), 400
     if not message:
         return jsonify({'ok': False, 'error': 'Falta el campo "message"'}), 400
-
-    result = send_whatsapp_meta(to_phone, message)
     
-    if result['ok']:
-        return jsonify({'ok': True, 'message_id': result.get('message_id')})
-    else:
-        return jsonify({
-            'ok': False,
-            'error': result.get('error'),
-            'configured': result.get('configured', False)
-        }), 503 if not result.get('configured') else 500
-
+    result = send_whatsapp_meta(to_phone, message)
+    return jsonify(result)
 
 @app.route('/api/whatsapp/schedule', methods=['POST'])
 def schedule_whatsapp():
-    """
-    Programa el envío de un WhatsApp en una fecha/hora futura.
-    El servidor lo enviará automáticamente aunque el navegador esté cerrado.
-    Usado para los timings '1h', '1d', '1w'.
-
-    Body JSON esperado:
-    {
-        "to":          "+34612345678",
-        "message":     "Hola, le recordamos su cita...",
-        "send_at":     "2025-06-15T10:00:00",   ← fecha/hora de Madrid (IMPORTANTE)
-        "job_id":      "wa_evento_42"            ← ID único (para evitar duplicados)
-    }
-
-    Respuesta OK:    { "ok": true,  "job_id": "wa_evento_42", "scheduled_for": "..." }
-    Respuesta error: { "ok": false, "error": "motivo" }
-    
-    ✅ IMPORTANTE: El frontend debe enviar la fecha/hora EN HORA LOCAL DE MADRID
-       convertida correctamente desde el navegador del usuario.
-    """
+    """Programa el envío de un WhatsApp en una fecha/hora futura"""
     if not SCHEDULER_AVAILABLE or not scheduler:
         return jsonify({
             'ok': False,
@@ -688,9 +738,9 @@ def schedule_whatsapp():
 
     data = request.get_json(silent=True) or {}
     to_phone = data.get('to', '').strip()
-    message  = data.get('message', '').strip()
-    send_at  = data.get('send_at', '').strip()
-    job_id   = data.get('job_id', '').strip()
+    message = data.get('message', '').strip()
+    send_at = data.get('send_at', '').strip()
+    job_id = data.get('job_id', '').strip()
 
     if not to_phone or not message or not send_at or not job_id:
         return jsonify({'ok': False, 'error': 'Faltan campos: to, message, send_at, job_id'}), 400
@@ -735,16 +785,9 @@ def schedule_whatsapp():
         logger.error(f"❌ [Scheduler] Error al programar job {job_id}: {str(e)}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
-
 @app.route('/api/whatsapp/cancel/<job_id>', methods=['DELETE'])
 def cancel_whatsapp(job_id):
-    """
-    Cancela un recordatorio de WhatsApp programado.
-    Útil si se elimina o modifica una cita.
-
-    Respuesta OK:    { "ok": true }
-    Respuesta error: { "ok": false, "error": "motivo" }
-    """
+    """Cancela un recordatorio de WhatsApp programado"""
     if not SCHEDULER_AVAILABLE or not scheduler:
         return jsonify({'ok': False, 'error': 'Scheduler no disponible'}), 503
     try:
@@ -758,20 +801,9 @@ def cancel_whatsapp(job_id):
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
-
 @app.route('/api/whatsapp/status', methods=['GET'])
 def whatsapp_status():
-    """
-    Comprueba si Meta API y el Scheduler están listos.
-    
-    Respuesta:
-    {
-        "meta_ready":      true/false,
-        "scheduler_ready": true/false,
-        "fully_ready":     true/false,
-        "reason":          "..."
-    }
-    """
+    """Comprueba si Meta API y el Scheduler están listos"""
     meta_ok = bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN)
     scheduler_ok = SCHEDULER_AVAILABLE and scheduler is not None
 
@@ -784,180 +816,11 @@ def whatsapp_status():
         reasons.append("Scheduler no inicializado")
 
     return jsonify({
-        'meta_ready':      meta_ok,
+        'meta_ready': meta_ok,
         'scheduler_ready': scheduler_ok,
-        'fully_ready':     meta_ok and scheduler_ok,
-        'reason':          ' · '.join(reasons) if reasons else 'Todo configurado correctamente'
+        'fully_ready': meta_ok and scheduler_ok,
+        'reason': ' · '.join(reasons) if reasons else 'Todo configurado correctamente'
     })
-
-# ═══════════════════════════════════════════════════════════════
-# API ADJUNTOS EN MENSAJERÍA
-# ═══════════════════════════════════════════════════════════════
-
-@app.route('/api/messages/attachment/<msg_id>/<filename>', methods=['GET'])
-def get_message_attachment(msg_id, filename):
-    """
-    Descargar un archivo adjunto de un mensaje.
-    Los archivos se almacenan en base64 en el servidor.
-    """
-    try:
-        # Buscar el mensaje en el almacenamiento
-        for conv_id, messages in message_storage.items():
-            for msg in messages:
-                if msg.get('id') == msg_id and msg.get('attachments'):
-                    for att in msg['attachments']:
-                        if att.get('name') == filename:
-                            # El archivo está almacenado como base64
-                            file_data = att.get('data', '')
-                            if file_data.startswith('data:'):
-                                # Extraer la parte base64
-                                file_data = file_data.split(',')[1]
-                            
-                            import base64
-                            binary_data = base64.b64decode(file_data)
-                            
-                            from flask import send_file
-                            from io import BytesIO
-                            return send_file(
-                                BytesIO(binary_data),
-                                download_name=filename,
-                                as_attachment=True
-                            )
-        
-        logger.warning(f"⚠️ Archivo no encontrado: {msg_id}/{filename}")
-        return jsonify({'ok': False, 'error': 'Archivo no encontrado'}), 404
-    except Exception as e:
-        logger.error(f"❌ Error al descargar adjunto: {str(e)}")
-        return jsonify({'ok': False, 'error': str(e)}), 500
-
-
-@socketio.on('send_message_with_attachment')
-def handle_message_with_attachment(data):
-    """Recibe un mensaje con adjunto y lo retransmite"""
-    sender_id = request.sid
-    sender_username = data.get('sender_username', 'Usuario')
-    recipient_username = data.get('recipient_username', '')
-    message_text = data.get('message', '')
-    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
-    conv_id = data.get('conv_id', f'{sender_username}_{recipient_username}')
-    attachments = data.get('attachments', [])
-    
-    if not message_text.strip() and not attachments:
-        logger.warning(f"⚠️ [Chat] Mensaje vacío de {sender_username}")
-        return
-    
-    # Crear objeto de mensaje
-    message_obj = {
-        'id': message_id,
-        'sender_id': sender_id,
-        'sender_username': sender_username,
-        'recipient_username': recipient_username,
-        'text': message_text,
-        'timestamp': datetime.now().isoformat(),
-        'read': False,
-        'attachments': attachments  # ← AGREGAR ADJUNTOS
-    }
-    
-    # ALMACENAR MENSAJE EN SERVIDOR
-    if conv_id not in message_storage:
-        message_storage[conv_id] = []
-    message_storage[conv_id].append(message_obj)
-    
-    logger.info(f"💬 [Chat Privado] {sender_username} → {recipient_username}: {len(attachments)} archivo(s)")
-    
-    # BUSCAR EL SID DEL RECEPTOR POR USERNAME
-    recipient_sid = username_to_sid.get(recipient_username)
-    
-    if recipient_sid and recipient_sid in connected_users:
-        # ENVIAR MENSAJE AL DESTINATARIO
-        socketio.emit('receive_message', message_obj, room=recipient_sid)
-        logger.info(f"✅ [Mensaje Entregado] A {recipient_username} (SID: {recipient_sid})")
-        
-        # ENVIAR NOTIFICACIÓN AL DESTINATARIO
-        socketio.emit('message_notification', {
-            'from': sender_username,
-            'message': "📎 Archivo adjunto" if len(attachments) > 0 else (message_text[:50] + '...' if len(message_text) > 50 else message_text),
-            'timestamp': datetime.now().isoformat()
-        }, room=recipient_sid)
-    else:
-        logger.warning(f"⚠️ [Mensaje No Entregado] {recipient_username} no conectado")
-    
-    # CONFIRMAR AL REMITENTE
-    socketio.emit('message_sent', {
-        'message_id': message_id,
-        'status': 'sent',
-        'timestamp': datetime.now().isoformat()
-    }, room=sender_id)
-
-
-# ═══════════════════════════════════════════════════════════════
-# API CHATS AUTOMÁTICOS POR SEDE
-# ═══════════════════════════════════════════════════════════════
-
-def create_seat_chats(user_id, user_name, user_sede):
-    """
-    Crea automáticamente los chats de sede cuando se añade un usuario.
-    - Chat de sede (todos los usuarios de la sede + admins)
-    - Chats individuales con otros usuarios de la misma sede
-    """
-    try:
-        logger.info(f"📱 [Chats Sede] Creando chats para {user_name} en {user_sede}")
-        
-        # Crear chat de sede si no existe
-        seat_chat_id = f"seat_{user_sede.lower()}"
-        if seat_chat_id not in message_storage:
-            message_storage[seat_chat_id] = []
-            logger.info(f"✅ [Chat Sede] Creado: {seat_chat_id}")
-        
-        # Crear chats individuales con otros usuarios de la misma sede
-        same_sede_users = [u for u in USUARIOS if u.get('sede') == user_sede or u['departamento'] == 'admin']
-        
-        for other_user in same_sede_users:
-            if other_user['id'] != user_id:
-                conv_id = f"{user_name}_{other_user['nombre']}"
-                if conv_id not in message_storage:
-                    message_storage[conv_id] = []
-                    logger.info(f"✅ [Chat Individual] Creado: {conv_id}")
-                    
-                # También crear en orden inverso
-                conv_id_inv = f"{other_user['nombre']}_{user_name}"
-                if conv_id_inv not in message_storage:
-                    message_storage[conv_id_inv] = []
-        
-    except Exception as e:
-        logger.error(f"❌ Error al crear chats de sede: {str(e)}")
-
-
-# ═══════════════════════════════════════════════════════════════
-# WEBHOOK PARA RECIBIR MENSAJES DE META (Opcional)
-# ═══════════════════════════════════════════════════════════════
-
-@app.route('/api/messages/clear', methods=['POST'])
-def clear_messages():
-    """
-    Limpia los mensajes del servidor para testing.
-    Body JSON: { "chat_type": "all" | "general" | "mataro" | "vilassar" }
-    """
-    data = request.get_json(silent=True) or {}
-    chat_type = data.get('chat_type', 'all')
-
-    if chat_type == 'all':
-        message_storage.clear()
-        logger.info('🗑️  [Clear] Todos los mensajes eliminados del servidor')
-    elif chat_type == 'general':
-        message_storage.pop('general_chat', None)
-        logger.info('🗑️  [Clear] Chat General eliminado del servidor')
-    elif chat_type == 'mataro':
-        message_storage.pop('sede_mataro', None)
-        logger.info('🗑️  [Clear] Chat Mataró eliminado del servidor')
-    elif chat_type == 'vilassar':
-        message_storage.pop('sede_vilassar', None)
-        logger.info('🗑️  [Clear] Chat Vilassar eliminado del servidor')
-    else:
-        return jsonify({'ok': False, 'error': f'chat_type desconocido: {chat_type}'}), 400
-
-    return jsonify({'ok': True, 'cleared': chat_type})
-
 
 @app.route('/api/whatsapp/webhook', methods=['GET'])
 def whatsapp_webhook_verify():
@@ -974,12 +837,43 @@ def whatsapp_webhook_verify():
 def whatsapp_webhook_receive():
     """Recibe mensajes entrantes de Meta"""
     data = request.get_json()
-    logger.info(f"📨 [Webhook] Mensaje recibido de Meta: {json.dumps(data, indent=2)}")
-    # Aquí puedes procesar mensajes entrantes si lo necesitas
+    logger.info(f"📨 [Webhook] Mensaje recibido: {json.dumps(data, indent=2)}")
     return jsonify({'status': 'ok'}), 200
 
 # ═══════════════════════════════════════════════════════════════
-# RUTAS API — ESTADO Y HEALTH CHECK
+# API LIMPIEZA DE MENSAJES (TESTING)
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/messages/clear', methods=['POST'])
+def clear_messages():
+    """Limpia los mensajes del servidor para testing"""
+    data = request.get_json(silent=True) or {}
+    chat_type = data.get('chat_type', 'all')
+    
+    if chat_type == 'all':
+        for key in list(message_storage.keys()):
+            if key not in ['general', 'sede_mataro', 'sede_vilassar']:
+                del message_storage[key]
+        message_storage['general'].clear()
+        message_storage['sede_mataro'].clear()
+        message_storage['sede_vilassar'].clear()
+        logger.info('🗑️  [Clear] Todos los mensajes eliminados')
+    elif chat_type == 'general':
+        message_storage['general'].clear()
+        logger.info('🗑️  [Clear] Chat General eliminado')
+    elif chat_type == 'mataro':
+        message_storage['sede_mataro'].clear()
+        logger.info('🗑️  [Clear] Chat Mataró eliminado')
+    elif chat_type == 'vilassar':
+        message_storage['sede_vilassar'].clear()
+        logger.info('🗑️  [Clear] Chat Vilassar eliminado')
+    else:
+        return jsonify({'ok': False, 'error': f'chat_type desconocido: {chat_type}'}), 400
+    
+    return jsonify({'ok': True, 'cleared': chat_type})
+
+# ═══════════════════════════════════════════════════════════════
+# API ESTADO Y HEALTH CHECK
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/api/status')
@@ -1012,7 +906,7 @@ def api_health():
 
 @app.errorhandler(404)
 def not_found(error):
-    """Manejar errores 404 - Servir la app en lugar de error"""
+    """Manejar errores 404 - Servir la app"""
     return render_template('index3.html'), 200
 
 @app.errorhandler(500)
@@ -1022,14 +916,23 @@ def server_error(error):
     return jsonify({'error': 'Internal server error', 'details': str(error)}), 500
 
 # ═══════════════════════════════════════════════════════════════
-# CONFIGURACIÓN DE PUERTO Y HOST
+# INICIALIZAR SCHEDULER (si está disponible)
+# ═══════════════════════════════════════════════════════════════
+
+scheduler = None
+if SCHEDULER_AVAILABLE:
+    scheduler = BackgroundScheduler()
+    scheduler.start()
+    logger.info("✅ APScheduler iniciado")
+
+# ═══════════════════════════════════════════════════════════════
+# MAIN
 # ═══════════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     host = '0.0.0.0'
     
-    # Para Render: usar socketio.run en lugar de app.run
     socketio.run(
         app,
         host=host,
