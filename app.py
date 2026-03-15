@@ -411,9 +411,10 @@ def handle_general_message(data):
     message_storage['general_chat'].append(message_obj)
     logger.info(f"✅ [Almacenado] Mensaje {message_id}. Total en servidor: {len(message_storage['general_chat'])}")
     
-    # RETRANSMITIR A TODOS LOS USUARIOS
-    socketio.emit('receive_general_message', message_obj, broadcast=True)
-    logger.info(f"📤 [Broadcast] Mensaje {message_id} enviado a TODOS los conectados")
+    # FIX CHAT DUPLICATION: Excluir al remitente para evitar duplicado
+    # (el remitente ya lo agregó localmente en sendMsg())
+    socketio.emit('receive_general_message', message_obj, broadcast=True, skip_sid=sender_id)
+    logger.info(f"📤 [Broadcast] Mensaje {message_id} enviado a TODOS excepto remitente (se duplicaría)")
     
     # NOTIFICACIÓN A TODOS (excepto remitente)
     socketio.emit('general_message_notification', {
@@ -480,9 +481,11 @@ def handle_sede_message(data):
                 sede_user_sids.append(sid)
                 logger.debug(f"  ✓ {username} ({sid}) en {sede}")
     
-    # RETRANSMITIR A USUARIOS DE ESTA SEDE
+    # FIX SEDE CHAT DUPLICATION: Retransmitir SOLO a otros usuarios, excluir remitente
+    # (el remitente ya lo agregó localmente en sendMsg())
     for sid in sede_user_sids:
-        socketio.emit('receive_sede_message', message_obj, room=sid)
+        if sid != sender_id:  # FIX CHAT DUPLICATION: No enviar al remitente
+            socketio.emit('receive_sede_message', message_obj, room=sid)
     
     logger.info(f"📤 [Enviado] Mensaje {message_id} a {len(sede_user_sids)} usuarios de {sede}")
     

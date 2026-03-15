@@ -4714,11 +4714,12 @@
             return;
           }
           
-          // ✅ Crear mensaje con estructura correcta PARA GENERAL_CHAT
+          // FIX MESSAGE OWNERSHIP: Calcular mine basado en el ID real del usuario
           const msgObj = {
             id: msg.id,
-            userId: msg.sender_id,  // ← ID REAL del usuario
-            username: msg.sender_username,  // ← Username del remitente
+            mine: (msg.sender_id === currentUser.id),  // FIX MESSAGE OWNERSHIP
+            userId: msg.sender_id,
+            username: msg.sender_username,
             text: msg.text,
             time: time,
             date: date,
@@ -4883,7 +4884,7 @@
           // ✅ Crear mensaje con estructura correcta PARA SEDE
           const msgObj = {
             id: msg.id,
-            mine: false,
+            mine: (msg.sender_id === currentUser.id),  // FIX MESSAGE OWNERSHIP: Calcular basado en ID real
             text: msg.text,
             time: time,
             date: date,
