@@ -4692,14 +4692,10 @@
             return;
           }
           
-          if (!msg.text) {
-            console.warn('⚠️  [GENERAL_CHAT] Mensaje sin texto:', msg);
+          if (!msg.text && !msg.attachments?.length) {
+            console.warn('⚠️  [GENERAL_CHAT] Mensaje sin texto ni adjuntos:', msg);
             return;
           }
-          
-          // Procesar timestamp
-          const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
-          const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
           
           // ✅ Asegurar que GENERAL_CHAT existe
           if (!GENERAL_CHAT) {
@@ -4707,14 +4703,25 @@
             GENERAL_CHAT = [];
           }
           
+          // ✅ FIX 3: Evitar duplicados - no agregar si ya existe con el mismo ID
+          const exists = GENERAL_CHAT.some(m => m.id === msg.id);
+          if (exists) {
+            console.log('⚠️  [GENERAL_CHAT] Mensaje duplicado, ignorando ID:', msg.id);
+            return;
+          }
+          
+          // Procesar timestamp
+          const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
+          const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
+          
           // ✅ Crear mensaje con estructura correcta
           const msgObj = {
             id: msg.id,
             userId: msg.sender_id,  // ← ID REAL del usuario
+            username: msg.sender_username,
             text: msg.text,
             time: time,
             date: date,
-            username: msg.sender_username,
             attachments: msg.attachments || []
           };
           
@@ -4744,7 +4751,7 @@
             return;
           }
           
-          // Inicializar GENERAL_CHAT si no existe
+          // ✅ FIX 4: Inicializar GENERAL_CHAT si no existe
           if (!GENERAL_CHAT) {
             GENERAL_CHAT = [];
           }
@@ -8267,10 +8274,13 @@
       function openGeneralChat() {
         activeConvId = 'general-chat';
         activeSedeChat = null;
-        const generalMsgs = CONVS['general-chat'] || [];
-        generalMsgs.forEach((m) => {
-          if (!m.mine) m.read = true;
-        });
+        
+        // ✅ FIX 1: Marcar mensajes como leídos en GENERAL_CHAT, no en CONVS
+        if (GENERAL_CHAT) {
+          GENERAL_CHAT.forEach((m) => {
+            if (!m.userId || m.userId !== currentUser.id) m.read = true;
+          });
+        }
         
         // Guardar en localStorage para persistencia
         saveMessagesToStorage();
@@ -8286,7 +8296,10 @@
         // Limpiar adjuntos pendientes al cambiar de conversación
         msgPendingAttachments = [];
         msgRenderChips();
-        renderGeneralChatInMsg();
+        
+        // ✅ FIX 1: Usar renderGeneralChat() que es la función correcta para el chat general
+        // NO usar renderGeneralChatInMsg() que está diseñada para privados
+        renderGeneralChat();
 
         // Mobile: slide animation
         if (isMobile()) {
@@ -8793,12 +8806,6 @@
       }
       
       // ✅ CAMBIO 14: NUEVA FUNCIÓN - Renderizar chat general en la sección de Mensajería
-      function renderGeneralChatInMsg() {
-        // Convertir mensajes del chat general al formato de CONVS
-        const generalMsgs = CONVS['general-chat'] || [];
-        renderMsgsFromArray(generalMsgs);
-      }
-
       // ✅ CORRECCIÓN 6: Renderizar mensajes desde un array directamente
       function renderMsgsFromArray(msgs) {
         const el = document.getElementById("msg-messages");
@@ -8962,21 +8969,40 @@
         
         // ✅ CAMBIO 15: Manejar chat general
         if (activeConvId === 'general-chat') {
-          // Enviar a chat general
-          if (!CONVS['general-chat']) CONVS['general-chat'] = [];
-          CONVS['general-chat'].push(msgObj);
-          renderGeneralChatInMsg();
+          // ✅ FIX 2: Usar GENERAL_CHAT, NO CONVS['general-chat']
+          // Esto evita duplicación y usa la estructura correcta
+          if (!GENERAL_CHAT) GENERAL_CHAT = [];
+          
+          // Crear objeto compatible con GENERAL_CHAT
+          const generalMsgObj = {
+            id: msgObj.id,
+            userId: currentUser.id,
+            username: currentUser.name,
+            text: text,
+            time: time,
+            date: todayStr(),
+            attachments: attachments
+          };
+          
+          GENERAL_CHAT.push(generalMsgObj);
+          console.log('✅ [Chat General] Mensaje agregado localmente:', generalMsgObj);
+          
+          // Renderizar inmediatamente
+          renderGeneralChat();
           
           // Guardar y sincronizar
           saveMessagesToStorage();
           if (socket && socket.connected) {
+            console.log('📤 [Socket] Enviando mensaje al chat general:', text);
             socket.emit('send_general_message', {
               message: text,
               sender_username: currentUser.name,
-              sender_user_id: currentUser.id,  // ✅ NUEVO: Enviar ID real del usuario
+              sender_user_id: currentUser.id,
               message_id: msgObj.id,
               attachments: attachments
             });
+          } else {
+            console.warn('⚠️ Socket no conectado, mensaje solo local');
           }
         } else if (activeSedeChat) {
           // Enviar a chat de sede

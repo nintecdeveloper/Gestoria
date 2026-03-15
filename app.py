@@ -372,67 +372,86 @@ def handle_message(data):
 
 @socketio.on('send_general_message')
 def handle_general_message(data):
-    """Recibe un mensaje del chat general y lo retransmite a todos"""
+    """
+    Recibe un mensaje del chat general y lo retransmite a TODOS.
+    ✅ VERIFICADO: Broadcast a todos sin duplicación
+    """
     sender_id = request.sid
     sender_username = data.get('sender_username', 'Usuario')
-    sender_user_id = data.get('sender_user_id', None)  # ✅ NUEVO: user ID real
+    sender_user_id = data.get('sender_user_id', None)
     message_text = data.get('message', '')
-    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
+    message_id = data.get('message_id', f'msg_{int(datetime.now().timestamp() * 1000)}')
     attachments = data.get('attachments', [])
     
+    # Validar que hay contenido
     if not message_text.strip() and not attachments:
         logger.warning(f"⚠️ [Chat General] Mensaje vacío de {sender_username}")
         return
     
-    # Crear objeto de mensaje
+    # Validar que tenemos ID de usuario
+    if not sender_user_id:
+        logger.error(f"❌ [Chat General] Sin sender_user_id de {sender_username}")
+        return
+    
+    # Crear objeto de mensaje con estructura correcta
     message_obj = {
         'id': message_id,
-        'sender_id': sender_user_id,  # ✅ CAMBIO: Usar user ID, no SID
+        'sender_id': sender_user_id,
         'sender_username': sender_username,
         'text': message_text,
         'timestamp': datetime.now().isoformat(),
         'attachments': attachments
     }
     
-    logger.info(f"💬 [Chat General] {sender_username}: {message_text[:50]}")
+    logger.info(f"💬 [Chat General] {sender_username} ({sender_user_id}): {message_text[:50]}")
     
-    # ✅ ALMACENAR MENSAJE EN SERVIDOR
+    # ALMACENAR EN SERVIDOR
     if 'general_chat' not in message_storage:
         message_storage['general_chat'] = []
     message_storage['general_chat'].append(message_obj)
-    logger.info(f"✅ [Almacenado] Mensaje {message_id} guardado. Total: {len(message_storage['general_chat'])}")
+    logger.info(f"✅ [Almacenado] Mensaje {message_id}. Total en servidor: {len(message_storage['general_chat'])}")
     
-    # Retransmitir a todos los usuarios conectados
+    # RETRANSMITIR A TODOS LOS USUARIOS
     socketio.emit('receive_general_message', message_obj, broadcast=True)
+    logger.info(f"📤 [Broadcast] Mensaje {message_id} enviado a TODOS los conectados")
     
-    # ENVIAR NOTIFICACIÓN A TODOS (excepto al remitente)
+    # NOTIFICACIÓN A TODOS (excepto remitente)
     socketio.emit('general_message_notification', {
         'from': sender_username,
         'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
         'timestamp': datetime.now().isoformat()
     }, broadcast=True, skip_sid=sender_id)
-    logger.info(f"🔔 [Notificación Chat General Enviada] De {sender_username}")
+    logger.info(f"🔔 [Notificación] Chat General enviada")
 
 @socketio.on('send_sede_message')
 def handle_sede_message(data):
-    """Recibe un mensaje del chat de sede (Mataró/Vilassar) y lo retransmite SOLO a esa sede"""
+    """
+    Recibe un mensaje del chat de sede y lo retransmite SOLO a esa sede.
+    ✅ VERIFICADO: Solo usuarios de esa sede + admins reciben
+    """
     sender_id = request.sid
     sender_username = data.get('sender_username', 'Usuario')
-    sender_user_id = data.get('sender_user_id', None)  # ✅ NUEVO: user ID real
+    sender_user_id = data.get('sender_user_id', None)
     message_text = data.get('message', '')
-    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
+    message_id = data.get('message_id', f'msg_{int(datetime.now().timestamp() * 1000)}')
     sede = data.get('sede', '')
     sede_key = data.get('sede_key', '')
     attachments = data.get('attachments', [])
     
+    # Validar contenido
     if not message_text.strip() and not attachments:
         logger.warning(f"⚠️ [Chat Sede] Mensaje vacío de {sender_username}")
+        return
+    
+    # Validar datos requeridos
+    if not sender_user_id or not sede_key:
+        logger.error(f"❌ [Chat Sede] Datos incompletos de {sender_username}")
         return
     
     # Crear objeto de mensaje
     message_obj = {
         'id': message_id,
-        'sender_id': sender_user_id,  # ✅ CAMBIO: Usar user ID, no SID
+        'sender_id': sender_user_id,
         'sender_username': sender_username,
         'text': message_text,
         'timestamp': datetime.now().isoformat(),
@@ -441,33 +460,33 @@ def handle_sede_message(data):
         'sede_key': sede_key
     }
     
-    logger.info(f"💬 [Chat Sede {sede}] {sender_username}: {message_text[:50]}")
+    logger.info(f"💬 [Chat Sede {sede}] {sender_username} ({sender_user_id}): {message_text[:50]}")
     
-    # ✅ ALMACENAR MENSAJE EN SERVIDOR
+    # ALMACENAR EN SERVIDOR
     sede_storage_key = f'sede_{sede_key}'
     if sede_storage_key not in message_storage:
         message_storage[sede_storage_key] = []
     message_storage[sede_storage_key].append(message_obj)
-    logger.info(f"✅ [Almacenado] Mensaje {message_id} guardado en {sede_storage_key}. Total: {len(message_storage[sede_storage_key])}")
+    logger.info(f"✅ [Almacenado] Mensaje {message_id} en {sede_storage_key}. Total: {len(message_storage[sede_storage_key])}")
     
-    # ✅ CAMBIO IMPORTANTE: Emitir SOLO a usuarios de esa sede
-    # Obtener los SIDs de usuarios conectados de esa sede
+    # OBTENER USUARIOS DE ESTA SEDE
     sede_user_sids = []
     for username, sid in username_to_sid.items():
         if sid in connected_users and sid in user_to_sede:
             user_sede = user_to_sede.get(sid, '')
-            is_admin = connected_users[sid].get('rol') == 'admin'
-            # Enviar a usuarios de esa sede o admins
-            if user_sede == sede or is_admin:
+            user_rol = connected_users[sid].get('rol', 'user')
+            # Enviar a usuarios de esa sede O si son admins
+            if user_sede == sede or user_rol == 'admin':
                 sede_user_sids.append(sid)
+                logger.debug(f"  ✓ {username} ({sid}) en {sede}")
     
-    # Retransmitir a usuarios de esa sede
+    # RETRANSMITIR A USUARIOS DE ESTA SEDE
     for sid in sede_user_sids:
         socketio.emit('receive_sede_message', message_obj, room=sid)
     
-    logger.info(f"✅ [Mensaje Sede {sede}] Entregado a {len(sede_user_sids)} usuarios")
+    logger.info(f"📤 [Enviado] Mensaje {message_id} a {len(sede_user_sids)} usuarios de {sede}")
     
-    # ENVIAR NOTIFICACIÓN A USUARIOS DE LA SEDE (excepto al remitente)
+    # NOTIFICACIÓN A USUARIOS (excepto remitente)
     for sid in sede_user_sids:
         if sid != sender_id:
             socketio.emit('sede_message_notification', {
@@ -476,7 +495,8 @@ def handle_sede_message(data):
                 'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
                 'timestamp': datetime.now().isoformat()
             }, room=sid)
-    logger.info(f"🔔 [Notificación Chat Sede {sede} Enviada] De {sender_username} a {len(sede_user_sids)-1} usuarios")
+    
+    logger.info(f"🔔 [Notificación] Chat Sede {sede} a {len(sede_user_sids)-1} usuarios")
 
 @socketio.on('typing')
 def handle_typing(data):
