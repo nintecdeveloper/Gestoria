@@ -4448,45 +4448,7 @@
         }
       ];
 
-      // ══════════════════════════════════════════
-      // 💾 PERSISTENCIA DE CITAS CON LOCALSTORAGE
-      // ══════════════════════════════════════════
-
-      function saveEventsToStorage() {
-        try {
-          localStorage.setItem('app_events', JSON.stringify(EVENTS));
-          console.log(`✅ ${EVENTS.length} cita(s) guardada(s) en localStorage`);
-        } catch(err) {
-          console.warn('⚠️ Error al guardar:', err);
-        }
-      }
-
-      function loadEventsFromStorage() {
-        try {
-          const stored = localStorage.getItem('app_events');
-          if (stored) {
-            const loaded = JSON.parse(stored);
-            EVENTS = loaded;
-            console.log(`✅ ${EVENTS.length} cita(s) cargada(s) desde localStorage`);
-            return true;
-          }
-        } catch(err) {
-          console.warn('⚠️ Error al cargar:', err);
-        }
-        return false;
-      }
-
-      function clearEventsStorage() {
-        localStorage.removeItem('app_events');
-        console.log('✅ localStorage limpiado');
-      }
-
-      // ══════════════════════════════════════════
-      let EVENTS = [];  // Array vacío - se cargan desde localStorage al iniciar
-      
-      // Datos de ejemplo eliminados - los eventos se cargan desde localStorage
-      
-      /* REFERENCIA DE EVENTOS DE EJEMPLO:
+      let EVENTS = [
         {
           id: 1,
           ownerId: 1,
@@ -4609,7 +4571,6 @@
           private: false,
         },
       ];
-      */
 
       let CONVS = {};
 
@@ -5304,11 +5265,9 @@
         }, 300);
         
         // ════════════════════════════════════════════════════════════
-        // Cargar datos guardados desde localStorage
+        // Cargar mensajes guardados desde localStorage
         // ════════════════════════════════════════════════════════════
-        loadEventsFromStorage();      // ✅ Cargar citas
-        loadMessagesFromStorage();    // ✅ Cargar mensajes
-        recoverReminders();           // ✅ Cargar recordatorios personales
+        loadMessagesFromStorage();
         
         // Inicializar socket.io para mensajería en tiempo real
         setTimeout(() => {
@@ -5322,7 +5281,7 @@
 
       const SEC_TITLES = {
         dashboard: "Inicio",
-        "my-calendar": "Mi Calendario",
+        "my-calendar": "Calendario",
         "global-calendar": "Calendario Global",
         // NUEVO: títulos para calendarios de sede
         "mataro-calendar": "Calendario Mataró",
@@ -6252,10 +6211,6 @@
         if (currentDetailId === null) return;
         EVENTS = EVENTS.filter((e) => e.id !== currentDetailId);
         currentDetailId = null;
-        
-        // ✅ GUARDAR CAMBIOS EN LOCALSTORAGE
-        saveEventsToStorage();
-        
         closeModal("detail-modal");
         refreshCals();
         renderDashboard();
@@ -6277,10 +6232,6 @@
         if (e) e.stopPropagation();
         if (!confirm("¿Eliminar esta cita?")) return;
         EVENTS = EVENTS.filter((x) => x.id !== evId);
-        
-        // ✅ GUARDAR CAMBIOS EN LOCALSTORAGE
-        saveEventsToStorage();
-        
         refreshCals();
         renderDashboard();
       }
@@ -6374,9 +6325,25 @@
 
       function fillEmployeeSelect(selectedId, filterDept = null) {
         const grp = document.getElementById("ev-employee-group");
+        const employeeSelect = document.getElementById("ev-employee");
         const isAdmin = currentUser.role === "admin";
+        
+        // ✅ ARREGLO: Si se está viendo el calendario de otro usuario, el dropdown debe mostrar SOLO ese usuario y estar deshabilitado
+        if (viewingUserIdForCalendar !== null) {
+          // Admin abrió calendario de otro usuario
+          const targetUser = USERS.find(u => u.id === viewingUserIdForCalendar);
+          if (targetUser) {
+            grp.style.display = "";
+            employeeSelect.innerHTML = `<option value="${targetUser.id}" selected>${safeHtml(targetUser.name)} (${targetUser.departamento || 'sin depto'}, ${targetUser.sede || 'Sin sede'})</option>`;
+            employeeSelect.disabled = true;  // Deshabilitar dropdown
+            return;  // Salir sin continuar
+          }
+        }
+        
         // Admin siempre puede asignar técnico, tanto en citas propias como globales
         grp.style.display = isAdmin ? "" : "none";
+        employeeSelect.disabled = false;  // Habilitar dropdown normalmente
+        
         if (isAdmin) {
           // ✅ FILTRADO MEJORADO: Departamento + Sede
           // Los admins SOLO pueden asignar empleados de su misma sede
@@ -6397,7 +6364,7 @@
             usersToShow = usersToShow.filter(u => u.sede === filterDept);
           }
           
-          document.getElementById("ev-employee").innerHTML = usersToShow
+          employeeSelect.innerHTML = usersToShow
             .map(
               (u) =>
                 `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)} (${u.departamento || 'sin depto'}, ${u.sede || 'Sin sede'})</option>`,
@@ -6570,9 +6537,18 @@
         errEl.textContent = "Rellena los campos obligatorios (*).";
         errEl.style.display = "none";
         const isAdmin = currentUser.role === "admin";
-        const assignedTo = isAdmin
-          ? parseInt(document.getElementById("ev-employee").value)
-          : currentUser.id;
+        
+        // ✅ ARREGLO: Si se está viendo el calendario de otro usuario, forzar asignación a ese usuario
+        let assignedTo;
+        if (viewingUserIdForCalendar !== null) {
+          // Cuando un admin abre el calendario de otro usuario, la cita SIEMPRE se asigna a ese usuario
+          assignedTo = viewingUserIdForCalendar;
+        } else {
+          // Comportamiento normal
+          assignedTo = isAdmin
+            ? parseInt(document.getElementById("ev-employee").value)
+            : currentUser.id;
+        }
         
         // ✅ CAMBIO 11: Validar que el técnico asignado existe y tiene sede válida
         const assignedUser = USERS.find(u => u.id === assignedTo);
@@ -6647,9 +6623,6 @@
             } else {
               delete ev.waReminder;
             }
-            
-            // ✅ GUARDAR CAMBIOS EN LOCALSTORAGE (edición)
-            saveEventsToStorage();
           }
         } else {
           const eventObj = {
@@ -6685,10 +6658,6 @@
           
           EVENTS.push(eventObj);
         }
-        
-        // ✅ GUARDAR CITAS EN LOCALSTORAGE
-        saveEventsToStorage();
-        
         closeModal("event-modal");
         refreshCals();
         renderDashboard();
@@ -7360,9 +7329,6 @@
         }
 
         EVENTS.push(eventObj);
-
-        // ✅ GUARDAR CITAS EN LOCALSTORAGE
-        saveEventsToStorage();
 
         closeModal("admin-event-modal");
         refreshCals();

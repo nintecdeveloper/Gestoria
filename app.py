@@ -33,17 +33,6 @@ except ImportError:
     SCHEDULER_AVAILABLE = False
     print("⚠️  [Scheduler] APScheduler no instalado. pip install apscheduler para activarlo.")
 
-# Inicializar scheduler (None si APScheduler no está disponible)
-scheduler = None
-if SCHEDULER_AVAILABLE:
-    try:
-        scheduler = BackgroundScheduler(timezone='Europe/Madrid')
-        scheduler.start()
-        print("✅ [Scheduler] APScheduler iniciado correctamente.")
-    except Exception as e:
-        scheduler = None
-        print(f"⚠️  [Scheduler] Error al iniciar APScheduler: {e}")
-
 # ═══════════════════════════════════════════════════════════════
 # CONFIGURACIÓN META WHATSAPP API
 # ─────────────────────────────────────────────────────────────
@@ -66,7 +55,8 @@ META_PHONE_NUMBER_ID = os.environ.get('META_PHONE_NUMBER_ID', None)
 META_ACCESS_TOKEN = os.environ.get('META_ACCESS_TOKEN', None)
 META_BUSINESS_ACCOUNT_ID = os.environ.get('META_BUSINESS_ACCOUNT_ID', None)
 META_API_VERSION = "v18.0"
-META_API_URL = f"https://graph.facebook.com/{META_API_VERSION}/{{phone_id}}/messages"
+META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/messages"
+
 # ═══════════════════════════════════════════════════════════════
 # USUARIOS Y CALENDARIOS — DATOS INICIALES
 # ═══════════════════════════════════════════════════════════════
@@ -386,6 +376,47 @@ def handle_general_message(data):
         'timestamp': datetime.now().isoformat()
     }, broadcast=True, skip_sid=sender_id)
     logger.info(f"🔔 [Notificación Chat General Enviada] De {sender_username}")
+
+@socketio.on('send_sede_message')
+def handle_sede_message(data):
+    """Recibe un mensaje del chat de sede (Mataró/Vilassar) y lo retransmite"""
+    sender_id = request.sid
+    sender_username = data.get('sender_username', 'Usuario')
+    message_text = data.get('message', '')
+    message_id = data.get('message_id', f'msg_{datetime.now().timestamp()}')
+    sede = data.get('sede', '')
+    sede_key = data.get('sede_key', '')
+    attachments = data.get('attachments', [])
+    
+    if not message_text.strip():
+        return
+    
+    # Crear objeto de mensaje
+    message_obj = {
+        'id': message_id,
+        'sender_id': sender_id,
+        'sender_username': sender_username,
+        'text': message_text,
+        'timestamp': datetime.now().isoformat(),
+        'attachments': attachments,
+        'sede': sede,
+        'sede_key': sede_key
+    }
+    
+    logger.info(f"💬 [Chat Sede {sede}] {sender_username}: {message_text[:50]}")
+    
+    # Emitir a una sala específica de sede (para que solo reciban los de esa sede)
+    # Por ahora, retransmitir a todos (implementar salas por sede en join_room)
+    socketio.emit('receive_sede_message', message_obj, broadcast=True)
+    
+    # ENVIAR NOTIFICACIÓN A TODOS (excepto al remitente)
+    socketio.emit('sede_message_notification', {
+        'from': sender_username,
+        'sede': sede,
+        'message': message_text[:50] + '...' if len(message_text) > 50 else message_text,
+        'timestamp': datetime.now().isoformat()
+    }, broadcast=True, skip_sid=sender_id)
+    logger.info(f"🔔 [Notificación Chat Sede {sede} Enviada] De {sender_username}")
 
 @socketio.on('typing')
 def handle_typing(data):
