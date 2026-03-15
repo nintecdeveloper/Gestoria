@@ -4684,35 +4684,167 @@
         
         // ✅ RECIBIR MENSAJES DEL CHAT GENERAL
         socket.on('receive_general_message', function(msg) {
-          console.log('💬 [Socket] Mensaje general recibido:', msg);
+          console.log('💬 [GENERAL_CHAT] Mensaje recibido del servidor:', msg);
+          
+          // ✅ Validaciones
+          if (!msg) {
+            console.error('❌ [GENERAL_CHAT] msg es null/undefined');
+            return;
+          }
+          
+          if (!msg.text) {
+            console.warn('⚠️  [GENERAL_CHAT] Mensaje sin texto:', msg);
+            return;
+          }
+          
+          // Procesar timestamp
           const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
           const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
           
-          // ✅ CORRECCIÓN 3: Guardar attachments en chat general también
-          GENERAL_CHAT.push({
+          // ✅ Asegurar que GENERAL_CHAT existe
+          if (!GENERAL_CHAT) {
+            console.warn('⚠️  [GENERAL_CHAT] GENERAL_CHAT no existe, inicializando');
+            GENERAL_CHAT = [];
+          }
+          
+          // ✅ Crear mensaje con estructura correcta
+          const msgObj = {
             id: msg.id,
-            userId: msg.sender_id,
+            userId: msg.sender_id,  // ← ID REAL del usuario
             text: msg.text,
             time: time,
             date: date,
             username: msg.sender_username,
             attachments: msg.attachments || []
-          });
-          console.log('✅ [Socket] Mensaje general agregado');
-          renderGeneralChat();
+          };
+          
+          console.log('✅ [GENERAL_CHAT] Agregando mensaje:', msgObj);
+          GENERAL_CHAT.push(msgObj);
+          console.log('📊 [GENERAL_CHAT] Total mensajes en chat:', GENERAL_CHAT.length);
+          
+          // ✅ Renderizar SOLO si el chat general está visible
+          if (activeConvId === 'general-chat') {
+            console.log('🎨 [GENERAL_CHAT] Renderizando porque activeConvId === general-chat');
+            renderGeneralChat();
+          } else {
+            console.log('📌 [GENERAL_CHAT] NO renderizando (activeConvId:', activeConvId, ')');
+          }
+          
+          // Actualizar badges
+          saveMessagesToStorage();
+          updateBadge();
+          buildMsgList(document.getElementById("msg-search-inp") ? document.getElementById("msg-search-inp").value : '');
         });
         
-        // ✅ RECIBIR NOTIFICACIÓN DE CHAT GENERAL
-        socket.on('general_message_notification', function(notif) {
-          console.log('🔔 [Socket] Notificación de chat general:', notif);
-          showNotification('💬 Chat General', `${notif.from}: ${notif.message}`);
+        // ✅ RECIBIR HISTÓRICO DE CHAT GENERAL AL CONECTAR
+        socket.on('load_general_message_history', function(data) {
+          console.log('📚 [HISTÓRICO GENERAL] Recibidos', data.messages.length, 'mensajes');
+          if (!data.messages || !Array.isArray(data.messages)) {
+            console.warn('⚠️ [HISTÓRICO GENERAL] Datos inválidos:', data);
+            return;
+          }
+          
+          // Inicializar GENERAL_CHAT si no existe
+          if (!GENERAL_CHAT) {
+            GENERAL_CHAT = [];
+          }
+          
+          // Agregar todos los mensajes históricos
+          data.messages.forEach(msg => {
+            // Evitar duplicados por ID
+            const exists = GENERAL_CHAT.some(m => m.id === msg.id);
+            if (!exists) {
+              const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
+              const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
+              GENERAL_CHAT.push({
+                id: msg.id,
+                userId: msg.sender_id,
+                username: msg.sender_username,
+                text: msg.text,
+                time: time,
+                date: date,
+                attachments: msg.attachments || []
+              });
+            }
+          });
+          
+          console.log('✅ [HISTÓRICO GENERAL] Total mensajes en chat:', GENERAL_CHAT.length);
+          
+          // Renderizar si el chat general está abierto
+          if (activeConvId === 'general-chat') {
+            renderGeneralChat();
+          }
+          
+          saveMessagesToStorage();
+        });
+        
+        // ✅ RECIBIR HISTÓRICO DE CHAT DE SEDE AL CONECTAR
+        socket.on('load_sede_message_history', function(data) {
+          const sedeKey = data.sede_key;
+          const sedeConvId = `sede_${sedeKey}`;
+          console.log('📚 [HISTÓRICO SEDE] Recibidos', data.messages.length, 'mensajes para', sedeKey);
+          
+          if (!data.messages || !Array.isArray(data.messages)) {
+            console.warn('⚠️ [HISTÓRICO SEDE] Datos inválidos:', data);
+            return;
+          }
+          
+          // Inicializar CONVS[sedeConvId] si no existe
+          if (!CONVS[sedeConvId]) {
+            CONVS[sedeConvId] = [];
+          }
+          
+          // Agregar todos los mensajes históricos
+          data.messages.forEach(msg => {
+            // Evitar duplicados por ID
+            const exists = CONVS[sedeConvId].some(m => m.id === msg.id);
+            if (!exists) {
+              const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
+              const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
+              CONVS[sedeConvId].push({
+                id: msg.id,
+                mine: false,
+                sender: msg.sender_username,
+                sender_id: msg.sender_id,
+                text: msg.text,
+                time: time,
+                date: date,
+                read: true,
+                attachments: msg.attachments || []
+              });
+            }
+          });
+          
+          console.log('✅ [HISTÓRICO SEDE] Total mensajes en', sedeKey, ':', CONVS[sedeConvId].length);
+          
+          // Renderizar si ese chat de sede está abierto
+          if (activeSedeChat === sedeKey) {
+            renderMsgsFromArray(CONVS[sedeConvId]);
+          }
+          
+          saveMessagesToStorage();
         });
 
-        // ✅ CORRECCIÓN 6: RECIBIR MENSAJES DE CHAT DE SEDE
+        // ✅ RECIBIR MENSAJES DE CHAT DE SEDE
         socket.on('receive_sede_message', function(msg) {
-          console.log('🏢 [Socket] Mensaje de sede recibido:', msg);
+          console.log('🏢 [SEDE_CHAT] Mensaje de sede recibido:', msg);
+          
+          // ✅ Validaciones
+          if (!msg) {
+            console.error('❌ [SEDE_CHAT] msg es null/undefined');
+            return;
+          }
+          
+          if (!msg.text) {
+            console.warn('⚠️  [SEDE_CHAT] Mensaje sin texto:', msg);
+            return;
+          }
+          
           const sedeKey = msg.sede_key;
+          const sede = msg.sede;
           const sedeConvId = `sede_${sedeKey}`;
+          
+          console.log('🎯 [SEDE_CHAT] Procesando para sede:', sede, 'clave:', sedeKey);
           
           // Validar que el usuario pertenece a esta sede o es admin
           const isAdmin = currentUser.role === 'admin';
@@ -4720,33 +4852,51 @@
           const messageSede = msg.sede;
           
           if (!isAdmin && userSede !== messageSede) {
-            console.warn('❌ Intento de recibir mensaje de sede no autorizado');
+            console.warn('❌ [SEDE_CHAT] Usuario NO autorizado para esta sede. Usuario sede:', userSede, 'Mensaje sede:', messageSede);
             return;
           }
           
-          // Guardar el mensaje
-          if (!CONVS[sedeConvId]) CONVS[sedeConvId] = [];
-          CONVS[sedeConvId].push({
+          // Procesar timestamp
+          const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
+          const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
+          
+          // ✅ Asegurar que CONVS[sedeConvId] existe
+          if (!CONVS[sedeConvId]) {
+            console.log('📝 [SEDE_CHAT] Creando nuevo array para:', sedeConvId);
+            CONVS[sedeConvId] = [];
+          }
+          
+          // ✅ Crear mensaje con estructura correcta
+          const msgObj = {
             mine: false,
-            text: msg.message,
-            time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
+            text: msg.text,
+            time: time,
+            date: date,
             read: false,
             sender: msg.sender_username,
             sender_id: msg.sender_id,
             attachments: msg.attachments || [],
-            id: msg.message_id || `msg_${Date.now()}`
-          });
+            id: msg.id || `msg_${Date.now()}`
+          };
           
-          // Si el chat de sede está activo, renderizar
+          console.log('✅ [SEDE_CHAT] Agregando mensaje:', msgObj);
+          CONVS[sedeConvId].push(msgObj);
+          console.log('📊 [SEDE_CHAT] Total mensajes en', sedeKey, ':', CONVS[sedeConvId].length);
+          
+          // ✅ Renderizar SOLO si el chat de sede está activo
           if (activeSedeChat === sedeKey) {
+            console.log('🎨 [SEDE_CHAT] Renderizando porque activeSedeChat === ' + sedeKey);
             CONVS[sedeConvId].forEach(m => { if (!m.mine) m.read = true; });
             renderMsgsFromArray(CONVS[sedeConvId]);
+          } else {
+            console.log('📌 [SEDE_CHAT] NO renderizando (activeSedeChat:', activeSedeChat, ')');
           }
           
+          // Actualizar almacenamiento y badges
           saveMessagesToStorage();
           updateBadge();
-          buildMsgList(document.getElementById("msg-search-inp").value);
-          console.log('✅ Mensaje de sede agregado:', sedeKey);
+          buildMsgList(document.getElementById("msg-search-inp") ? document.getElementById("msg-search-inp").value : '');
+          console.log('✅ [SEDE_CHAT] Procesamiento completado');
         });
         
         socket.on('notification_received', function(notif) {
@@ -8654,23 +8804,45 @@
         const el = document.getElementById("msg-messages");
         el.innerHTML = msgs.length
           ? msgs
-              .map((m) => {
+              .map((m, idx) => {
+                // Determinar si el mensaje es mío
+                const isMe = m.mine || m.userId === currentUser.id;
+                
+                // Obtener nombre del remitente
+                let senderName = "Usuario";
+                if (isMe) {
+                  senderName = "Tú";
+                } else if (m.sender) {
+                  senderName = m.sender;
+                } else if (m.username) {
+                  senderName = m.username;
+                } else if (m.sender_id) {
+                  const user = USERS.find(u => u.id === m.sender_id);
+                  senderName = user ? user.name : "Usuario";
+                }
+                
+                // Mostrar nombre del remitente si es necesario (cuando no es mío o cuando cambia el remitente)
+                const lastMsg = idx > 0 ? msgs[idx - 1] : null;
+                const lastSenderId = lastMsg ? (lastMsg.sender_id || lastMsg.userId) : null;
+                const currentSenderId = m.sender_id || m.userId;
+                const showSenderName = !isMe && (idx === 0 || lastSenderId !== currentSenderId);
+                
                 // Renderizar adjuntos si existen
                 const attsHtml = (m.attachments && m.attachments.length)
                   ? m.attachments.map(att => {
                       const ext = (att.name.split(".").pop() || "").toLowerCase();
                       const isImage = ["jpg","jpeg","png","gif","webp","svg","bmp"].includes(ext);
-                      if (isImage && att.dataUrl) {
+                      if (isImage && att.data) {
                         // Previsualización de imagen inline
-                        return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" title="Descargar ${safeHtml(att.name)}" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;">
-                          <img src="${att.dataUrl}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:160px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
+                        return `<a href="${att.data}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" title="Descargar ${safeHtml(att.name)}" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;">
+                          <img src="${att.data}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:160px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
                           <span class="msg-file-info" style="margin-top:4px;">
                             <span class="msg-file-name">${safeHtml(att.name)}</span>
                             <span class="msg-file-size">${att.size}</span>
                           </span>
                         </a>`;
                       }
-                      return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card" title="Descargar ${safeHtml(att.name)}">
+                      return `<a href="${att.data}" download="${safeHtml(att.name)}" class="msg-file-card" title="Descargar ${safeHtml(att.name)}">
                         <span class="msg-file-icon">${msgGetFileIcon(att.name)}</span>
                         <span class="msg-file-info">
                           <span class="msg-file-name">${safeHtml(att.name)}</span>
@@ -8683,8 +8855,14 @@
                 const bubbleHtml = m.text
                   ? `<div class="msg-bubble">${safeHtml(m.text)}</div>`
                   : "";
-                return `<div class="msg-bubble-wrap ${m.mine ? "me" : ""}">
-        ${bubbleHtml}${attsHtml}
+                
+                // Mostrar nombre del remitente para chats de grupo (no para privados)
+                const senderNameHtml = showSenderName && !isMe
+                  ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;font-weight:500">${safeHtml(senderName)}</div>`
+                  : "";
+                
+                return `<div class="msg-bubble-wrap ${isMe ? "me" : ""}">
+        ${senderNameHtml}${bubbleHtml}${attsHtml}
         <div class="msg-time-label">${m.time}</div>
       </div>`;
               })
@@ -8803,6 +8981,9 @@
         } else if (activeSedeChat) {
           // Enviar a chat de sede
           const sedeConvId = `sede_${activeSedeChat}`;
+          // Agregar campo 'sender' que falta
+          msgObj.sender = currentUser.name;  // ✅ NUEVO: Agregar nombre del remitente
+          msgObj.sender_id = currentUser.id;  // ✅ NUEVO: Agregar ID del remitente
           CONVS[sedeConvId].push(msgObj);
           renderMsgsFromArray(CONVS[sedeConvId]);
           
