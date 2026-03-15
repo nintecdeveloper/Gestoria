@@ -6887,8 +6887,13 @@
           EVENTS.push(eventObj);
         }
         closeModal("event-modal");
-        refreshCals();
-        renderDashboard();
+refreshCals();
+
+if (document.getElementById("section-my-calendar")?.classList.contains("active")) {
+  renderCalendar("my");
+}
+
+renderDashboard();
       }
 
       function populateGlobalFilter() {
@@ -7558,9 +7563,14 @@
 
         EVENTS.push(eventObj);
 
-        closeModal("admin-event-modal");
-        refreshCals();
-        renderDashboard();
+       closeModal("admin-event-modal");
+refreshCals();
+
+if (document.getElementById("section-my-calendar")?.classList.contains("active")) {
+  renderCalendar("my");
+}
+
+renderDashboard();
       }
 
       // Validación en tiempo real del horario al cambiar fecha/hora en el modal del admin
