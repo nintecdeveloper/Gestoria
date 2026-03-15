@@ -4701,9 +4701,9 @@
           const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
           const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
           
-          // ✅ Asegurar que GENERAL_CHAT existe
-          if (!GENERAL_CHAT) {
-            console.warn('⚠️  [GENERAL_CHAT] GENERAL_CHAT no existe, inicializando');
+          // ✅ CRÍTICO: Asegurar que GENERAL_CHAT existe Y es un array
+          if (!GENERAL_CHAT || !Array.isArray(GENERAL_CHAT)) {
+            console.warn('⚠️  [GENERAL_CHAT] GENERAL_CHAT no existe o no es array, inicializando');
             GENERAL_CHAT = [];
           }
           
@@ -4714,20 +4714,20 @@
             return;
           }
           
-          // ✅ Crear mensaje con estructura correcta
+          // ✅ Crear mensaje con estructura correcta PARA GENERAL_CHAT
           const msgObj = {
             id: msg.id,
             userId: msg.sender_id,  // ← ID REAL del usuario
+            username: msg.sender_username,  // ← Username del remitente
             text: msg.text,
             time: time,
             date: date,
-            username: msg.sender_username,
             attachments: msg.attachments || []
           };
           
-          console.log('✅ [GENERAL_CHAT] Agregando mensaje:', msgObj);
+          console.log('✅ [GENERAL_CHAT] Agregando mensaje a GENERAL_CHAT:', msgObj);
           GENERAL_CHAT.push(msgObj);
-          console.log('📊 [GENERAL_CHAT] Total mensajes en chat:', GENERAL_CHAT.length);
+          console.log('📊 [GENERAL_CHAT] Total mensajes en GENERAL_CHAT:', GENERAL_CHAT.length);
           
           // ✅ Renderizar SOLO si el chat general está visible
           if (activeConvId === 'general-chat') {
@@ -4851,7 +4851,7 @@
           const sede = msg.sede;
           const sedeConvId = `sede_${sedeKey}`;
           
-          console.log('🎯 [SEDE_CHAT] Procesando para sede:', sede, 'clave:', sedeKey);
+          console.log('🎯 [SEDE_CHAT] Procesando para sede:', sede, 'clave:', sedeKey, 'ID:', sedeConvId);
           
           // Validar que el usuario pertenece a esta sede o es admin
           const isAdmin = currentUser.role === 'admin';
@@ -4867,14 +4867,22 @@
           const time = msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime();
           const date = msg.timestamp ? msg.timestamp.split('T')[0] : todayStr();
           
-          // ✅ Asegurar que CONVS[sedeConvId] existe
+          // ✅ CRÍTICO: Asegurar que CONVS[sedeConvId] existe
           if (!CONVS[sedeConvId]) {
             console.log('📝 [SEDE_CHAT] Creando nuevo array para:', sedeConvId);
             CONVS[sedeConvId] = [];
           }
           
-          // ✅ Crear mensaje con estructura correcta
+          // ✅ EVITAR DUPLICADOS: Verificar si el mensaje ya existe por ID
+          const exists = CONVS[sedeConvId].some(m => m.id === msg.id);
+          if (exists) {
+            console.log('⚠️  [SEDE_CHAT] Mensaje duplicado en', sedeKey, ', ignorando ID:', msg.id);
+            return;
+          }
+          
+          // ✅ Crear mensaje con estructura correcta PARA SEDE
           const msgObj = {
+            id: msg.id,
             mine: false,
             text: msg.text,
             time: time,
@@ -4882,11 +4890,11 @@
             read: false,
             sender: msg.sender_username,
             sender_id: msg.sender_id,
-            attachments: msg.attachments || [],
-            id: msg.id || `msg_${Date.now()}`
+            userId: msg.sender_id,
+            attachments: msg.attachments || []
           };
           
-          console.log('✅ [SEDE_CHAT] Agregando mensaje:', msgObj);
+          console.log('✅ [SEDE_CHAT] Agregando mensaje a CONVS[' + sedeConvId + ']:', msgObj);
           CONVS[sedeConvId].push(msgObj);
           console.log('📊 [SEDE_CHAT] Total mensajes en', sedeKey, ':', CONVS[sedeConvId].length);
           
@@ -4903,7 +4911,7 @@
           saveMessagesToStorage();
           updateBadge();
           buildMsgList(document.getElementById("msg-search-inp") ? document.getElementById("msg-search-inp").value : '');
-          console.log('✅ [SEDE_CHAT] Procesamiento completado');
+          console.log('✅ [SEDE_CHAT] Procesamiento completado para', sedeKey);
         });
         
         socket.on('notification_received', function(notif) {
@@ -8274,7 +8282,14 @@
       function openGeneralChat() {
         activeConvId = 'general-chat';
         activeSedeChat = null;
-        const generalMsgs = GENERAL_CHAT || [];
+        
+        // ✅ FIX: Asegurar que GENERAL_CHAT está inicializado
+        if (!GENERAL_CHAT || !Array.isArray(GENERAL_CHAT)) {
+          console.warn('⚠️ GENERAL_CHAT no está inicializado, usando array vacío');
+          GENERAL_CHAT = [];
+        }
+        
+        const generalMsgs = GENERAL_CHAT;
         generalMsgs.forEach((m) => {
           if (!m.mine) m.read = true;
         });
@@ -8293,6 +8308,9 @@
         // Limpiar adjuntos pendientes al cambiar de conversación
         msgPendingAttachments = [];
         msgRenderChips();
+        
+        // ✅ FIX: SIEMPRE renderizar Chat General en gchat-messages usando renderGeneralChat()
+        console.log('📊 [openGeneralChat] Renderizando', GENERAL_CHAT.length, 'mensajes');
         renderGeneralChat();
 
         // Mobile: slide animation
@@ -8799,12 +8817,12 @@
         renderMsgsFromArray(msgs);
       }
       
-      // ✅ CAMBIO 14: NUEVA FUNCIÓN - Renderizar chat general en la sección de Mensajería
-      function renderGeneralChatInMsg() {
-        // Convertir mensajes del chat general al formato de CONVS
-        const generalMsgs = CONVS['general-chat'] || [];
-        renderMsgsFromArray(generalMsgs);
-      }
+      // ❌ ELIMINADO: Esta función causaba confusión porque leía de CONVS['general-chat'] que no debería existir
+      // Usar siempre renderGeneralChat() para Chat General
+      // function renderGeneralChatInMsg() {
+      //   const generalMsgs = CONVS['general-chat'] || [];
+      //   renderMsgsFromArray(generalMsgs);
+      // }
 
       // ✅ CORRECCIÓN 6: Renderizar mensajes desde un array directamente
       function renderMsgsFromArray(msgs) {
@@ -8897,9 +8915,13 @@
        */
       function saveMessagesToStorage() {
         try {
-          const data = JSON.stringify(CONVS);
-          localStorage.setItem('app_conversations', data);
-          console.log('✅ Conversaciones guardadas en localStorage');
+          // ✅ FIX CRÍTICO: Guardar TANTO CONVS como GENERAL_CHAT
+          const data = {
+            convs: CONVS,           // Chats privados y de sede
+            general_chat: GENERAL_CHAT  // Chat general
+          };
+          localStorage.setItem('app_conversations', JSON.stringify(data));
+          console.log('✅ Conversaciones guardadas en localStorage (CONVS + GENERAL_CHAT)');
         } catch (err) {
           console.warn('⚠️ No se pudo guardar en localStorage:', err);
         }
@@ -8913,10 +8935,23 @@
           const data = localStorage.getItem('app_conversations');
           if (data) {
             const loaded = JSON.parse(data);
-            Object.keys(loaded).forEach(key => {
-              CONVS[key] = loaded[key];
-            });
-            console.log('✅ Conversaciones cargadas desde localStorage');
+            
+            // ✅ FIX CRÍTICO: Cargar TANTO CONVS como GENERAL_CHAT
+            
+            // Cargar CONVS (chats privados y de sede)
+            if (loaded.convs && typeof loaded.convs === 'object') {
+              Object.keys(loaded.convs).forEach(key => {
+                CONVS[key] = loaded.convs[key];
+              });
+              console.log('✅ CONVS cargadas desde localStorage');
+            }
+            
+            // Cargar GENERAL_CHAT (chat general)
+            if (loaded.general_chat && Array.isArray(loaded.general_chat)) {
+              GENERAL_CHAT = loaded.general_chat;
+              console.log('✅ GENERAL_CHAT cargado desde localStorage, total:', GENERAL_CHAT.length);
+            }
+            
             return true;
           }
         } catch (err) {
