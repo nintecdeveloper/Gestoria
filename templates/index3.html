@@ -2076,12 +2076,14 @@
         word-break: break-word;
       }
       .msg-file-card:hover { opacity: 0.82; }
-      .msg-bubble-wrap.me .msg-file-card {
+      .msg-bubble-wrap.me .msg-file-card,
+      .gchat-msg-group.me .msg-file-card {
         background: rgba(255,255,255,0.15);
         border: 1px solid rgba(255,255,255,0.25);
         color: #fff;
       }
-      .msg-bubble-wrap:not(.me) .msg-file-card {
+      .msg-bubble-wrap:not(.me) .msg-file-card,
+      .gchat-msg-group:not(.me) .msg-file-card {
         background: var(--bg2);
         border: 1px solid var(--border);
         color: var(--text);
@@ -3589,18 +3591,6 @@
                 <div class=\"msg-sidebar-header\">
                   <div class=\"card-title\">Conversaciones</div>
                 </div>
-                
-                <!-- ✅ BOTONES DE LIMPIAR DATOS PARA TESTING -->
-                <div style="padding: 8px; border-bottom: 1px solid var(--border-light); display: block;" id="testing-buttons">
-                  <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">⚙️ LIMPIEZA (Testing):</div>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-                    <button onclick="clearMessagesStorage('general')" style="padding: 4px 6px; font-size: 11px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer;">Limpiar General</button>
-                    <button onclick="clearMessagesStorage('mataro')" style="padding: 4px 6px; font-size: 11px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer;">Limpiar Mataró</button>
-                    <button onclick="clearMessagesStorage('vilassar')" style="padding: 4px 6px; font-size: 11px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer;">Limpiar Vilassar</button>
-                    <button onclick="clearMessagesStorage('all')" style="padding: 4px 6px; font-size: 11px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Limpiar TODO</button>
-                  </div>
-                </div>
-                
                 <div class="msg-search">
                   <input
                     type="text"
@@ -4625,10 +4615,17 @@
           
           // Notificar al servidor que el usuario se conectó
           if (currentUser) {
+            // Normalizar sede_key sin acentos para que coincida con las claves de almacenamiento
+            const sedeKeyNorm = currentUser.sede
+              ? currentUser.sede.toLowerCase()
+                  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+                  .replace(/\s+/g, '_')
+              : '';
             socket.emit('user_login', {
               username: currentUser.name,
               userId: currentUser.id,
-              sede: currentUser.sede  // ✅ NUEVO: Enviar sede al servidor
+              sede: currentUser.sede,
+              sede_key: sedeKeyNorm
             });
           }
         });
@@ -4704,8 +4701,8 @@
             return;
           }
           
-          if (!msg.text) {
-            console.warn('⚠️  [GENERAL_CHAT] Mensaje sin texto:', msg);
+          if (!msg.text && (!msg.attachments || !msg.attachments.length)) {
+            console.warn('⚠️  [GENERAL_CHAT] Mensaje sin texto ni adjuntos:', msg);
             return;
           }
           
@@ -4898,8 +4895,8 @@
             return;
           }
           
-          if (!msg.text) {
-            console.warn('⚠️  [SEDE_CHAT] Mensaje sin texto:', msg);
+          if (!msg.text && (!msg.attachments || !msg.attachments.length)) {
+            console.warn('⚠️  [SEDE_CHAT] Mensaje sin texto ni adjuntos:', msg);
             return;
           }
           
@@ -5063,22 +5060,7 @@
         ]);
       })();
 
-      let GENERAL_CHAT = [
-        {
-          id: 1,
-          userId: 1,
-          text: "Buenos días a todos. Recordad que hoy tenemos reunión de equipo a las 10h.",
-          time: "08:45",
-          date: dOff(0),
-        },
-        {
-          id: 2,
-          userId: 2,
-          text: "Anotado, gracias por el aviso!",
-          time: "08:52",
-          date: dOff(0),
-        },
-      ];
+      let GENERAL_CHAT = [];
       let nextGchatId = 100;
 
       // ══════════════════════════════════════════
@@ -5507,19 +5489,6 @@
           initializeSocket();
         }, 100);
         
-        // ✅✅✅ ATAJO DE TECLADO PARA BOTONES DE TESTING
-        // Presionar Ctrl+Shift+K para mostrar/ocultar botones de limpiar
-        document.addEventListener('keydown', (e) => {
-          if (e.ctrlKey && e.shiftKey && e.key === 'K') {
-            e.preventDefault();
-            const testingButtons = document.getElementById('testing-buttons');
-            if (testingButtons) {
-              const isHidden = testingButtons.style.display === 'none';
-              testingButtons.style.display = isHidden ? 'block' : 'none';
-              console.log(isHidden ? '✅ Botones de Testing VISIBLES' : '✅ Botones de Testing OCULTOS');
-            }
-          }
-        });
       }
 
       // ══════════════════════════════════════════
@@ -8462,15 +8431,16 @@
           // Renderizar adjuntos si existen
           const attsHtml = (msg.attachments && msg.attachments.length)
             ? msg.attachments.map(att => {
+                const attSrc = att.data || att.dataUrl || '';
                 const ext = (att.name.split(".").pop() || "").toLowerCase();
                 const isImage = ["jpg","jpeg","png","gif","webp","svg","bmp"].includes(ext);
-                if (isImage && att.dataUrl) {
-                  return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;margin-top:4px;">
-                    <img src="${att.dataUrl}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:140px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
+                if (isImage && attSrc) {
+                  return `<a href="${attSrc}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;margin-top:4px;">
+                    <img src="${attSrc}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:140px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
                     <span class="msg-file-info" style="margin-top:4px;"><span class="msg-file-name">${safeHtml(att.name)}</span><span class="msg-file-size">${att.size}</span></span>
                   </a>`;
                 }
-                return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card" style="margin-top:4px;">
+                return `<a href="${attSrc}" download="${safeHtml(att.name)}" class="msg-file-card" style="margin-top:4px;">
                   <span class="msg-file-icon">${msgGetFileIcon(att.name)}</span>
                   <span class="msg-file-info"><span class="msg-file-name">${safeHtml(att.name)}</span><span class="msg-file-size">${att.size}</span></span>
                 </a>`;
@@ -8904,6 +8874,7 @@
         document.getElementById("msg-main").classList.remove("conv-open");
         document.querySelector(".msg-sidebar").classList.remove("conv-open");
         activeConvId = null;
+        activeSedeChat = null;
         document.getElementById("msg-active-chat").style.display = "none";
         document.getElementById("msg-empty-state").style.display = "flex";
       }
@@ -9283,14 +9254,15 @@
             }))
           : [];
         
-        // ✅ FIX CRÍTICO: Estandarizar estructura de mensajes
+        // Estandarizar estructura de mensajes
         const msgObj = { 
           mine: true,
-          userId: currentUser.id,  // ✅ ID del usuario actual (para mensajes enviados)
-          sender_id: currentUser.id,  // ✅ Agregar sender_id para consistencia
-          sender: currentUser.name,  // ✅ Agregar sender para mensajes de sede
+          userId: currentUser.id,
+          sender_id: currentUser.id,
+          sender: currentUser.name,
           text, 
-          time, 
+          time,
+          date: todayStr(),
           read: true, 
           attachments,
           id: `msg_${Date.now()}`

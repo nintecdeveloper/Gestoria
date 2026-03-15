@@ -287,19 +287,23 @@ def handle_user_login(data):
     
     logger.info(f"✅ [Chat] {username} conectado (SID: {user_id}, Sede: {sede})")
     
-    # ✅ NUEVO: Enviar histórico de mensajes generales al usuario
+    # Enviar histórico de mensajes generales al usuario
     if 'general_chat' in message_storage:
         socketio.emit('load_general_message_history', {
-            'messages': message_storage['general_chat'][-50:]  # Últimos 50 mensajes
+            'messages': message_storage['general_chat'][-50:]
         }, room=user_id)
         logger.info(f"📨 [Histórico] Enviados {len(message_storage['general_chat'][-50:])} mensajes generales a {username}")
     
-    # ✅ NUEVO: Enviar histórico de mensajes de sede
-    sede_key = data.get('sede_key', sede.lower())
+    # Enviar histórico de mensajes de sede
+    # Usar sede_key enviado por cliente (ya normalizado sin acentos), si no, normalizarlo aquí
+    import unicodedata
+    def _normalize(s):
+        return unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode('ascii').replace(' ', '_')
+    sede_key = data.get('sede_key') or _normalize(sede)
     sede_storage_key = f'sede_{sede_key}'
     if sede_storage_key in message_storage:
         socketio.emit('load_sede_message_history', {
-            'messages': message_storage[sede_storage_key][-50:],  # Últimos 50 mensajes
+            'messages': message_storage[sede_storage_key][-50:],
             'sede_key': sede_key
         }, room=user_id)
         logger.info(f"📨 [Histórico] Enviados {len(message_storage[sede_storage_key][-50:])} mensajes de sede a {username}")
@@ -383,8 +387,8 @@ def handle_general_message(data):
     message_id = data.get('message_id', f'msg_{int(datetime.now().timestamp() * 1000)}')
     attachments = data.get('attachments', [])
     
-    # Validar que hay contenido
-    if not message_text.strip() and not attachments:
+    # Validar que hay contenido (permite mensajes solo con adjuntos)
+    if not (message_text or '').strip() and not attachments:
         logger.warning(f"⚠️ [Chat General] Mensaje vacío de {sender_username}")
         return
     
@@ -439,8 +443,8 @@ def handle_sede_message(data):
     sede_key = data.get('sede_key', '')
     attachments = data.get('attachments', [])
     
-    # Validar contenido
-    if not message_text.strip() and not attachments:
+    # Validar contenido (permite mensajes solo con adjuntos)
+    if not (message_text or '').strip() and not attachments:
         logger.warning(f"⚠️ [Chat Sede] Mensaje vacío de {sender_username}")
         return
     
