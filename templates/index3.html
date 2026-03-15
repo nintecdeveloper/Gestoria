@@ -3090,8 +3090,8 @@
           <div class="section" id="section-my-calendar">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Mi Calendario</h2>
-                <p>Tus citas personales</p>
+                <h2 id="my-calendar-title">Mi Calendario</h2>
+                <p id="my-calendar-subtitle">Tus citas personales</p>
               </div>
               <button
                 class="btn btn-primary btn-sm"
@@ -6190,6 +6190,21 @@
         const isAdmin = currentUser.role === "admin";
         const viewMode = _calView[calId] || 'month';
 
+        // ✅ NUEVO: Actualizar el título dinámicamente si es "my-calendar"
+        if (isMy) {
+          const titleEl = document.getElementById('my-calendar-title');
+          const subtitleEl = document.getElementById('my-calendar-subtitle');
+          if (titleEl && subtitleEl) {
+            if (viewingUserIdForCalendar !== null && selectedCalendarUserName) {
+              titleEl.textContent = "Calendario de " + selectedCalendarUserName;
+              subtitleEl.textContent = "Citas de " + selectedCalendarUserName;
+            } else {
+              titleEl.textContent = "Mi Calendario";
+              subtitleEl.textContent = "Tus citas personales";
+            }
+          }
+        }
+
         if (!(date instanceof Date) || isNaN(date.getTime())) {
           console.error("Invalid calendar date:", date);
           return;
@@ -8749,6 +8764,10 @@
       }
 
       function buildMsgList(filter) {
+        // ✅ GUARDAR posición del scroll ANTES de actualizar el HTML
+        const msgList = document.getElementById("msg-list");
+        const savedScrollTop = msgList ? msgList.scrollTop : 0;
+        
         // ✅ CAMBIO 5: Mostrar Chat General al inicio (accesible a todos)
         let generalChatHtml = '';
         const generalConvId = 'general-chat';
@@ -8829,6 +8848,11 @@
           .join("");
 
         document.getElementById("msg-list").innerHTML = generalChatHtml + sedeChatsHtml + privateChatsHtml;
+        
+        // ✅ RESTAURAR la posición del scroll DESPUÉS de actualizar el HTML
+        if (msgList) {
+          msgList.scrollTop = savedScrollTop;
+        }
         
         // Actualizar botones de scroll después de renderizar
         setTimeout(() => {
