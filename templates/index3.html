@@ -8633,7 +8633,8 @@
         // ✅ CAMBIO 5: Mostrar Chat General al inicio (accesible a todos)
         let generalChatHtml = '';
         const generalConvId = 'general-chat';
-        const generalMsgs = CONVS[generalConvId] || [];
+        // ✅ FIX CRÍTICO: Leer de GENERAL_CHAT, no de CONVS['general-chat']
+        const generalMsgs = GENERAL_CHAT || [];
         const generalLast = generalMsgs.length ? generalMsgs[generalMsgs.length - 1] : null;
         const generalUnread = generalMsgs.filter(m => !m.mine && !m.read).length;
         const isGeneralActive = activeConvId === 'general-chat' ? 'active' : '';
