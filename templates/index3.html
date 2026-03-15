@@ -5176,6 +5176,9 @@
         gchatUnreadCount = 0;
         updateBadge();
         updateDeptCalNav();
+        
+        // ✅ CORRECCIÓN 2: Aplicar visibilidad de calendarios según permisos
+        updateCalendarVisibility();
 
         // Inicializar lista de usuarios en calendarios
         renderCalendarsUserList();
@@ -5204,22 +5207,12 @@
         
         // ✅ CAMBIO 9: Mostrar calendario por defecto según sede al login
         // Vilassar → Pau (id 3), Mataró → Antonio (id 1)
+        // ✅ CORRECCIÓN 1: Usar getAdminForSede para garantizar coherencia
         setTimeout(() => {
           if (currentUser.role !== 'admin') {
-            let defaultAdminId = null;
-            if (currentUser.sede === 'Vilassar') {
-              // Buscar a Pau (admin de Vilassar)
-              defaultAdminId = USERS.find(u => u.role === 'admin' && u.sede === 'Vilassar')?.id;
-            } else if (currentUser.sede === 'Mataró') {
-              // Buscar a Antonio (admin de Mataró)
-              defaultAdminId = USERS.find(u => u.role === 'admin' && u.sede === 'Mataró')?.id;
-            }
-            
-            if (defaultAdminId && canViewUserCalendar(defaultAdminId)) {
-              const adminUser = USERS.find(u => u.id === defaultAdminId);
-              if (adminUser) {
-                openUserCalendar(defaultAdminId, adminUser.name);
-              }
+            const adminOfSede = getAdminForSede(currentUser.sede);
+            if (adminOfSede && adminOfSede.active && canViewUserCalendar(adminOfSede.id)) {
+              openUserCalendar(adminOfSede.id, adminOfSede.name);
             }
           }
         }, 300);
@@ -5331,7 +5324,50 @@
         container.innerHTML = html || '<div style="padding:12px;color:var(--text-muted);font-size:13px">No hay usuarios disponibles</div>';
       }
 
-      // ✅ CAMBIO 7.2: NUEVA FUNCIÓN - Validar si puede ver el calendario de otro usuario
+      // ✅ CORRECCIÓN 2: Nueva función para controlar visibilidad de calendarios según permisos
+      function updateCalendarVisibility() {
+        const isAdmin = currentUser.role === 'admin';
+        const userSede = currentUser.sede;
+        
+        // Elementos de calendario en la navegación
+        const globalCalNav = document.querySelector('[onclick="showSection(\'global-calendar\')"]');
+        const mataroCalNav = document.querySelector('[onclick="showSection(\'mataro-calendar\')"]');
+        const vilassarCalNav = document.querySelector('[onclick="showSection(\'vilassar-calendar\')"]');
+        
+        // Aplicar visibilidad
+        if (globalCalNav) globalCalNav.style.display = isAdmin ? '' : 'none';
+        if (mataroCalNav) {
+          // Mostrar si es admin O si es usuario de Mataró
+          const canSeeMataroCalendar = isAdmin || userSede === 'Mataró';
+          mataroCalNav.style.display = canSeeMataroCalendar ? '' : 'none';
+        }
+        if (vilassarCalNav) {
+          // Mostrar si es admin O si es usuario de Vilassar
+          const canSeeVilassarCalendar = isAdmin || userSede === 'Vilassar';
+          vilassarCalNav.style.display = canSeeVilassarCalendar ? '' : 'none';
+        }
+      }
+
+      // ✅ CORRECCIÓN 3: Aplicar filtro automático por sede para usuarios no-admin
+      function applyAutoSedeFilter(which) {
+        const isAdmin = currentUser.role === 'admin';
+        const userSede = currentUser.sede;
+        
+        // Si es admin, no aplicar filtro automático
+        if (isAdmin) return;
+        
+        // Si es usuario de Mataró viendo calendario Mataró, filtrar por Mataró
+        if (which === 'mataro' && userSede === 'Mataró') {
+          const filterSel = document.getElementById('mataro-filter-person');
+          if (filterSel) filterSel.value = 'all';  // 'all' mostrará solo usuarios de Mataró porque el filtro renderCalendar lo aplica
+        }
+        
+        // Si es usuario de Vilassar viendo calendario Vilassar, filtrar por Vilassar
+        if (which === 'vilassar' && userSede === 'Vilassar') {
+          const filterSel = document.getElementById('vilassar-filter-person');
+          if (filterSel) filterSel.value = 'all';  // 'all' mostrará solo usuarios de Vilassar
+        }
+      }
       function canViewUserCalendar(targetUserId) {
         if (!targetUserId) return false;
         
@@ -5412,14 +5448,36 @@
           if (currentUser.role !== "admin") { showSection("my-calendar"); return; }
           populateGlobalFilter(); renderCalendar("global");
         }
-        // NUEVO: Calendarios por sede (solo admin)
+        // NUEVO: Calendarios por sede (admin siempre, no-admin solo su sede con filtro automático)
         if (name === "mataro-calendar") {
-          if (currentUser.role !== "admin") { showSection("my-calendar"); return; }
-          populateMataroFilter(); renderCalendar("mataro");
+          const isAdmin = currentUser.role === "admin";
+          const isMataroUser = currentUser.sede === "Mataró";
+          
+          // ✅ CORRECCIÓN 3: Permitir a usuarios de Mataró ver su calendario
+          if (!isAdmin && !isMataroUser) {
+            showSection("my-calendar");
+            return;
+          }
+          
+          populateMataroFilter();
+          // ✅ CORRECCIÓN 3: Aplicar filtro automático por sede para no-admin
+          if (!isAdmin) applyAutoSedeFilter('mataro');
+          renderCalendar("mataro");
         }
         if (name === "vilassar-calendar") {
-          if (currentUser.role !== "admin") { showSection("my-calendar"); return; }
-          populateVilassarFilter(); renderCalendar("vilassar");
+          const isAdmin = currentUser.role === "admin";
+          const isVilassarUser = currentUser.sede === "Vilassar";
+          
+          // ✅ CORRECCIÓN 3: Permitir a usuarios de Vilassar ver su calendario
+          if (!isAdmin && !isVilassarUser) {
+            showSection("my-calendar");
+            return;
+          }
+          
+          populateVilassarFilter();
+          // ✅ CORRECCIÓN 3: Aplicar filtro automático por sede para no-admin
+          if (!isAdmin) applyAutoSedeFilter('vilassar');
+          renderCalendar("vilassar");
         }
         // NUEVO: renderizar calendario del admin
         if (name === "admin-view-calendar") renderAdminViewCalendar();
