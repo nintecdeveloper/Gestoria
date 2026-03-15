@@ -1844,9 +1844,9 @@
       /* Botones de navegación de scroll */
       .msg-scroll-btn {
         padding: 8px 12px;
-        background: var(--accent-light);
+        background: var(--bg2);
         border: 1px solid var(--border);
-        color: var(--accent);
+        color: var(--text-muted);
         cursor: pointer;
         font-size: 12px;
         font-weight: 600;
@@ -1855,12 +1855,10 @@
         font-size: 14px;
         width: 100%;
         text-align: center;
-        flex-shrink: 0;
-        display: block !important;
       }
       .msg-scroll-btn:hover {
-        background: var(--accent);
-        color: #fff;
+        background: var(--accent-light);
+        color: var(--accent);
       }
       .msg-scroll-btn.msg-scroll-up {
         border-bottom: 1px solid var(--border);
@@ -1916,6 +1914,7 @@
         display: flex;
         align-items: center;
         gap: 10px;
+        flex-shrink: 0;
       }
       /* Back button: hidden on desktop, shown on mobile via media query */
       .msg-back-btn {
@@ -3092,8 +3091,8 @@
           <div class="section" id="section-my-calendar">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2 id="my-calendar-title">Mi Calendario</h2>
-                <p id="my-calendar-subtitle">Tus citas personales</p>
+                <h2>Mi Calendario</h2>
+                <p>Tus citas personales</p>
               </div>
               <button
                 class="btn btn-primary btn-sm"
@@ -3669,7 +3668,7 @@
                 </div>
                 <div
                   id="msg-active-chat"
-                  style="display: none; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;"
+                  style="display: none; flex: 1; flex-direction: column; min-height: 0; overflow: hidden;"
                 >
                   <div class="msg-main-header">
                     <button class="msg-back-btn" onclick="closeMobileConv()" title="Volver">&#8592;</button>
@@ -3693,11 +3692,6 @@
                       <div style="font-size: 12px; color: var(--success)">
                         &#9679; En línea
                       </div>
-                    </div>
-                    <div style="margin-left: auto; position: relative;">
-                      <select id="msg-conv-selector" onchange="openConv(parseInt(this.value))" style="padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer;">
-                        <option value="">⬆️ Ir a otro chat...</option>
-                      </select>
                     </div>
                   </div>
                   <div class="msg-messages" id="msg-messages"></div>
@@ -6196,21 +6190,6 @@
         const date = isMy ? myCalMonth : globalCalMonth;
         const isAdmin = currentUser.role === "admin";
         const viewMode = _calView[calId] || 'month';
-
-        // ✅ NUEVO: Actualizar el título dinámicamente si es "my-calendar"
-        if (isMy) {
-          const titleEl = document.getElementById('my-calendar-title');
-          const subtitleEl = document.getElementById('my-calendar-subtitle');
-          if (titleEl && subtitleEl) {
-            if (viewingUserIdForCalendar !== null && selectedCalendarUserName) {
-              titleEl.textContent = "Calendario de " + selectedCalendarUserName;
-              subtitleEl.textContent = "Citas de " + selectedCalendarUserName;
-            } else {
-              titleEl.textContent = "Mi Calendario";
-              subtitleEl.textContent = "Tus citas personales";
-            }
-          }
-        }
 
         if (!(date instanceof Date) || isNaN(date.getTime())) {
           console.error("Invalid calendar date:", date);
@@ -8867,26 +8846,6 @@
         buildMsgList(document.getElementById("msg-search-inp").value);
       }
 
-      // Función para actualizar el selector de conversaciones en el header del chat
-      function updateMsgConvSelector() {
-        const selector = document.getElementById("msg-conv-selector");
-        if (!selector) return;
-        
-        const others = USERS.filter((u) => u.id !== currentUser.id && u.active);
-        let html = '<option value="">⬆️ Ir a otro chat...</option>';
-        
-        others.forEach(u => {
-          const isActive = activeConvId === u.id ? 'selected' : '';
-          html += `<option value="${u.id}" ${isActive}>${u.name}</option>`;
-        });
-        
-        selector.innerHTML = html;
-        // Resetear selector después de cambiar
-        setTimeout(() => {
-          selector.value = '';
-        }, 100);
-      }
-
       // Función para hacer scroll hacia arriba en la lista de chats
       function scrollMsgListUp() {
         const msgList = document.getElementById("msg-list");
@@ -8915,18 +8874,8 @@
         const isAtTop = msgList.scrollTop === 0;
         const isAtBottom = msgList.scrollTop + msgList.clientHeight >= msgList.scrollHeight - 5;
         
-        // Mostrar/ocultar botones según el scroll
-        if (hasScroll) {
-          upBtn.style.opacity = !isAtTop ? '1' : '0.3';
-          upBtn.style.pointerEvents = !isAtTop ? 'auto' : 'none';
-          downBtn.style.opacity = !isAtBottom ? '1' : '0.3';
-          downBtn.style.pointerEvents = !isAtBottom ? 'auto' : 'none';
-        } else {
-          upBtn.style.opacity = '0.3';
-          upBtn.style.pointerEvents = 'none';
-          downBtn.style.opacity = '0.3';
-          downBtn.style.pointerEvents = 'none';
-        }
+        upBtn.style.display = hasScroll && !isAtTop ? 'block' : 'none';
+        downBtn.style.display = hasScroll && !isAtBottom ? 'block' : 'none';
       }
 
       function isMobile() {
@@ -8958,14 +8907,6 @@
         msgPendingAttachments = [];
         msgRenderChips();
         renderMsgs(otherId);
-
-        // Actualizar selector de conversaciones en el header
-        updateMsgConvSelector();
-
-        // Actualizar botones de scroll después de abrir conversación
-        setTimeout(() => {
-          updateMsgListScrollButtons();
-        }, 50);
 
         // Mobile: slide animation
         if (isMobile()) {
