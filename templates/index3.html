@@ -1789,6 +1789,7 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
+        height: 100%;
         overflow: visible;
       }
       .msg-sidebar-header {
@@ -1814,11 +1815,54 @@
         border-color: var(--accent);
       }
       .msg-list {
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
         flex: 1;
         min-height: 0;
+        overflow-y: scroll !important;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        scroll-behavior: smooth;
+        position: relative;
+      }
+      /* Estilar la barra de scroll para que sea visible */
+      .msg-list::-webkit-scrollbar {
+        width: 8px;
+      }
+      .msg-list::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .msg-list::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
+        transition: background 0.2s;
+      }
+      .msg-list::-webkit-scrollbar-thumb:hover {
+        background: var(--text-muted);
+      }
+      /* Botones de navegación de scroll */
+      .msg-scroll-btn {
+        padding: 8px 12px;
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.2s;
+        border: none;
+        font-size: 14px;
+        width: 100%;
+        text-align: center;
+      }
+      .msg-scroll-btn:hover {
+        background: var(--accent-light);
+        color: var(--accent);
+      }
+      .msg-scroll-btn.msg-scroll-up {
+        border-bottom: 1px solid var(--border);
+      }
+      .msg-scroll-btn.msg-scroll-down {
+        border-top: 1px solid var(--border);
       }
       .msg-conv {
         display: flex;
@@ -3599,7 +3643,9 @@
                     oninput="filterConvs()"
                   />
                 </div>
+                <button class="msg-scroll-btn msg-scroll-up" onclick="scrollMsgListUp()" title="Subir" style="display:none">▲</button>
                 <div class="msg-list" id="msg-list"></div>
+                <button class="msg-scroll-btn msg-scroll-down" onclick="scrollMsgListDown()" title="Bajar" style="display:none">▼</button>
               </div>
               <div class="msg-main" id="msg-main">
                 <div class="msg-empty" id="msg-empty-state">
@@ -8781,10 +8827,52 @@
           .join("");
 
         document.getElementById("msg-list").innerHTML = generalChatHtml + sedeChatsHtml + privateChatsHtml;
+        
+        // Actualizar botones de scroll después de renderizar
+        setTimeout(() => {
+          updateMsgListScrollButtons();
+          const msgList = document.getElementById("msg-list");
+          if (msgList) {
+            msgList.removeEventListener('scroll', updateMsgListScrollButtons);
+            msgList.addEventListener('scroll', updateMsgListScrollButtons);
+          }
+        }, 50);
       }
 
       function filterConvs() {
         buildMsgList(document.getElementById("msg-search-inp").value);
+      }
+
+      // Función para hacer scroll hacia arriba en la lista de chats
+      function scrollMsgListUp() {
+        const msgList = document.getElementById("msg-list");
+        if (msgList) {
+          msgList.scrollBy({ top: -150, behavior: 'smooth' });
+        }
+      }
+
+      // Función para hacer scroll hacia abajo en la lista de chats
+      function scrollMsgListDown() {
+        const msgList = document.getElementById("msg-list");
+        if (msgList) {
+          msgList.scrollBy({ top: 150, behavior: 'smooth' });
+        }
+      }
+
+      // Función para mostrar/ocultar botones de scroll según sea necesario
+      function updateMsgListScrollButtons() {
+        const msgList = document.getElementById("msg-list");
+        const upBtn = document.querySelector(".msg-scroll-up");
+        const downBtn = document.querySelector(".msg-scroll-down");
+        
+        if (!msgList || !upBtn || !downBtn) return;
+        
+        const hasScroll = msgList.scrollHeight > msgList.clientHeight;
+        const isAtTop = msgList.scrollTop === 0;
+        const isAtBottom = msgList.scrollTop + msgList.clientHeight >= msgList.scrollHeight - 5;
+        
+        upBtn.style.display = hasScroll && !isAtTop ? 'block' : 'none';
+        downBtn.style.display = hasScroll && !isAtBottom ? 'block' : 'none';
       }
 
       function isMobile() {
