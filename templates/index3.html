@@ -2903,14 +2903,14 @@
               📌 Mi Calendario
             </div>
             <!-- Calendario Global (Admin) -->
-            <div class="nav-subitem admin-only" onclick="showSection('global-calendar')">
+            <div class="nav-subitem admin-only" id="nav-global-calendar" onclick="showSection('global-calendar')">
               ➕ Calendario Global
             </div>
             <!-- NUEVO: Calendarios por Sede -->
-            <div class="nav-subitem admin-only" onclick="showSection('mataro-calendar')">
+            <div class="nav-subitem admin-only" id="nav-mataro-calendar" onclick="showSection('mataro-calendar')">
               📍 Calendario Mataró
             </div>
-            <div class="nav-subitem admin-only" onclick="showSection('vilassar-calendar')">
+            <div class="nav-subitem admin-only" id="nav-vilassar-calendar" onclick="showSection('vilassar-calendar')">
               📍 Calendario Vilassar
             </div>
             <!-- Cal. Administradores -->
@@ -4265,6 +4265,7 @@
       }
 
       let USERS = [
+        // ✅ ADMINS (únicos usuarios existentes que se mantienen)
         {
           id: 1,
           username: "antonio",
@@ -4289,70 +4290,112 @@
           color: "orange",
           sede: "Vilassar",
         },
+
+        // ✅ USUARIOS MATARÓ (nuevos)
         {
-          id: 2,
+          id: 10,
           username: "myriam",
-          password: "myriam123",
-          name: "Myriam",
+          password: "Myriam123",
+          name: "Myriam Recolons",
           role: "empleado",
           email: "myriam@rodonverges.com",
-          phone: "+34 93 000 00 02",
+          phone: "+34 93 000 00 10",
           active: true,
           departamento: "laboral",
           color: "blue",
           sede: "Mataró",
         },
         {
-          id: 4,
-          username: "montse",
-          password: "montse123",
-          name: "Montse Martín",
-          role: "empleado",
-          email: "montse@rodonverges.com",
-          phone: "+34 93 000 00 04",
-          active: true,
-          departamento: "laboral",
-          color: "pink",
-          sede: "Mataró",
-        },
-        {
-          id: 5,
-          username: "anna",
-          password: "anna123",
+          id: 11,
+          username: "anna_f",
+          password: "Anna123",
           name: "Anna Fabregà",
           role: "empleado",
-          email: "anna@rodonverges.com",
-          phone: "+34 93 000 00 05",
+          email: "anna.f@rodonverges.com",
+          phone: "+34 93 000 00 11",
           active: true,
           departamento: "fiscal",
           color: "purple",
           sede: "Mataró",
         },
-        // ✅ USUARIOS DE VILASSAR
         {
-          id: 6,
-          username: "carla",
-          password: "carla123",
-          name: "Carla Sánchez",
+          id: 12,
+          username: "montse",
+          password: "Montse123",
+          name: "Montse Martín",
           role: "empleado",
-          email: "carla@rodonverges.com",
-          phone: "+34 93 000 00 06",
+          email: "montse@rodonverges.com",
+          phone: "+34 93 000 00 12",
           active: true,
-          departamento: "laboral",
+          departamento: "mercantil",
+          color: "pink",
+          sede: "Mataró",
+        },
+
+        // ✅ USUARIOS VILASSAR (nuevos)
+        {
+          id: 20,
+          username: "cristina",
+          password: "Cristina123",
+          name: "Cristina Navas",
+          role: "empleado",
+          email: "cristina@rodonverges.com",
+          phone: "+34 93 000 00 20",
+          active: true,
+          departamento: "fiscal",
           color: "green",
           sede: "Vilassar",
         },
         {
-          id: 7,
-          username: "david",
-          password: "david123",
-          name: "David López",
+          id: 21,
+          username: "anna_l",
+          password: "Anna123",
+          name: "Anna Llinas",
           role: "empleado",
-          email: "david@rodonverges.com",
-          phone: "+34 93 000 00 07",
+          email: "anna.l@rodonverges.com",
+          phone: "+34 93 000 00 21",
+          active: true,
+          departamento: "laboral",
+          color: "cyan",
+          sede: "Vilassar",
+        },
+        {
+          id: 22,
+          username: "anna_m",
+          password: "Anna123",
+          name: "Anna Maria Rodón",
+          role: "empleado",
+          email: "anna.m@rodonverges.com",
+          phone: "+34 93 000 00 22",
+          active: true,
+          departamento: "mercantil",
+          color: "yellow",
+          sede: "Vilassar",
+        },
+        {
+          id: 23,
+          username: "vanessa",
+          password: "Vanessa123",
+          name: "Vanessa Culebras",
+          role: "empleado",
+          email: "vanessa@rodonverges.com",
+          phone: "+34 93 000 00 23",
+          active: true,
+          departamento: "laboral",
+          color: "red",
+          sede: "Vilassar",
+        },
+        {
+          id: 24,
+          username: "montserrat",
+          password: "Montserrat123",
+          name: "Montserrat Mir",
+          role: "empleado",
+          email: "montserrat@rodonverges.com",
+          phone: "+34 93 000 00 24",
           active: true,
           departamento: "fiscal",
-          color: "orange",
+          color: "brown",
           sede: "Vilassar",
         },
       ];
@@ -5186,19 +5229,23 @@
         // ══════════════════════════════════════════
         //  NUEVO: Ocultar nav del calendario del admin para el propio admin
         //  (el admin ya tiene acceso a todas sus citas desde "Mi Calendario")
-        //  y personalizar el nombre del nav con el nombre del admin real.
+        //  ✅ ARREGLO 3: Usar getContextualAdminUser() para mostrar el admin correcto según sede
+        //  Vilassar → Pau, Mataró → Antonio
         // ══════════════════════════════════════════
-        const adminUser = getAdminUser();
+        const adminUser = getContextualAdminUser();
         const navAdminView = document.getElementById("nav-admin-view-calendar");
         if (navAdminView) {
           if (isAdmin) {
-            // El admin no necesita ver "Cal. Antonio" porque ya tiene su propio calendario
+            // El admin no necesita ver "Cal. [Nombre]" porque ya tiene su propio calendario
             navAdminView.style.display = "none";
           } else {
             navAdminView.style.display = "";
-            // Actualizar el nombre del nav con el nombre real del admin
+            // Actualizar el nombre del nav con el nombre real del admin de su sede
             if (adminUser) {
-              navAdminView.innerHTML = `<span class="icon">&#9673;</span> Cal. ${adminUser.name.split(' ')[0]}`;
+              const adminFirstName = adminUser.name.split(' ')[0];
+              navAdminView.innerHTML = `<span class="icon">👤</span> Cal. ${adminFirstName}`;
+              // Actualizar también en SEC_TITLES
+              SEC_TITLES["admin-view-calendar"] = `Calendario de ${adminFirstName}`;
             }
           }
         }
@@ -5239,8 +5286,8 @@
         // NUEVO: títulos para calendarios de sede
         "mataro-calendar": "Calendario Mataró",
         "vilassar-calendar": "Calendario Vilassar",
-        // título para la sección del calendario del admin
-        "admin-view-calendar": "Calendario de Antonio",
+        // ✅ ARREGLO 2: título dinámico para el calendario del admin (se actualiza en initApp)
+        "admin-view-calendar": "Calendario Admin",
         "cal-laboral": "Calendario Laboral",
         "cal-fiscal": "Calendario Fiscal",
         "cal-mercantil": "Calendario Mercantil",
@@ -5284,8 +5331,8 @@
         if (!container) return;
         
         // ✅ CAMBIO 1: Obtener TODOS los usuarios activos del array USERS (dinámico)
-        // Anteriormente solo mostraba 3 usuarios hardcodeados
-        let activeUsers = USERS.filter(u => u.active && u.id !== currentUser.id).sort((a, b) => {
+        // ✅ ARREGLO 1: Excluir admins de la lista (los admins ven su propio calendario, no aparecen aquí)
+        let activeUsers = USERS.filter(u => u.active && u.id !== currentUser.id && u.role !== 'admin').sort((a, b) => {
           // Ordenar por sede primero, luego por nombre
           if (a.sede !== b.sede) return a.sede.localeCompare(b.sede);
           return a.name.localeCompare(b.name);
@@ -5317,7 +5364,7 @@
           
           // Agregar usuarios de esa sede
           usersBysede[sede].forEach(u => {
-            html += `<div class="nav-subitem-user" onclick="openUserCalendar(${u.id}, '${u.name.replace(/'/g, "\\'")}')\" title=\"${u.name}\">👤 ${safeHtml(u.name)}</div>`;
+            html += `<div class="nav-subitem-user" onclick="openUserCalendar(${u.id}, '${u.name.replace(/'/g, "\\'")}')\" title="${u.name}">👤 ${safeHtml(u.name)}</div>`;
           });
         });
         
@@ -5329,20 +5376,25 @@
         const isAdmin = currentUser.role === 'admin';
         const userSede = currentUser.sede;
         
-        // Elementos de calendario en la navegación
-        const globalCalNav = document.querySelector('[onclick="showSection(\'global-calendar\')"]');
-        const mataroCalNav = document.querySelector('[onclick="showSection(\'mataro-calendar\')"]');
-        const vilassarCalNav = document.querySelector('[onclick="showSection(\'vilassar-calendar\')"]');
+        // ✅ ARREGLO 4: Usar IDs específicos en lugar de querySelector por onclick
+        const globalCalNav = document.getElementById('nav-global-calendar');
+        const mataroCalNav = document.getElementById('nav-mataro-calendar');
+        const vilassarCalNav = document.getElementById('nav-vilassar-calendar');
         
         // Aplicar visibilidad
-        if (globalCalNav) globalCalNav.style.display = isAdmin ? '' : 'none';
+        // ✅ Global Calendar: solo admins
+        if (globalCalNav) {
+          globalCalNav.style.display = isAdmin ? '' : 'none';
+        }
+        
+        // ✅ Calendario Mataró: solo admins o usuarios de Mataró
         if (mataroCalNav) {
-          // Mostrar si es admin O si es usuario de Mataró
           const canSeeMataroCalendar = isAdmin || userSede === 'Mataró';
           mataroCalNav.style.display = canSeeMataroCalendar ? '' : 'none';
         }
+        
+        // ✅ Calendario Vilassar: solo admins o usuarios de Vilassar
         if (vilassarCalNav) {
-          // Mostrar si es admin O si es usuario de Vilassar
           const canSeeVilassarCalendar = isAdmin || userSede === 'Vilassar';
           vilassarCalNav.style.display = canSeeVilassarCalendar ? '' : 'none';
         }
