@@ -10230,23 +10230,7 @@ ${dateStr} a las ${eventData.time}`,
           document.querySelectorAll('.pr-dropdown.open').forEach(d => d.classList.remove('open'));
         }
       });
-// 🔔 ESCOLTAR NOTIFICACIONS DEL SERVIDOR
-socket.on("notification_received", function(data) {
-
-  console.log("🔔 Notificació rebuda:", data);
-
-  if (Notification.permission === "granted") {
-      new Notification(data.title, {
-          body: data.message
-      });
-  }
-
-});
-
-// DEMANAR PERMÍS DE NOTIFICACIONS
-if (Notification.permission !== "granted") {
-    Notification.requestPermission();
-}
+// DEMANAR PERMÍS DE NOTIFICACIONS (movido a initApp)
       // ══════════════════════════════════════════════════════════════
       // INICIALIZAR SERVICE WORKER Y NOTIFICACIONES
       // ══════════════════════════════════════════════════════════════
