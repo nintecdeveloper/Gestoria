@@ -8938,132 +8938,212 @@
       }
 
       function sendMsg() {
-        // ✅ CORRECCIÓN 6: Soportar tanto conversaciones privadas como chats de sede y chat general
-        if (activeConvId === null && activeSedeChat === null) return;
+        // ✅ NUEVA LÓGICA: Determinar EXPLÍCITAMENTE qué chat está activo
+        // Esto evita toda ambigüedad
         
         const inp = document.getElementById("msg-input");
         const text = inp.value.trim();
-        // Permitir envío sin texto si hay adjuntos
+        
+        // Determinar cuál chat está activo
+        const isChatGeneral = activeConvId === 'general-chat';
+        const isChatSede = activeSedeChat !== null && activeSedeChat !== undefined && activeSedeChat !== '';
+        const isChatPrivado = activeConvId !== null && activeConvId !== 'general-chat';
+        
+        // ✅ VALIDACIÓN: Exactamente UNO debe ser true
+        let chatType = null;
+        if (isChatGeneral && !isChatSede && !isChatPrivado) {
+          chatType = 'general';
+        } else if (isChatSede && !isChatGeneral && !isChatPrivado) {
+          chatType = 'sede';
+        } else if (isChatPrivado && !isChatGeneral && !isChatSede) {
+          chatType = 'privado';
+        } else {
+          // ❌ ERROR: Múltiples chats activos o ninguno
+          console.error('❌ [SendMsg] Estado ambiguo:', {
+            isChatGeneral,
+            isChatSede,
+            isChatPrivado,
+            activeConvId,
+            activeSedeChat
+          });
+          return;
+        }
+        
+        // Validar que hay contenido
         if (!text && msgPendingAttachments.length === 0) return;
+        
         const time = nowTime();
         
-        // Clonar adjuntos pendientes para el mensaje (deep copy garantizado)
+        // Clonar adjuntos
         const attachments = msgPendingAttachments.length
           ? msgPendingAttachments.map(a => ({
               name: a.name,
               size: a.size,
-              data: a.dataUrl,  // ✅ Guardar data en base64 para transmisión
+              data: a.dataUrl,
               type: a.type
             }))
           : [];
         
-        const msgObj = { 
-          mine: true,
-          userId: currentUser.id,  // ✅ NUEVO: Agregar ID del usuario
-          text, 
-          time, 
-          read: true, 
-          attachments,
-          id: `msg_${Date.now()}`
+        const msgId = `msg_${Date.now()}`;
+        
+        console.log(`📤 [SendMsg] Enviando a ${chatType}:`, text);
+        
+        // ✅ DESPACHAR BASADO EN TIPO DE CHAT
+        if (chatType === 'general') {
+          sendMsgToGeneralChat(text, time, attachments, msgId);
+        } else if (chatType === 'sede') {
+          sendMsgToSedeChat(text, time, attachments, msgId);
+        } else if (chatType === 'privado') {
+          sendMsgToPrivateChat(text, time, attachments, msgId);
+        }
+        
+        // Limpiar input
+        inp.value = "";
+        msgPendingAttachments = [];
+        msgRenderChips();
+      }
+      
+      // ✅ ENVIAR A CHAT GENERAL - AISLADO Y CLARO
+      function sendMsgToGeneralChat(text, time, attachments, msgId) {
+        // Crear objeto para GENERAL_CHAT
+        const msgObj = {
+          id: msgId,
+          userId: currentUser.id,
+          username: currentUser.name,
+          text: text,
+          time: time,
+          date: todayStr(),
+          attachments: attachments
         };
         
-        // ✅ CAMBIO 15: Manejar chat general
-        if (activeConvId === 'general-chat') {
-          // ✅ FIX 2: Usar GENERAL_CHAT, NO CONVS['general-chat']
-          // Esto evita duplicación y usa la estructura correcta
-          if (!GENERAL_CHAT) GENERAL_CHAT = [];
-          
-          // Crear objeto compatible con GENERAL_CHAT
-          const generalMsgObj = {
-            id: msgObj.id,
-            userId: currentUser.id,
-            username: currentUser.name,
-            text: text,
-            time: time,
-            date: todayStr(),
+        // Agregar localmente
+        if (!GENERAL_CHAT) GENERAL_CHAT = [];
+        GENERAL_CHAT.push(msgObj);
+        console.log('✅ [Chat General] Agregado localmente');
+        
+        // Renderizar
+        renderGeneralChat();
+        
+        // Guardar
+        saveMessagesToStorage();
+        
+        // Enviar al servidor
+        if (socket && socket.connected) {
+          console.log('📤 [Socket] Enviando send_general_message');
+          socket.emit('send_general_message', {
+            message: text,
+            sender_username: currentUser.name,
+            sender_user_id: currentUser.id,
+            message_id: msgId,
             attachments: attachments
-          };
+          });
+        } else {
+          console.warn('⚠️ Socket no conectado');
+        }
+      }
+      
+      // ✅ ENVIAR A CHAT DE SEDE - AISLADO Y CLARO
+      function sendMsgToSedeChat(text, time, attachments, msgId) {
+        const sedeConvId = `sede_${activeSedeChat}`;
+        
+        // Crear objeto para CONVS[sede_*]
+        const msgObj = {
+          id: msgId,
+          mine: true,
+          sender: currentUser.name,
+          sender_id: currentUser.id,
+          userId: currentUser.id,
+          text: text,
+          time: time,
+          date: todayStr(),
+          read: true,
+          attachments: attachments
+        };
+        
+        // Validar que CONVS[sedeConvId] existe
+        if (!CONVS[sedeConvId]) {
+          console.warn(`⚠️ CONVS[${sedeConvId}] no existe, creando`);
+          CONVS[sedeConvId] = [];
+        }
+        
+        // Agregar localmente
+        CONVS[sedeConvId].push(msgObj);
+        console.log(`✅ [Chat Sede ${activeSedeChat}] Agregado localmente`);
+        
+        // Renderizar
+        renderMsgsFromArray(CONVS[sedeConvId]);
+        
+        // Guardar
+        saveMessagesToStorage();
+        
+        // Enviar al servidor SOLO a esta sede
+        if (socket && socket.connected) {
+          console.log(`📤 [Socket] Enviando send_sede_message a ${activeSedeChat}`);
+          socket.emit('send_sede_message', {
+            message: text,
+            sender_username: currentUser.name,
+            sender_user_id: currentUser.id,
+            sede: SEDE_CHATS[activeSedeChat].sede,
+            sede_key: activeSedeChat,
+            message_id: msgId,
+            attachments: attachments
+          });
+        } else {
+          console.warn('⚠️ Socket no conectado');
+        }
+      }
+      
+      // ✅ ENVIAR A CHAT PRIVADO - AISLADO Y CLARO
+      function sendMsgToPrivateChat(text, time, attachments, msgId) {
+        const recipientUser = USERS.find(u => u.id === activeConvId);
+        const recipientName = recipientUser ? recipientUser.name : String(activeConvId);
+        
+        // Crear objeto para convData
+        const msgObj = {
+          id: msgId,
+          mine: true,
+          text: text,
+          time: time,
+          read: true,
+          attachments: attachments
+        };
+        
+        // Agregar localmente
+        convData(activeConvId).push(msgObj);
+        console.log(`✅ [Chat Privado ${recipientName}] Agregado localmente`);
+        
+        // Renderizar
+        renderMsgs(activeConvId);
+        
+        // Guardar
+        saveMessagesToStorage();
+        
+        // Enviar al servidor
+        if (socket && socket.connected && currentUser) {
+          console.log(`📤 [Socket] Enviando a ${recipientName}`);
           
-          GENERAL_CHAT.push(generalMsgObj);
-          console.log('✅ [Chat General] Mensaje agregado localmente:', generalMsgObj);
-          
-          // Renderizar inmediatamente
-          renderGeneralChat();
-          
-          // Guardar y sincronizar
-          saveMessagesToStorage();
-          if (socket && socket.connected) {
-            console.log('📤 [Socket] Enviando mensaje al chat general:', text);
-            socket.emit('send_general_message', {
+          if (attachments.length > 0) {
+            socket.emit('send_message_with_attachment', {
               message: text,
               sender_username: currentUser.name,
-              sender_user_id: currentUser.id,
-              message_id: msgObj.id,
+              recipient_username: recipientName,
+              conv_id: `${currentUser.name}_${recipientName}`,
+              message_id: msgId,
               attachments: attachments
             });
           } else {
-            console.warn('⚠️ Socket no conectado, mensaje solo local');
-          }
-        } else if (activeSedeChat) {
-          // Enviar a chat de sede
-          const sedeConvId = `sede_${activeSedeChat}`;
-          // Agregar campo 'sender' que falta
-          msgObj.sender = currentUser.name;  // ✅ NUEVO: Agregar nombre del remitente
-          msgObj.sender_id = currentUser.id;  // ✅ NUEVO: Agregar ID del remitente
-          CONVS[sedeConvId].push(msgObj);
-          renderMsgsFromArray(CONVS[sedeConvId]);
-          
-          // Guardar y sincronizar
-          saveMessagesToStorage();
-          if (socket && socket.connected) {
-            socket.emit('send_sede_message', {
+            socket.emit('send_message', {
               message: text,
               sender_username: currentUser.name,
-              sender_user_id: currentUser.id,  // ✅ CAMBIO: Renombrado a sender_user_id para consistencia
-              sede: SEDE_CHATS[activeSedeChat].sede,
-              sede_key: activeSedeChat,
-              message_id: msgObj.id,
-              attachments: attachments
+              recipient_username: recipientName,
+              conv_id: `${currentUser.name}_${recipientName}`,
+              message_id: msgId
             });
           }
         } else {
-          // Conversación privada existente
-          convData(activeConvId).push(msgObj);
-          renderMsgs(activeConvId);
-          
-          saveMessagesToStorage();
-          if (socket && socket.connected && currentUser) {
-            const recipientUser = USERS.find(u => u.id === activeConvId);
-            const recipientName = recipientUser ? recipientUser.name : String(activeConvId);
-            console.log('📤 [Socket] Enviando mensaje privado a:', recipientName, 'con', attachments.length, 'adjunto(s)');
-            
-            if (attachments.length > 0) {
-              socket.emit('send_message_with_attachment', {
-                message: text,
-                sender_username: currentUser.name,
-                recipient_username: recipientName,
-                conv_id: `${currentUser.name}_${recipientName}`,
-                message_id: msgObj.id,
-                attachments: attachments
-              });
-            } else {
-              socket.emit('send_message', {
-                message: text,
-                sender_username: currentUser.name,
-                recipient_username: recipientName,
-                conv_id: `${currentUser.name}_${recipientName}`,
-                message_id: msgObj.id
-              });
-            }
-          } else {
-            console.log('✅ Mensaje guardado localmente (sin servidor)');
-          }
+          console.log('✅ Mensaje guardado localmente (sin servidor)');
         }
-        
-        inp.value = "";
-        // Limpiar adjuntos pendientes
-        msgPendingAttachments = [];
-        msgRenderChips();
+      }
         buildMsgList(document.getElementById("msg-search-inp").value);
       }
 
