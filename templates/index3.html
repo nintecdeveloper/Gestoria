@@ -8467,13 +8467,13 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             ? msg.attachments.map(att => {
                 const ext = (att.name.split(".").pop() || "").toLowerCase();
                 const isImage = ["jpg","jpeg","png","gif","webp","svg","bmp"].includes(ext);
-                if (isImage && att.dataUrl) {
-                  return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;margin-top:4px;">
-                    <img src="${att.dataUrl}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:140px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
+                if (isImage && att.url || att.dataUrl) {
+                  return `<a href="${att.url || att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;margin-top:4px;">
+                    <img src="${att.url || att.dataUrl}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:140px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
                     <span class="msg-file-info" style="margin-top:4px;"><span class="msg-file-name">${safeHtml(att.name)}</span><span class="msg-file-size">${att.size}</span></span>
                   </a>`;
                 }
-                return `<a href="${att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card" style="margin-top:4px;">
+                return `<a href="${att.url || att.dataUrl}" download="${safeHtml(att.name)}" class="msg-file-card" style="margin-top:4px;">
                   <span class="msg-file-icon">${msgGetFileIcon(att.name)}</span>
                   <span class="msg-file-info"><span class="msg-file-name">${safeHtml(att.name)}</span><span class="msg-file-size">${att.size}</span></span>
                 </a>`;
@@ -8604,8 +8604,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       /** Extensiones ejecutables que NO se permiten */
       const MSG_BLOCKED_EXTS = ["exe","bat","cmd","sh","ps1","msi","scr","jar","vbs","js","ts","py","rb","php","com","pif"];
 
-      /** Tamaño máximo por archivo: 5 MB */
-      const MSG_MAX_SIZE = 5 * 1024 * 1024;
+      /** Tamaño máximo por archivo: 50 MB */
+       const MSG_MAX_SIZE = 50 * 1024 * 1024;
 
       function msgTriggerFileInput() {
         const inp = document.getElementById("msg-file-input");
@@ -8642,24 +8642,38 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           }
 
           // Use FileReader with explicit error handling for all browsers
+          // Pujar fitxer al servidor en lloc de convertir a base64
           try {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              if (e.target && e.target.result) {
-                msgPendingAttachments.push({
-                  name: file.name,
-                  size: msgFormatSize(file.size),
-                  dataUrl: e.target.result,
-                  type: file.type || "application/octet-stream",
-                });
-              } else {
-                errors.push(`No se pudo leer "${file.name}".`);
-              }
-              pending--;
-              msgRenderChips();
-              if (pending === 0 && errors.length) {
-                alert("Problemas con algunos archivos:\n" + errors.join("\n"));
-              }
+            const formData = new FormData();
+            formData.append('file', file);
+            fetch('/api/upload', { method: 'POST', body: formData })
+              .then(r => r.json())
+              .then(data => {
+                if (data.ok) {
+                  msgPendingAttachments.push({
+                    name: file.name,
+                    size: msgFormatSize(file.size),
+                    url: data.url,
+                    type: file.type || 'application/octet-stream',
+                  });
+                } else {
+                  errors.push(`No s'ha pogut pujar "${file.name}": ${data.error}`);
+                }
+                pending--;
+                msgRenderChips();
+                if (pending === 0 && errors.length) alert("Problemes:\n" + errors.join("\n"));
+              })
+              .catch(() => {
+                errors.push(`Error en pujar "${file.name}".`);
+                pending--;
+                msgRenderChips();
+                if (pending === 0 && errors.length) alert("Problemes:\n" + errors.join("\n"));
+              });
+          } catch(e) {
+            errors.push(`Error al processar "${file.name}".`);
+            pending--;
+            if (pending === 0 && errors.length) alert("Problemes:\n" + errors.join("\n"));
+          }
             };
             reader.onerror = () => {
               errors.push(`No se pudo leer "${file.name}".`);
@@ -9030,17 +9044,17 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
                   ? m.attachments.map(att => {
                       const ext = (att.name.split(".").pop() || "").toLowerCase();
                       const isImage = ["jpg","jpeg","png","gif","webp","svg","bmp"].includes(ext);
-                      if (isImage && att.data) {
+                      if (isImage && att.url || att.data) {
                         // Previsualización de imagen inline
-                        return `<a href="${att.data}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" title="Descargar ${safeHtml(att.name)}" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;">
-                          <img src="${att.data}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:160px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
+                        return `<a href="${att.url || att.data}" download="${safeHtml(att.name)}" class="msg-file-card msg-file-card--img" title="Descargar ${safeHtml(att.name)}" style="flex-direction:column;align-items:flex-start;max-width:220px;padding:6px;">
+                          <img src="${att.url || att.data}" alt="${safeHtml(att.name)}" style="max-width:200px;max-height:160px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />
                           <span class="msg-file-info" style="margin-top:4px;">
                             <span class="msg-file-name">${safeHtml(att.name)}</span>
                             <span class="msg-file-size">${att.size}</span>
                           </span>
                         </a>`;
                       }
-                      return `<a href="${att.data}" download="${safeHtml(att.name)}" class="msg-file-card" title="Descargar ${safeHtml(att.name)}">
+                      return `<a href="${att.url || att.data}" download="${safeHtml(att.name)}" class="msg-file-card" title="Descargar ${safeHtml(att.name)}">
                         <span class="msg-file-icon">${msgGetFileIcon(att.name)}</span>
                         <span class="msg-file-info">
                           <span class="msg-file-name">${safeHtml(att.name)}</span>
@@ -9281,12 +9295,11 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const time = nowTime();
         const date = todayStr();
         
-        // Preparar adjuntos
-        const attachments = msgPendingAttachments.length
+         const attachments = msgPendingAttachments.length
           ? msgPendingAttachments.map(a => ({
               name: a.name,
               size: a.size,
-              data: a.dataUrl,
+              url: a.url,       // URL del servidor, no base64
               type: a.type
             }))
           : [];
