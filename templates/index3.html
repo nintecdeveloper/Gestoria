@@ -5371,10 +5371,14 @@
           return;
         }
         document.getElementById("login-error").style.display = "none";
-        currentUser = found;
-        document.getElementById("login-screen").style.display = "none";
-        document.getElementById("app").style.display = "flex";
-        initApp();
+       currentUser = found;
+document.getElementById("login-screen").style.display = "none";
+document.getElementById("app").style.display = "flex";
+initApp();
+
+// Re-renderitzar conversa oberta amb el nou currentUser
+if (activeConvId !== null) renderMsgs(activeConvId);
+else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeChat}`] || []);
       }
 
       function doLogout() {
