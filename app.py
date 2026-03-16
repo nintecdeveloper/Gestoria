@@ -188,7 +188,11 @@ app = Flask(__name__, template_folder='templates')
 app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
 app.config['DEBUG'] = False if app.config['ENV'] == 'production' else True
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB màxim per request
 
+import uuid
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
@@ -702,7 +706,29 @@ def handle_broadcast_notification(data):
 # ═══════════════════════════════════════════════════════════════
 # API REST — RECUPERAR MENSAJES Y ADJUNTOS
 # ═══════════════════════════════════════════════════════════════
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    """Puja un fitxer al servidor i retorna la URL"""
+    if 'file' not in request.files:
+        return jsonify({'ok': False, 'error': 'No file'}), 400
+    f = request.files['file']
+    if not f.filename:
+        return jsonify({'ok': False, 'error': 'No filename'}), 400
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+    blocked = {'exe','bat','sh','ps1','cmd','com','scr','pif','vbs','js'}
+    if ext in blocked:
+        return jsonify({'ok': False, 'error': 'Tipus de fitxer no permès'}), 400
+    unique_name = f"{uuid.uuid4().hex}_{f.filename}"
+    save_path = os.path.join(UPLOAD_FOLDER, unique_name)
+    f.save(save_path)
+    url = f"/api/uploads/{unique_name}"
+    logger.info(f"📎 [Upload] Fitxer guardat: {unique_name} ({f.content_length or 0} bytes)")
+    return jsonify({'ok': True, 'url': url, 'name': f.filename})
 
+@app.route('/api/uploads/<filename>', methods=['GET'])
+def serve_upload(filename):
+    """Serveix un fitxer pujat"""
+    return send_file(os.path.join(UPLOAD_FOLDER, filename), as_attachment=True)
 @app.route('/api/messages/<conv_id>', methods=['GET'])
 def get_messages(conv_id):
     """Recupera el histórico de mensajes de una conversación"""
