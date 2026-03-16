@@ -5498,15 +5498,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           }
         }, 300);
         
-        // ════════════════════════════════════════════════════════════
-        // Esborrar chats privats del localStorage (poden tenir dades d'una altra sessió)
-        // Els chats de grup/sede es conserven (els comparteix tothom)
-        try {
-          Object.keys(localStorage).forEach(k => {
-            if (k.startsWith('convs_')) localStorage.removeItem(k);
-          });
-        } catch(e) {}
-        // Cargar mensajes guardados desde localStorage
+       // Cargar mensajes guardados desde localStorage
+        // (_recalcMine recalcula "mine" per a l'usuari actual, no cal esborrar)
         // ════════════════════════════════════════════════════════════
         loadMessagesFromStorage();
         
