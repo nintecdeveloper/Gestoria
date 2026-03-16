@@ -9119,8 +9119,15 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             console.log(`✅ Chat Vilassar guardado (${CONVS['sede_vilassar'].length} msgs)`);
           }
           
-         // Guardar otros CONVS (chats privados) — mai guardar el camp "mine"
+         // Guardar todos los chats SIN el campo "mine" — se recalcula siempre al cargar
           const stripMine = arr => arr.map(({mine, ...rest}) => rest);
+          localStorage.setItem('general_chat_data', JSON.stringify(stripMine(GENERAL_CHAT)));
+          if (Array.isArray(CONVS['sede_mataro'])) {
+            localStorage.setItem('sede_mataro_data', JSON.stringify(stripMine(CONVS['sede_mataro'])));
+          }
+          if (Array.isArray(CONVS['sede_vilassar'])) {
+            localStorage.setItem('sede_vilassar_data', JSON.stringify(stripMine(CONVS['sede_vilassar'])));
+          }
           Object.keys(CONVS).forEach(key => {
             if (key !== 'sede_mataro' && key !== 'sede_vilassar' && Array.isArray(CONVS[key])) {
               localStorage.setItem(`convs_${key}`, JSON.stringify(stripMine(CONVS[key])));
