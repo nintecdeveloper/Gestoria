@@ -5043,7 +5043,7 @@
         ]);
       })();
 
-      let GENERAL_CHAT = [
+      GENERAL_CHAT = [
         {
           id: 1,
           userId: 1,
@@ -6407,6 +6407,7 @@
 
         currentDetailId = evId;
         const emp = USERS.find((u) => u.id === ev.assignedTo);
+        const owner = USERS.find((u) => u.id === ev.ownerId);
         const canEdit =
           isAdmin ||
           ev.ownerId === currentUser.id ||
@@ -6424,6 +6425,7 @@
     <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Servicio</span><br>${safeHtml(ev.service)}</div>
     ${emp ? `<div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Empleado asignado</span><br>${safeHtml(emp.name)}</div>` : ""}
     <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Notas</span><br>${safeHtml(ev.notes) || "—"}</div>
+    ${owner && owner.id !== ev.assignedTo ? `<div style="padding-top:6px;border-top:1px solid var(--border)"><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Feta per</span><br><span style="font-size:13px;color:var(--text-muted);font-style:italic">${safeHtml(owner.name)}</span></div>` : ""}
   </div>`;
         document.getElementById("det-del-btn").style.display = canEdit ? "" : "none";
         document.getElementById("det-edit-btn").style.display = canEdit ? "" : "none";
@@ -6568,11 +6570,13 @@
           }
         }
         
-        // Admin siempre puede asignar técnico, tanto en citas propias como globales
-        grp.style.display = isAdmin ? "" : "none";
+        // Admin en su propio calendario: ocultar desplegable (la cita se asigna a él mismo)
+        // Admin en global/departamental: mostrar desplegable para elegir empleado
+        const showDropdown = isAdmin && pendingIsGlobal;
+        grp.style.display = showDropdown ? "" : "none";
         employeeSelect.disabled = false;  // Habilitar dropdown normalmente
         
-        if (isAdmin) {
+        if (showDropdown) {
           // ✅ FILTRADO MEJORADO: Departamento + Sede
           // Los admins SOLO pueden asignar empleados de su misma sede
           let usersToShow = USERS.filter(u => u.active && u.role !== "admin");
@@ -6769,13 +6773,14 @@
         // ✅ ARREGLO: Si se está viendo el calendario de otro usuario, forzar asignación a ese usuario
         let assignedTo;
         if (viewingUserIdForCalendar !== null) {
-          // Cuando un admin abre el calendario de otro usuario, la cita SIEMPRE se asigna a ese usuario
+          // Admin abrió calendario de otro usuario → asignar a ese usuario
           assignedTo = viewingUserIdForCalendar;
+        } else if (isAdmin && pendingIsGlobal) {
+          // Admin creando cita global/departamental → elegir del desplegable
+          assignedTo = parseInt(document.getElementById("ev-employee").value);
         } else {
-          // Comportamiento normal
-          assignedTo = isAdmin
-            ? parseInt(document.getElementById("ev-employee").value)
-            : currentUser.id;
+          // Admin en su propio calendario, o cualquier empleado → asignar a sí mismo
+          assignedTo = currentUser.id;
         }
         
         // ✅ CAMBIO 11: Validar que el técnico asignado existe y tiene sede válida
@@ -6885,15 +6890,14 @@
           }
           
           EVENTS.push(eventObj);
-        
+        }
+
         closeModal("event-modal");
-refreshCals();
-
-if (document.getElementById("section-my-calendar")?.classList.contains("active")) {
-  renderCalendar("my");
-}
-
-renderDashboard();
+        refreshCals();
+        if (document.getElementById("section-my-calendar")?.classList.contains("active")) {
+          renderCalendar("my");
+        }
+        renderDashboard();
       }
 
       function populateGlobalFilter() {
@@ -7563,14 +7567,12 @@ renderDashboard();
 
         EVENTS.push(eventObj);
 
-       closeModal("admin-event-modal");
-refreshCals();
-
-if (document.getElementById("section-my-calendar")?.classList.contains("active")) {
-  renderCalendar("my");
-}
-
-renderDashboard();
+        closeModal("admin-event-modal");
+        refreshCals();
+        if (document.getElementById("section-my-calendar")?.classList.contains("active")) {
+          renderCalendar("my");
+        }
+        renderDashboard();
       }
 
       // Validación en tiempo real del horario al cambiar fecha/hora en el modal del admin
