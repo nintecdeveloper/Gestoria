@@ -9091,37 +9091,11 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           // ✅✅✅ CAMBIO RADICAL: Guardar en localStorage COMPLETAMENTE SEPARADO
           // NUNCA usar un JSON compartido, guardar cada chat en su propia key
           
-          // Guardar GENERAL_CHAT en su propia key
+             // Guardar tots els chats SENSE el camp "mine"
+          const stripMine = arr => arr.map(({ mine, ...rest }) => rest);
           if (Array.isArray(GENERAL_CHAT)) {
-            // Validar que GENERAL_CHAT NO contiene mensajes de sede
-            const cleanGeneral = GENERAL_CHAT.filter(m => {
-              const isSede = CONVS['sede_mataro']?.some(sm => sm.id === m.id) ||
-                            CONVS['sede_vilassar']?.some(sm => sm.id === m.id);
-              if (isSede) {
-                console.warn(`🚨 CRÍTICO: Removiendo mensaje de sede (${m.id}) de GENERAL_CHAT antes de guardar`);
-              }
-              return !isSede;
-            });
-            
-            localStorage.setItem('general_chat_data', JSON.stringify(cleanGeneral));
-            console.log(`✅ GENERAL_CHAT guardado (${cleanGeneral.length} msgs)`);
+            localStorage.setItem('general_chat_data', JSON.stringify(stripMine(GENERAL_CHAT)));
           }
-          
-          // Guardar SEDE MATARÓ en su propia key
-          if (Array.isArray(CONVS['sede_mataro'])) {
-            localStorage.setItem('sede_mataro_data', JSON.stringify(CONVS['sede_mataro']));
-            console.log(`✅ Chat Mataró guardado (${CONVS['sede_mataro'].length} msgs)`);
-          }
-          
-          // Guardar SEDE VILASSAR en su propia key
-          if (Array.isArray(CONVS['sede_vilassar'])) {
-            localStorage.setItem('sede_vilassar_data', JSON.stringify(CONVS['sede_vilassar']));
-            console.log(`✅ Chat Vilassar guardado (${CONVS['sede_vilassar'].length} msgs)`);
-          }
-          
-         // Guardar todos los chats SIN el campo "mine" — se recalcula siempre al cargar
-          const stripMine = arr => arr.map(({mine, ...rest}) => rest);
-          localStorage.setItem('general_chat_data', JSON.stringify(stripMine(GENERAL_CHAT)));
           if (Array.isArray(CONVS['sede_mataro'])) {
             localStorage.setItem('sede_mataro_data', JSON.stringify(stripMine(CONVS['sede_mataro'])));
           }
@@ -9133,7 +9107,6 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               localStorage.setItem(`convs_${key}`, JSON.stringify(stripMine(CONVS[key])));
             }
           });
-          
           console.log('✅✅✅ ALMACENAMIENTO COMPLETO: Todos los chats guardados en keys SEPARADAS');
         } catch (err) {
           console.warn('⚠️ No se pudo guardar en localStorage:', err);
