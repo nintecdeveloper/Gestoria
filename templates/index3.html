@@ -1789,7 +1789,7 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
-        overflow: hidden;
+        overflow: visible;
       }
       .msg-sidebar-header {
         padding: 16px 18px;
@@ -3631,9 +3631,9 @@
               </div>
             </div>
             <div class="msg-layout">
-              <div class=\"msg-sidebar\">
-                <div class=\"msg-sidebar-header\">
-                  <div class=\"card-title\">Conversaciones</div>
+              <div class="msg-sidebar">
+                <div class="msg-sidebar-header">
+                  <div class="card-title">Conversaciones</div>
                 </div>
 
                 <div class="msg-search">
@@ -3644,9 +3644,7 @@
                     oninput="filterConvs()"
                   />
                 </div>
-                <button class="msg-scroll-btn msg-scroll-up" onclick="scrollMsgListUp()" title="Subir">▲</button>
                 <div class="msg-list" id="msg-list"></div>
-                <button class="msg-scroll-btn msg-scroll-down" onclick="scrollMsgListDown()" title="Bajar">▼</button>
               </div>
               <div class="msg-main" id="msg-main">
                 <div class="msg-empty" id="msg-empty-state">
@@ -4694,6 +4692,8 @@
             // ✅ CORRECCIÓN 1: Guardar attachments recibidos para que se muestren correctamente
             CONVS[convId].push({
               mine: false,
+              sender_id: senderUser.id,
+              userId: senderUser.id,
               text: msg.text,
               time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
               read: false,
@@ -4766,7 +4766,7 @@
           // Agregar a GENERAL_CHAT
           const msgObj = {
             id: msg.id,
-            mine: (msg.sender_id === currentUser.id),
+            mine: parseInt(msg.sender_id, 10) === parseInt(currentUser.id, 10),
             userId: msg.sender_id,
             username: msg.sender_username,
             text: msg.text,
@@ -4818,7 +4818,7 @@
             
             GENERAL_CHAT.push({
               id: msg.id,
-              mine: (msg.sender_id === currentUser.id),
+              mine: parseInt(msg.sender_id, 10) === parseInt(currentUser.id, 10),
               userId: msg.sender_id,
               username: msg.sender_username,
               text: msg.text,
@@ -4875,7 +4875,7 @@
             
             CONVS[sedeConvId].push({
               id: msg.id,
-              mine: (msg.sender_id === currentUser.id),
+              mine: parseInt(msg.sender_id, 10) === parseInt(currentUser.id, 10),
               sender: msg.sender_username,
               sender_id: msg.sender_id,
               text: msg.text,
@@ -4934,7 +4934,7 @@
           // Agregar mensaje
           const msgObj = {
             id: msg.id,
-            mine: (msg.sender_id === currentUser.id),
+            mine: parseInt(msg.sender_id, 10) === parseInt(currentUser.id, 10),
             text: msg.text,
             time: time,
             date: date,
@@ -5364,10 +5364,16 @@
       }
 
       function doLogout() {
+        // Esborrar localStorage per no contaminar la propera sessió d'un altre usuari
+        try { localStorage.clear(); } catch(e) {}
+        
         currentUser = null;
         activeConvId = null;
+        activeSedeChat = null;
         editingEvId = null;
         gchatUnreadCount = 0;
+        GENERAL_CHAT = [];
+        CONVS = { sede_mataro: [], sede_vilassar: [] };
         
         // Desconectar socket.io
         if (socket && socket.connected) {
@@ -8412,12 +8418,16 @@
         let lastUserId = null;
 
         GENERAL_CHAT.forEach((msg) => {
-          // ✅ FIX CRÍTICO: Usar mine si existe, sino calcular
-          let isMe = false;
-          if (msg.mine !== undefined) {
-            isMe = msg.mine;  // Usar el valor guardado
-          } else if (msg.userId === currentUser.id) {
-            isMe = true;
+          // Càlcul robust de isMe per chat general
+          const _gcSid = msg.userId !== undefined ? msg.userId : msg.sender_id;
+          let isMe;
+          if (_gcSid !== undefined && _gcSid !== null) {
+            isMe = parseInt(_gcSid, 10) === parseInt(currentUser.id, 10);
+          } else if (msg.username || msg.sender_username) {
+            const _gcName = msg.username || msg.sender_username;
+            isMe = _gcName === currentUser.name || _gcName === currentUser.username;
+          } else {
+            isMe = false;
           }
           
           // ✅ FIX: Obtener senderName correctamente
@@ -8976,20 +8986,17 @@
         el.innerHTML = msgs.length
           ? msgs
               .map((m, idx) => {
-                // ✅ FIX CRÍTICO: Usar mine si existe, sino calcular
-                let isMe = false;
-                if (m.mine !== undefined) {
-                  isMe = m.mine;  // Usar el valor guardado
-                } else if (m.userId === currentUser.id) {
-                  isMe = true;
-                } else if (m.sender_id === currentUser.id) {
-                  isMe = true;
-                }
-                
-                // Validar coherencia
-                if (isMe && m.sender_id && m.sender_id !== currentUser.id) {
-                  console.warn('⚠️ Inconsistencia detectada: isMe=true pero sender_id es diferente', m);
-                  isMe = false;  // Corregir
+                // Càlcul robust de isMe: mai confiar en m.mine (pot ser d'una altra sessió)
+                // Compara per ID (int o string) i per nom com a fallback
+                const _sid = m.sender_id !== undefined ? m.sender_id : m.userId;
+                let isMe;
+                if (_sid !== undefined && _sid !== null) {
+                  isMe = parseInt(_sid, 10) === parseInt(currentUser.id, 10);
+                } else if (m.sender || m.sender_username || m.username) {
+                  const _sname = m.sender || m.sender_username || m.username;
+                  isMe = _sname === currentUser.name || _sname === currentUser.username;
+                } else {
+                  isMe = false;
                 }
                 
                 // Obtener nombre del remitente
@@ -9173,6 +9180,19 @@
           
           // ✅ VALIDACIÓN FINAL: Garantizar que NO hay mezcla
           validateDataSeparation();
+          
+          // ✅ RECALCULAR mine per a l'usuari actual (evita que missatges d'un altre usuari apareguin com a propis)
+          const _recalcMine = (arr) => arr.forEach(m => {
+            const sid = m.sender_id !== undefined ? m.sender_id : m.userId;
+            if (sid !== undefined && sid !== null) {
+              m.mine = parseInt(sid, 10) === parseInt(currentUser.id, 10);
+            } else if (m.sender || m.sender_username || m.username) {
+              const sname = m.sender || m.sender_username || m.username;
+              m.mine = sname === currentUser.name || sname === currentUser.username;
+            }
+          });
+          _recalcMine(GENERAL_CHAT);
+          Object.values(CONVS).forEach(arr => { if (Array.isArray(arr)) _recalcMine(arr); });
           
           console.log('✅✅✅ CARGA COMPLETA: Todos los chats cargados desde keys SEPARADAS');
           return true;
@@ -9390,6 +9410,7 @@
           const msgs = convData(activeConvId);
           msgs.push({
             mine: true,
+            sender_id: currentUser.id,
             userId: currentUser.id,
             sender: currentUser.name,
             text: text,
@@ -10175,7 +10196,11 @@ ${dateStr} a las ${eventData.time}`,
             const exists = CONVS[participantUsername].messages.some(m => m.id === msg.id);
             if (!exists) {
               CONVS[participantUsername].messages.push({
-                mine: msg.sender_username === currentUser.name,
+                mine: (msg.sender_id !== undefined)
+                  ? parseInt(msg.sender_id, 10) === parseInt(currentUser.id, 10)
+                  : msg.sender_username === currentUser.name,
+                sender_id: msg.sender_id,
+                sender_username: msg.sender_username,
                 text: msg.text,
                 time: msg.timestamp ? msg.timestamp.split('T')[1].slice(0, 5) : nowTime(),
                 read: msg.read || false,
