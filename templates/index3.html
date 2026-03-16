@@ -8752,7 +8752,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:18px;flex-shrink:0">#</div>
           <div class="msg-conv-info">
             <div class="msg-conv-name" style="font-weight:600">Chat General</div>
-            <div class="msg-conv-preview">${generalLast ? (generalLast.mine ? "Tú: " : "") + (generalLast.text ? safeHtml(generalLast.text) : (generalLast.attachments && generalLast.attachments.length ? "📎 " + safeHtml(generalLast.attachments[0].name) : "")) : "Sin mensajes aún"}</div>
+            <div class="msg-conv-preview">${generalLast ? (isMe_for(generalLast) ? "Tú: " : "") + (generalLast.text ? safeHtml(generalLast.text) : (generalLast.attachments && generalLast.attachments.length ? "📎 " + safeHtml(generalLast.attachments[0].name) : "")) : "Sin mensajes aún"}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
             ${generalLast ? `<div class="msg-conv-time">${generalLast.time}</div>` : ""}
@@ -8779,7 +8779,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:18px;flex-shrink:0">${sedeInfo.icon}</div>
               <div class="msg-conv-info">
                 <div class="msg-conv-name" style="font-weight:600">${sedeInfo.name}</div>
-                <div class="msg-conv-preview">${last ? (last.mine ? "Tú: " : "") + (last.text ? safeHtml(last.text) : (last.attachments && last.attachments.length ? "📎 " + safeHtml(last.attachments[0].name) : "")) : "Sin mensajes aún"}</div>
+                <div class="msg-conv-preview">${last ? (isMe_for(last) ? "Tú: " : "") + (last.text ? safeHtml(last.text) : (last.attachments && last.attachments.length ? "📎 " + safeHtml(last.attachments[0].name) : "")) : "Sin mensajes aún"}</div>
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                 ${last ? `<div class="msg-conv-time">${last.time}</div>` : ""}
@@ -8808,7 +8808,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:12px;flex-shrink:0">${initials(u.name)}</div>
       <div class="msg-conv-info">
         <div class="msg-conv-name">${safeHtml(u.name)}</div>
-        <div class="msg-conv-preview">${last ? (last.mine ? "Tú: " : "") + (last.text ? safeHtml(last.text) : (last.attachments && last.attachments.length ? "📎 " + safeHtml(last.attachments[0].name) : "")) : "Inicia una conversación"}</div>
+        <div class="msg-conv-preview">${last ? (isMe_for(last) ? "Tú: " : "") + (last.text ? safeHtml(last.text) : (last.attachments && last.attachments.length ? "📎 " + safeHtml(last.attachments[0].name) : "")) : "Inicia una conversación"}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         ${last ? `<div class="msg-conv-time">${last.time}</div>` : ""}
@@ -8978,8 +8978,10 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         document.getElementById("msg-empty-state").style.display = "flex";
       }
 
-      function renderMsgs(otherId) {
+       function renderMsgs(otherId) {
         const msgs = convData(otherId);
+        // Recalcular mine en temps real per a l'usuari actual
+        msgs.forEach(m => { m.mine = isMe_for(m); });
         renderMsgsFromArray(msgs);
       }
       
