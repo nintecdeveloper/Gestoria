@@ -9126,10 +9126,11 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             console.log(`✅ Chat Vilassar guardado (${CONVS['sede_vilassar'].length} msgs)`);
           }
           
-          // Guardar otros CONVS (chats privados)
+         // Guardar otros CONVS (chats privados) — mai guardar el camp "mine"
+          const stripMine = arr => arr.map(({mine, ...rest}) => rest);
           Object.keys(CONVS).forEach(key => {
             if (key !== 'sede_mataro' && key !== 'sede_vilassar' && Array.isArray(CONVS[key])) {
-              localStorage.setItem(`convs_${key}`, JSON.stringify(CONVS[key]));
+              localStorage.setItem(`convs_${key}`, JSON.stringify(stripMine(CONVS[key])));
             }
           });
           
