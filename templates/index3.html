@@ -9228,7 +9228,12 @@ document.getElementById("nu-user").addEventListener("input", function() {
           validateDataSeparation();
           
           // ✅ RECALCULAR mine per a l'usuari actual (evita que missatges d'un altre usuari apareguin com a propis)
-         const _recalcMine = (arr) => arr.forEach(m => { m.mine = isMe_for(m); });
+          const _recalcMine = (arr) => arr.forEach(m => {
+           const wasmine = m.mine;
+           m.mine = isMe_for(m);
+           // Si era "meu" però ara és "rebut", l'ha guardat un altre usuari → no llegit
+           if (!m.mine && wasmine) m.read = false;
+         });
           _recalcMine(GENERAL_CHAT);
           Object.values(CONVS).forEach(arr => { if (Array.isArray(arr)) _recalcMine(arr); });
 
