@@ -5210,8 +5210,17 @@
           .replace(/"/g, "&quot;");
       }
 
-      function updateBadge() {
-        const n = totalUnread();
+    function updateBadge() {
+        // Privats
+        const nPrivat = totalUnread();
+        // General
+        const nGeneral = (GENERAL_CHAT || []).filter(m => !m.mine && !m.read).length;
+        // Sede
+        const nSede = Object.entries(CONVS)
+          .filter(([k]) => k.startsWith('sede_'))
+          .reduce((s, [, msgs]) => s + msgs.filter(m => !m.mine && !m.read).length, 0);
+        
+        const n = nPrivat + nGeneral + nSede;
         const b = document.getElementById("msg-badge");
         if (b) {
           b.textContent = n;
@@ -5223,7 +5232,6 @@
           g.style.display = gchatUnreadCount > 0 ? "" : "none";
         }
       }
-
       // ══════════════════════════════════════════
       //  NUEVO UTIL: Verificar solapamiento de citas para una persona
       //  Retorna el evento que se solapa, o null si no hay conflicto.
