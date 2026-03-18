@@ -4807,6 +4807,7 @@
             text: msg.text,
             time: time,
             date: date,
+            read: (msg.sender_username || '') === currentUser.name ? true : (activeConvId === 'general-chat'),
             attachments: msg.attachments || []
           };
           
@@ -4860,7 +4861,8 @@
               text: msg.text,
               time: time,
               date: date,
-              attachments: msg.attachments || []
+            read: (msg.sender_username || '') === currentUser.name ? true : (activeConvId === 'general-chat'),
+            attachments: msg.attachments || []
             });
           });
           
@@ -4975,7 +4977,7 @@
             text: msg.text,
             time: time,
             date: date,
-            read: false,
+            read: (msg.sender_username || '') === currentUser.name ? true : (activeSedeChat === sedeKey),
             sender_username: msg.sender_username,
             sender: msg.sender_username,
             sender_id: msg.sender_id,
@@ -10267,7 +10269,7 @@ ${dateStr} a las ${eventData.time}`,
               ? new Date(msg.timestamp).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', hour12:false})
               : nowTime(),
             date: msg.timestamp ? msg.timestamp.split('T')[0] : todayStr(),
-          read: isMine ? true : false,
+                    read: isMine ? true : (activeConvId === otherId),
             attachments: msg.attachments || [],
             id: msg.id
           });
@@ -10276,7 +10278,12 @@ ${dateStr} a las ${eventData.time}`,
         // Ordenar cronològicament per ID
         target.sort((a, b) => String(a.id) < String(b.id) ? -1 : 1);
 
-        if (activeConvId === otherId) {
+       if (activeConvId === otherId) {
+          // Marcar com llegits els missatges rebuts si la conversa és oberta
+          target.forEach(m => {
+            m.mine = isMe_for(m);
+            if (!m.mine) m.read = true;
+          });
           renderMsgs(otherId);
           // Actualitzar header amb el nom correcte
           const chatNameEl = document.getElementById('chat-name');
