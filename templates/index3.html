@@ -8437,25 +8437,47 @@ document.getElementById("nu-user").addEventListener("input", function() {
         document.getElementById("import-clients-btn").disabled = true;
       }
 
-      function importClientsFromExcel() {
+      async function importClientsFromExcel() {
         if (!pendingClientsToImport.length) return;
 
-        pendingClientsToImport.forEach(clientData => {
-          CLIENTS.push({
-            id: nextClientId++,
-            name: clientData.name,
-            email: clientData.email,
-            phone: clientData.phone,
-            address: clientData.address,
-            city: clientData.city,
-            cif: clientData.cif,
-            notes: clientData.notes,
-            createdAt: new Date().toISOString()
+        const btn = document.getElementById('import-clients-btn');
+        btn.disabled = true;
+        btn.textContent = 'Important...';
+
+        const file = document.getElementById('excel-file-input').files[0];
+        if (!file) {
+          alert('Selecciona un fitxer primer.');
+          btn.disabled = false;
+          btn.textContent = 'Importar';
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+          const res = await fetch('/api/clients/import', {
+            method: 'POST',
+            headers: { 'X-User-Role': currentUser.role },
+            body: formData
           });
-          
-          // ✅ AGREGAR ESTA LÍNEA:
-          recoverReminders();  // Recuperar recordatorios personales guardados
-        });
+          const data = await res.json();
+
+          if (data.ok) {
+            closeModal('import-clients-modal');
+            renderClients();
+            alert(`✅ Importació completada!\n\n• Nous clients: ${data.inserted}\n• Omesos (duplicats): ${data.skipped}${data.errors.length ? '\n\n⚠️ Errors:\n' + data.errors.join('\n') : ''}`);
+          } else {
+            alert(`❌ Error: ${data.error}`);
+          }
+        } catch (e) {
+          alert(`❌ Error de connexió: ${e.message}`);
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Importar';
+      }
+      
 
         pendingClientsToImport = [];
         closeModal("import-clients-modal");
