@@ -60,7 +60,28 @@ CALENDARIOS = {
         {'id': 103, 'nombre': 'Calendario Mercantil', 'tipo': 'mercantil', 'departamento': 'mercantil'},
     ]
 }
+# ═══════════════════════════════════════════════════════════════
+# UTILS — GENERACIÓ AUTOMÀTICA DE CONTRASENYES
+# ═══════════════════════════════════════════════════════════════
 
+import re
+
+def generar_password_username(username: str) -> str:
+    """
+    Genera una contrasenya automàtica a partir del username:
+    - Elimina '_' i qualsevol símbol que no sigui lletra o número
+    - Posa la primera lletra en majúscula
+    - Afegeix '123!' al final
+    Exemples:
+      'antonio'  → 'Antonio123!'
+      'anna_f'   → 'Annaf123!'
+      'anna_m'   → 'Annam123!'
+    """
+    net = re.sub(r'[^a-zA-Z0-9]', '', username)  # elimina '_' i símbols
+    if not net:
+        return 'User123!'
+    password = net[0].upper() + net[1:].lower() + '123!'
+    return password
 # ═══════════════════════════════════════════════════════════════
 # WHATSAPP — FUNCIONES DE ENVÍO
 # ═══════════════════════════════════════════════════════════════
@@ -789,7 +810,79 @@ def get_message_attachment(msg_id, filename):
     except Exception as e:
         logger.error(f"❌ Error al descargar adjunto: {str(e)}")
         return jsonify({'ok': False, 'error': str(e)}), 500
+# ═══════════════════════════════════════════════════════════════
+# API USUARIS — Llistar i crear
+# ═══════════════════════════════════════════════════════════════
 
+@app.route('/api/usuarios', methods=['GET'])
+def get_usuarios():
+    """Retorna la llista d'usuaris (sense contrasenya)"""
+    return jsonify({'ok': True, 'usuarios': USUARIOS})
+
+@app.route('/api/usuarios', methods=['POST'])
+def crear_usuario():
+    """
+    Crea un nou usuari amb contrasenya generada automàticament.
+    Body JSON esperat:
+      {
+        "username": "anna_m",       ← obligatori, per generar la contrasenya
+        "nombre":   "Anna Martí",   ← obligatori
+        "email":    "anna@...",     ← obligatori
+        "departamento": "fiscal",   ← obligatori
+        "rol":      "user",         ← opcional, default "user"
+        "sede":     "Vilassar"      ← obligatori
+      }
+    Retorna el nou usuari + la contrasenya generada.
+    """
+    data = request.get_json(silent=True) or {}
+
+    username     = data.get('username', '').strip()
+    nombre       = data.get('nombre', '').strip()
+    email        = data.get('email', '').strip()
+    departamento = data.get('departamento', '').strip()
+    rol          = data.get('rol', 'user').strip()
+    sede         = data.get('sede', '').strip()
+
+    # Validació camps obligatoris
+    if not username or not nombre or not email or not departamento or not sede:
+        return jsonify({
+            'ok': False,
+            'error': 'Falten camps obligatoris: username, nombre, email, departamento, sede'
+        }), 400
+
+    # Comprovar que el username no existeixi ja
+    usernames_existents = [u.get('username', '').lower() for u in USUARIOS if 'username' in u]
+    if username.lower() in usernames_existents:
+        return jsonify({'ok': False, 'error': f"El username '{username}' ja existeix"}), 409
+
+    # Generar contrasenya automàtica
+    password = generar_password_username(username)
+
+    # Generar nou ID (el màxim actual + 1)
+    nou_id = max((u['id'] for u in USUARIOS), default=0) + 1
+
+    nou_usuari = {
+        'id':           nou_id,
+        'username':     username,
+        'nombre':       nombre,
+        'email':        email,
+        'departamento': departamento,
+        'rol':          rol,
+        'sede':         sede,
+        'password':     password   # ← contrasenya generada automàticament
+    }
+
+    USUARIOS.append(nou_usuari)
+    logger.info(f"✅ [Usuari] Creat: {nombre} (username: {username}, pass: {password})")
+
+    # Crear chats de sede automàticament
+    create_seat_chats(nou_id, nombre, sede)
+
+    return jsonify({
+        'ok':      True,
+        'usuario': nou_usuari,
+        'password_generada': password   # ← es mostra un sol cop, aquí
+    }), 201
 # ═══════════════════════════════════════════════════════════════
 # API WHATSAPP — ENVÍO AUTOMÁTICO
 # ═══════════════════════════════════════════════════════════════
