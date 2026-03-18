@@ -7793,7 +7793,12 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         
         document.getElementById("users-table-body").innerHTML = htmlContent;
       }
-
+/** Genera contrasenya automàtica a partir del username */
+function generarPasswordUsername(username) {
+  const net = username.replace(/[^a-zA-Z0-9]/g, ''); // elimina '_' i símbols
+  if (!net) return 'User123!';
+  return net[0].toUpperCase() + net.slice(1).toLowerCase() + '123!';
+}
       function openUserModal() {
         editingUserId = null;
         document.getElementById("user-modal-title").textContent = "Nuevo usuario";
@@ -7836,7 +7841,13 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       function selectUserColor(colorId) {
         renderColorPicker(colorId);
       }
-
+// Auto-generar contrasenya quan es canvia el username (només en creació)
+document.getElementById("nu-user").addEventListener("input", function() {
+  if (editingUserId === null) {  // només en nou usuari, no en edició
+    const passField = document.getElementById("nu-pass");
+    passField.value = generarPasswordUsername(this.value.trim());
+  }
+});
       document.getElementById("nu-role").addEventListener("change", function() {
         document.getElementById("nu-dept-group").style.display = this.value === "admin" ? "none" : "";
       });
@@ -7885,10 +7896,10 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           errEl.style.display = "";
           return;
         }
-        if (editingUserId === null && !pass) {
-          errEl.textContent = "La contraseña es obligatoria.";
-          errEl.style.display = "";
-          return;
+        // Si és un usuari nou i el camp és buit, generar automàticament
+        const finalPass = (editingUserId === null && !pass)
+          ? generarPasswordUsername(uname)
+          : pass;
         }
         if (role !== "admin" && !dept) {
           errEl.textContent = "El departamento es obligatorio para empleados.";
@@ -7928,7 +7939,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           USERS.push({
             id: nextUserId++,
             username: uname,
-            password: pass,
+          password: finalPass,
             name,
             role,
             departamento: role !== "admin" ? dept : null,
