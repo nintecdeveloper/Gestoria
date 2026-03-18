@@ -7860,7 +7860,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         document.getElementById("nu-save-btn").textContent = "Guardar cambios";
         document.getElementById("nu-name").value = u.name;
         document.getElementById("nu-user").value = u.username;
-        document.getElementById("nu-pass").value = "";
+        document.getElementById("nu-pass").value = u.password || "";
         document.getElementById("nu-email").value = u.email || "";
         document.getElementById("nu-phone").value = u.phone || "";
         document.getElementById("nu-role").value = u.role;
