@@ -5379,6 +5379,13 @@
           return;
         }
         document.getElementById("login-error").style.display = "none";
+    // Netejar missatges d'una sessió anterior
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('convs_') || key === 'general_chat_data' || 
+              key === 'sede_mataro_data' || key === 'sede_vilassar_data') {
+            localStorage.removeItem(key);
+          }
+        }); 
        currentUser = found;
 document.getElementById("login-screen").style.display = "none";
 document.getElementById("app").style.display = "flex";
@@ -5392,7 +5399,13 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       function doLogout() {
         // NO esborrem localStorage: els missatges es conserven per a la propera sessió
         // _recalcMine s'encarrega de recalcular correctament qui és "mine" per a cada usuari
-        
+        // Netejar missatges del localStorage al sortir
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('convs_') || key === 'general_chat_data' || 
+              key === 'sede_mataro_data' || key === 'sede_vilassar_data') {
+            localStorage.removeItem(key);
+          }
+        });
         currentUser = null;
         activeConvId = null;
         activeSedeChat = null;
