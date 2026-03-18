@@ -7900,7 +7900,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         const finalPass = (editingUserId === null && !pass)
           ? generarPasswordUsername(uname)
           : pass;
-        }
+        
         if (role !== "admin" && !dept) {
           errEl.textContent = "El departamento es obligatorio para empleados.";
           errEl.style.display = "";
