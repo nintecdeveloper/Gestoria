@@ -4918,7 +4918,7 @@
               text: msg.text,
               time: time,
               date: date,
-              read: true,
+              read: (msg.sender_username || '') === currentUser.name ? true : (activeSedeChat === sedeKey),
               attachments: msg.attachments || []
             });
           });
@@ -8811,7 +8811,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         });
         
         // Conversaciones privadas
-        const others = USERS.filter((u) => u.id !== currentUser.id && u.active);
+      const others = USERS.filter((u) => u.id !== currentUser.id && u.active);
         const filtered = filter
           ? others.filter(
               (u) =>
@@ -8820,6 +8820,14 @@ document.getElementById("nu-user").addEventListener("input", function() {
             )
           : others;
 
+        // Ordenar per missatge més recent a dalt
+        filtered.sort((a, b) => {
+          const msgsA = convData(a.id);
+          const msgsB = convData(b.id);
+          const lastA = msgsA.length ? msgsA[msgsA.length - 1].id || '' : '';
+          const lastB = msgsB.length ? msgsB[msgsB.length - 1].id || '' : '';
+          return String(lastB) > String(lastA) ? 1 : -1;
+        });
         const privateChatsHtml = filtered
           .map((u) => {
             const msgs = convData(u.id);
@@ -10223,7 +10231,7 @@ ${dateStr} a las ${eventData.time}`,
               ? new Date(msg.timestamp).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', hour12:false})
               : nowTime(),
             date: msg.timestamp ? msg.timestamp.split('T')[0] : todayStr(),
-            read: true,
+           read: isMine ? true : (activeConvId === otherId),
             attachments: msg.attachments || [],
             id: msg.id
           });
