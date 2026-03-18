@@ -4918,7 +4918,7 @@
               text: msg.text,
               time: time,
               date: date,
-              read: (msg.sender_username || '') === currentUser.name ? true : (activeSedeChat === sedeKey),
+              read: (msg.sender_username || '') === currentUser.name ? true : false,
               attachments: msg.attachments || []
             });
           });
