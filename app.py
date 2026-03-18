@@ -4,10 +4,11 @@ from flask import Flask, render_template, jsonify, request, send_file
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
 from io import BytesIO
+import io
 import requests
 import logging
 import base64
-
+import pandas as pd 
 # ═══════════════════════════════════════════════════════════════
 # LOGGING — CONFIGURACIÓN INMEDIATA
 # ═══════════════════════════════════════════════════════════════
@@ -886,7 +887,119 @@ def crear_usuario():
 # ═══════════════════════════════════════════════════════════════
 # API WHATSAPP — ENVÍO AUTOMÁTICO
 # ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
+# API CLIENTS — Importació des d'Excel/CSV a PostgreSQL
+# ═══════════════════════════════════════════════════════════════
 
+import psycopg2
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+def get_db_connection():
+    """Connecta a PostgreSQL via DATABASE_URL"""
+    return psycopg2.connect(DATABASE_URL)
+
+def clean_phone(phone):
+    """Neteja telèfons: elimina parèntesis, espais, guions"""
+    if not phone:
+        return ''
+    return re.sub(r'[^\d+]', '', str(phone))
+
+@app.route('/api/clients/import', methods=['POST'])
+def import_clients_db():
+    """Importa clients des d'Excel o CSV a PostgreSQL. Només admins."""
+
+    # Seguretat: només admins
+    user_role = request.headers.get('X-User-Role', '')
+    if user_role != 'admin':
+        return jsonify({'ok': False, 'error': 'Accés denegat. Només administradors.'}), 403
+
+    if 'file' not in request.files:
+        return jsonify({'ok': False, 'error': 'Cap fitxer rebut.'}), 400
+
+    f = request.files['file']
+    if not f.filename:
+        return jsonify({'ok': False, 'error': 'Nom de fitxer buit.'}), 400
+
+    filename = f.filename.lower()
+    try:
+        if filename.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(f.read()), dtype=str)
+        elif filename.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(io.BytesIO(f.read()), dtype=str)
+        else:
+            return jsonify({'ok': False, 'error': 'Format no suportat. Usa CSV o Excel.'}), 400
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'Error llegint fitxer: {str(e)}'}), 400
+
+    # Normalitzar noms de columnes
+    df.columns = [c.strip().lower().replace(' ', '_') for c in df.columns]
+
+    def find_col(options):
+        for opt in options:
+            if opt in df.columns:
+                return opt
+        return None
+
+    inserted = 0
+    skipped = 0
+    errors = []
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        for idx, row in df.iterrows():
+            try:
+                nombre_col   = find_col(['nombre', 'nom', 'name'])
+                telefono_col = find_col(['número_de_teléfono', 'numero_de_telefono', 'telefono', 'telèfon', 'phone', 'tel', 'móvil', 'movil'])
+                email_col    = find_col(['email', 'correu', 'mail'])
+                dir_col      = find_col(['dirección', 'direccion', 'address', 'adreça'])
+                ciudad_col   = find_col(['ciudad', 'ciutat', 'city'])
+                cif_col      = find_col(['cif', 'nif'])
+                notas_col    = find_col(['notas', 'notes', 'comentaris'])
+
+                nombre   = str(row[nombre_col]).strip()   if nombre_col   and pd.notna(row[nombre_col])   else ''
+                telefono = clean_phone(row[telefono_col]) if telefono_col and pd.notna(row[telefono_col]) else ''
+                email    = str(row[email_col]).strip()    if email_col    and pd.notna(row[email_col])    else ''
+                direccion= str(row[dir_col]).strip()      if dir_col      and pd.notna(row[dir_col])      else ''
+                ciudad   = str(row[ciudad_col]).strip()   if ciudad_col   and pd.notna(row[ciudad_col])   else ''
+                cif      = str(row[cif_col]).strip()      if cif_col      and pd.notna(row[cif_col])      else ''
+                notas    = str(row[notas_col]).strip()    if notas_col    and pd.notna(row[notas_col])    else ''
+
+                if not nombre:
+                    skipped += 1
+                    continue
+
+                cur.execute("""
+                    INSERT INTO clients (nombre, telefono, email, direccion, ciudad, cif, notas, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (telefono) DO NOTHING
+                """, (nombre, telefono or None, email, direccion, ciudad, cif, notas))
+
+                if cur.rowcount > 0:
+                    inserted += 1
+                else:
+                    skipped += 1
+
+            except Exception as row_err:
+                errors.append(f'Fila {idx + 2}: {str(row_err)}')
+                skipped += 1
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'Error de base de dades: {str(e)}'}), 500
+
+    logger.info(f"📥 [Import Clients] {inserted} inserits, {skipped} omesos")
+    return jsonify({
+        'ok': True,
+        'inserted': inserted,
+        'skipped': skipped,
+        'errors': errors[:10]
+    })
 @app.route('/api/whatsapp/send', methods=['POST'])
 def send_whatsapp():
     """Envía un mensaje de WhatsApp"""
