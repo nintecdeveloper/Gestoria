@@ -8935,8 +8935,9 @@ document.getElementById("nu-user").addEventListener("input", function() {
         const other = USERS.find((u) => u.id === otherId);
         if (!other) return;
         
-        // Marcar todos los mensajes como leídos
+        // Recalcular mine i marcar com llegits
         convData(otherId).forEach((m) => {
+          m.mine = isMe_for(m);  // recalcular primer
           if (!m.mine) m.read = true;
         });
         
