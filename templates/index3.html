@@ -3954,7 +3954,7 @@
           </div>
           <div class="form-group">
             <label>Contraseña *</label
-            ><input type="password" id="nu-pass" placeholder="••••••••" />
+           ><input type="text" id="nu-pass" placeholder="••••••••" />
           </div>
         </div>
         <div class="form-group">
@@ -7949,6 +7949,24 @@ document.getElementById("nu-user").addEventListener("input", function() {
             sede, // NUEVO: agregar sede a nuevos usuarios
             color,
           });
+          // Guardar al backend
+        fetch('/api/usuarios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: uname,
+            nombre: name,
+            email: email,
+            departamento: dept || 'admin',
+            rol: role,
+            sede: sede
+          })
+        }).then(r => r.json()).then(data => {
+          console.log('✅ Usuari guardat al backend:', data);
+        }).catch(e => console.error('❌ Error guardant usuari:', e));
+        }
+         if (editingUserId === null) {
+          alert(`✅ Usuari creat!\n\nUsuari: ${uname}\nContrasenya: ${finalPass}\n\nGuarda-la abans de continuar.`);
         }
         closeModal("user-modal");
         renderUsers();
