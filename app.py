@@ -994,7 +994,7 @@ def import_clients_db():
         for idx, row in df.iterrows():
             try:
                 nombre_col   = find_col(['nombre', 'nom', 'name'])
-                telefono_col = find_col(['número_de_teléfono', 'numero_de_telefono', 'telefono', 'telèfon', 'phone', 'tel', 'móvil', 'movil'])
+                telefono_col = find_col(['número_de_teléfono', 'numero_de_telefono', 'telefono', 'telèfon', 'phone', 'tel', 'móvil', 'movil', 'teléfono 1', 'telefono 1', 'telèfon 1'])
                 email_col    = find_col(['email', 'correu', 'mail'])
                 dir_col      = find_col(['dirección', 'direccion', 'address', 'adreça'])
                 ciudad_col   = find_col(['ciudad', 'ciutat', 'city'])
