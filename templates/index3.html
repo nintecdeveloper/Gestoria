@@ -5501,10 +5501,17 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
        // Cargar mensajes guardados desde localStorage
         // (_recalcMine recalcula "mine" per a l'usuari actual, no cal esborrar)
         // ════════════════════════════════════════════════════════════
-        loadMessagesFromStorage();
+       loadMessagesFromStorage();
         
         // ✅ FIX CRÍTICO: Validar separación de datos después de cargar
         validateDataSeparation();
+        
+      // Actualitzar badges i llista de missatges després de carregar
+        updateBadge();
+        buildMsgList('');
+        // Tornar a actualitzar quan arribin els històrics del servidor (async)
+        setTimeout(() => { updateBadge(); buildMsgList(''); }, 1500);
+        setTimeout(() => { updateBadge(); buildMsgList(''); }, 3000);
         
         // Inicializar socket.io para mensajería en tiempo real
         setTimeout(() => {
@@ -8821,12 +8828,16 @@ document.getElementById("nu-user").addEventListener("input", function() {
           : others;
 
         // Ordenar per missatge més recent a dalt
-        filtered.sort((a, b) => {
+      filtered.sort((a, b) => {
           const msgsA = convData(a.id);
           const msgsB = convData(b.id);
-          const lastA = msgsA.length ? msgsA[msgsA.length - 1].id || '' : '';
-          const lastB = msgsB.length ? msgsB[msgsB.length - 1].id || '' : '';
-          return String(lastB) > String(lastA) ? 1 : -1;
+          // Usar timestamp del últim missatge, o 0 si no n'hi ha
+          const lastA = msgsA.length ? (msgsA[msgsA.length - 1].time || '') : '';
+          const lastB = msgsB.length ? (msgsB[msgsB.length - 1].time || '') : '';
+          // Ordenar per data+hora: més recent a dalt
+          const dateA = msgsA.length ? (msgsA[msgsA.length - 1].date || '0000') + lastA : '0';
+          const dateB = msgsB.length ? (msgsB[msgsB.length - 1].date || '0000') + lastB : '0';
+          return dateB > dateA ? 1 : -1;
         });
         const privateChatsHtml = filtered
           .map((u) => {
@@ -9128,7 +9139,10 @@ document.getElementById("nu-user").addEventListener("input", function() {
           // NUNCA usar un JSON compartido, guardar cada chat en su propia key
           
              // Guardar tots els chats SENSE el camp "mine"
-          const stripMine = arr => arr.map(({ mine, ...rest }) => rest);
+           const stripMine = arr => arr.map(m => ({
+            ...m,
+            mine: (m.sender_username || '') === currentUser.name
+          }));
           if (Array.isArray(GENERAL_CHAT)) {
             localStorage.setItem('general_chat_data', JSON.stringify(stripMine(GENERAL_CHAT)));
           }
@@ -9206,9 +9220,14 @@ document.getElementById("nu-user").addEventListener("input", function() {
           validateDataSeparation();
           
           // ✅ RECALCULAR mine per a l'usuari actual (evita que missatges d'un altre usuari apareguin com a propis)
-          const _recalcMine = (arr) => arr.forEach(m => { m.mine = isMe_for(m); });
+         const _recalcMine = (arr) => arr.forEach(m => { m.mine = isMe_for(m); });
           _recalcMine(GENERAL_CHAT);
           Object.values(CONVS).forEach(arr => { if (Array.isArray(arr)) _recalcMine(arr); });
+
+          // Recalcular read: missatges rebuts (no meus) es marquen com no llegits en carregar
+          const _recalcRead = (arr) => arr.forEach(m => { if (!m.mine) m.read = false; });
+          _recalcRead(GENERAL_CHAT);
+          Object.values(CONVS).forEach(arr => { if (Array.isArray(arr)) _recalcRead(arr); });
           
           console.log('✅✅✅ CARGA COMPLETA: Todos los chats cargados desde keys SEPARADAS');
           return true;
