@@ -8375,13 +8375,14 @@ document.getElementById("nu-user").addEventListener("input", function() {
           ).toString().trim();
 
           // Teléfono: acepta variantes con y sin tilde, en inglés, etc.
-          const phone = (
+         const phone = (
             row['Número de Teléfono'] || row['Numero de Telefono'] ||
             row['Número de telefono'] || row['numero de telefono'] ||
             row['Teléfono'] || row['Telefono'] || row['telefono'] ||
             row['TELÉFONO'] || row['Phone']    || row['phone']    ||
             row['Tel']      || row['tel']      || row['Móvil']    ||
-            row['movil']    || row['Mobile']   || row['mobile']   || ""
+            row['movil']    || row['Mobile']   || row['mobile']   ||
+            row['Teléfono 1'] || row['Telefono 1'] || row['teléfono 1'] || ""
           ).toString().trim();
 
           return {
