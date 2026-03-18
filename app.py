@@ -891,7 +891,12 @@ def crear_usuario():
 # API CLIENTS — Importació des d'Excel/CSV a PostgreSQL
 # ═══════════════════════════════════════════════════════════════
 
-import psycopg2
+try:
+    import psycopg2
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
+    logger.warning("⚠️ psycopg2 no disponible. Importació de clients desactivada.")
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
@@ -944,7 +949,8 @@ def import_clients_db():
     inserted = 0
     skipped = 0
     errors = []
-
+    if not PSYCOPG2_AVAILABLE:
+        return jsonify({'ok': False, 'error': 'psycopg2 no instal·lat al servidor.'}), 500
     try:
         conn = get_db_connection()
         cur = conn.cursor()
