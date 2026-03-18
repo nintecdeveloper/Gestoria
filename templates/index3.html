@@ -4759,8 +4759,8 @@
           updateBadge();
           buildMsgList(document.getElementById("msg-search-inp")?.value || '');
           if (document.getElementById('section-dashboard')?.classList.contains('active')) {
-            renderDashboard();
-          }
+          renderDashboard();
+        }
         });
         
         // ✅ RECIBIR NOTIFICACIÓN DE MENSAJE PRIVADO
@@ -4820,9 +4820,12 @@
           }
           
           saveMessagesToStorage();
-          updateBadge();
-          buildMsgList(document.getElementById("msg-search-inp")?.value || '');
-        });
+            updateBadge();
+            buildMsgList(document.getElementById("msg-search-inp")?.value || '');
+            if (document.getElementById('section-dashboard')?.classList.contains('active')) {
+              renderDashboard();
+            }
+          });
         
         // ✅ RECIBIR HISTÓRICO DE CHAT GENERAL AL CONECTAR
         socket.on('load_general_history', function(data) {
@@ -4994,9 +4997,12 @@
           }
           
           saveMessagesToStorage();
-          updateBadge();
-          buildMsgList(document.getElementById("msg-search-inp")?.value || '');
-        });
+            updateBadge();
+            buildMsgList(document.getElementById("msg-search-inp")?.value || '');
+            if (document.getElementById('section-dashboard')?.classList.contains('active')) {
+              renderDashboard();
+            }
+          });
         
         socket.on('notification_received', function(notif) {
           showNotification(notif.title || 'Notificación', notif.message);
@@ -5927,46 +5933,86 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               .join("")
           : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">Sin citas pendientes.</div>';
 
-        // Renderizar mensajes directos pendientes (no leídos, dirigidos al usuario actual)
+      // Renderizar mensajes pendientes — privats, general i sede
         const pendingMsgs = [];
-        // Buscar en CONVS usando claves de username (socket) y claves numéricas (legacy)
-        USERS.filter(u => u.id !== currentUser.id && u.active).forEach(u => {
-          // Clave legacy numérica
-          const legacyKey = convKey(currentUser.id, u.id);
-          const legacyMsgs = Array.isArray(CONVS[legacyKey]) ? CONVS[legacyKey] : [];
-          const legacyUnread = legacyMsgs.filter(m => !m.mine && !m.read);
-          // Clave de username (socket)
-          const usernameKey = u.name;
-          const socketMsgs = Array.isArray(CONVS[usernameKey]) ? CONVS[usernameKey].filter(m => !m.mine) : [];
-          const socketUnread = socketMsgs.filter(m => !m.read);
 
-          const totalUnreadMsgs = [...legacyUnread, ...socketUnread];
-          if (totalUnreadMsgs.length > 0) {
-            const lastMsg = totalUnreadMsgs[totalUnreadMsgs.length - 1];
+        // 1. PRIVATS — usar convData() que és la font de veritat
+        USERS.filter(u => u.id !== currentUser.id && u.active).forEach(u => {
+          const msgs = convData(u.id);
+          const unread = msgs.filter(m => !m.mine && !m.read);
+          if (unread.length > 0) {
+            const last = unread[unread.length - 1];
             pendingMsgs.push({
+              type: 'private',
               userId: u.id,
               name: u.name,
-              count: totalUnreadMsgs.length,
-              preview: lastMsg.text ? lastMsg.text.slice(0, 60) : '📎 Adjunto',
-              time: lastMsg.time || ''
+              count: unread.length,
+              preview: last.text ? last.text.slice(0, 60) : '📎 Adjunto',
+              time: last.time || ''
             });
           }
         });
 
+        // 2. GENERAL
+        const generalUnread = (GENERAL_CHAT || []).filter(m => !m.mine && !m.read);
+        if (generalUnread.length > 0) {
+          const last = generalUnread[generalUnread.length - 1];
+          pendingMsgs.push({
+            type: 'general',
+            userId: null,
+            name: 'Chat General',
+            count: generalUnread.length,
+            preview: last.text ? last.text.slice(0, 60) : '📎 Adjunto',
+            time: last.time || ''
+          });
+        }
+
+        // 3. SEDE
+        Object.entries(CONVS).filter(([k]) => k.startsWith('sede_')).forEach(([key, msgs]) => {
+          const unread = (msgs || []).filter(m => !m.mine && !m.read);
+          if (unread.length > 0) {
+            const last = unread[unread.length - 1];
+            const sedeName = key === 'sede_mataro' ? 'Chat Mataró' : 'Chat Vilassar';
+            pendingMsgs.push({
+              type: 'sede',
+              sedeKey: key.replace('sede_', ''),
+              userId: null,
+              name: sedeName,
+              count: unread.length,
+              preview: last.text ? last.text.slice(0, 60) : '📎 Adjunto',
+              time: last.time || ''
+            });
+          }
+        });
+
+        // Ordenar per hora (més recent a dalt)
+        pendingMsgs.sort((a, b) => b.time > a.time ? 1 : -1);
+
         const pendingMsgsHtml = pendingMsgs.length > 0
-          ? pendingMsgs.map(msg => `
-            <div class="task-item" onclick="showSection('messages'); openConv(${msg.userId})" style="cursor:pointer">
-              <div class="t-dot amber"></div>
-              <div style="flex:1;min-width:0">
-                <div class="t-title" style="display:flex;align-items:center;gap:6px">
-                  ${safeHtml(msg.name)}
-                  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent2);flex-shrink:0" title="${msg.count} sin leer"></span>
-                </div>
-                <div class="t-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">"${safeHtml(msg.preview)}"</div>
-              </div>
-              <span class="tag tag-gray" style="white-space:nowrap;flex-shrink:0">${msg.time}</span>
-            </div>
-          `).join("")
+          ? pendingMsgs.map(msg => {
+              const onclick = msg.type === 'private'
+                ? `showSection('messages'); openConv(${msg.userId})`
+                : msg.type === 'general'
+                  ? `showSection('messages'); openGeneralChat()`
+                  : `showSection('messages'); openSedeChat('${msg.sedeKey}')`;
+              return `
+                <div class="task-item" onclick="${onclick}" style="cursor:pointer">
+                  <div class="t-dot amber"></div>
+                  <div style="flex:1;min-width:0">
+                    <div class="t-title" style="display:flex;align-items:center;gap:6px">
+                      ${safeHtml(msg.name)}
+                      <span style="
+                        display:inline-flex;align-items:center;justify-content:center;
+                        min-width:18px;height:18px;padding:0 5px;border-radius:9px;
+                        background:var(--accent2);color:#fff;font-size:11px;font-weight:700;
+                        flex-shrink:0
+                      ">${msg.count}</span>
+                    </div>
+                    <div class="t-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">${safeHtml(msg.preview)}</div>
+                  </div>
+                  <span class="tag tag-gray" style="white-space:nowrap;flex-shrink:0">${msg.time}</span>
+                </div>`;
+            }).join("")
           : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">No hay mensajes pendientes.</div>';
 
         document.getElementById("pending-messages").innerHTML = pendingMsgsHtml;
@@ -8440,7 +8486,8 @@ document.getElementById("nu-user").addEventListener("input", function() {
         });
         
         // Guardar en localStorage para persistencia
-        saveMessagesToStorage();
+      saveMessagesToStorage();
+        renderDashboard();
         
         updateBadge();
         buildMsgList(document.getElementById("msg-search-inp").value);
@@ -8946,6 +8993,8 @@ document.getElementById("nu-user").addEventListener("input", function() {
         
         // Guardar en localStorage para persistencia
         saveMessagesToStorage();
+        renderDashboard();        
+       
         
         updateBadge();
         buildMsgList(document.getElementById("msg-search-inp").value);
@@ -8996,6 +9045,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         // Marcar como leído
         CONVS[`sede_${sedeKey}`].forEach(m => { if (!m.mine) m.read = true; });
         saveMessagesToStorage();
+        renderDashboard();
         updateBadge();
         buildMsgList(document.getElementById("msg-search-inp").value);
         
