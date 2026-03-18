@@ -10234,8 +10234,13 @@ ${dateStr} a las ${eventData.time}`,
         if (!allMsgs.length) return;
 
         const target = convData(otherId);
-        allMsgs.forEach(msg => {
-          if (target.some(m => m.id === msg.id)) return; // evitar duplicats
+      allMsgs.forEach(msg => {
+          const existing = target.find(m => m.id === msg.id);
+          if (existing) {
+            // Si ja existeix, actualitzar però respectar el read actual
+            // (no sobreescriure read:false amb read:true)
+            return;
+          }
           const isMine = (msg.sender_username || '') === currentUser.name;
           target.push({
             mine: isMine,
@@ -10247,7 +10252,7 @@ ${dateStr} a las ${eventData.time}`,
               ? new Date(msg.timestamp).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', hour12:false})
               : nowTime(),
             date: msg.timestamp ? msg.timestamp.split('T')[0] : todayStr(),
-           read: isMine ? true : (activeConvId === otherId),
+          read: isMine ? true : false,
             attachments: msg.attachments || [],
             id: msg.id
           });
