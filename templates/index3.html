@@ -5225,7 +5225,13 @@
         const nGeneral = (GENERAL_CHAT || []).filter(m => !m.mine && !m.read).length;
         // Sede
         const nSede = Object.entries(CONVS)
-          .filter(([k]) => k.startsWith('sede_'))
+          .filter(([k]) => {
+            if (!k.startsWith('sede_')) return false;
+            if (currentUser.role === 'admin') return true;
+            const sedeKey = k.replace('sede_', '');
+            const sedeInfo = SEDE_CHATS[sedeKey];
+            return sedeInfo && sedeInfo.sede === currentUser.sede;
+          })
           .reduce((s, [, msgs]) => s + msgs.filter(m => !m.mine && !m.read).length, 0);
         
         const n = nPrivat + nGeneral + nSede;
