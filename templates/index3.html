@@ -6891,9 +6891,15 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           assignedTo = currentUser.id;
         }
         
-      // Si el dropdown és visible però no s'ha seleccionat, assignar a l'usuari actual
+      // Si el dropdown és visible però no s'ha seleccionat
         if (hasEmployeeDropdown && !assignedTo) {
-          assignedTo = currentUser.id;
+          // Si hi ha filterParam de departament, intentar agafar el primer usuari del departament
+          if (currentEventFilterParam && ['laboral','fiscal','mercantil'].includes(currentEventFilterParam)) {
+            const firstDeptUser = USERS.find(u => u.active && u.departamento === currentEventFilterParam);
+            assignedTo = firstDeptUser ? firstDeptUser.id : currentUser.id;
+          } else {
+            assignedTo = currentUser.id;
+          }
         }
 
         // Validar que el tècnic assignat existeix
@@ -7083,7 +7089,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const isAdmin = currentUser.role === "admin";
         
         // ✅ CAMBIO 6: FILTRAR POR DEPARTAMENTO Y SEDE
-        let deptUsers = USERS.filter(u => u.departamento === dept && u.active);
+        let deptUsers = USERS.filter(u => u.active && (u.departamento === dept || (isAdmin && u.id === currentUser.id)));
         
         // ✅ NUEVO: Obtener filtro de sede y aplicarlo
         const sideFilterSel = document.getElementById("dept-" + dept + "-filter-sede");
