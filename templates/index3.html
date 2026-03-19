@@ -6702,9 +6702,14 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           } else if (filterLower === 'mataro' || filterLower === 'mataró') {
             usersToShow = usersToShow.filter(u => u.sede === 'Mataró');
           } else if (filterDept && DEPT_LIST.includes(filterLower)) {
-            usersToShow = usersToShow.filter(u => u.departamento === filterLower);
+            const deptUsers = usersToShow.filter(u => u.departamento === filterLower);
+            // Si no hi ha usuaris al departament, mostrar tots els actius
+            usersToShow = deptUsers.length > 0 ? deptUsers : usersToShow;
           } else {
-            usersToShow = usersToShow.filter(u => u.sede === currentUser.sede);
+            // Sense filtre: admins veuen tots, no-admins veuen la seva seu
+            if (!isAdmin) {
+              usersToShow = usersToShow.filter(u => u.sede === currentUser.sede);
+            }
           }
           
           employeeSelect.innerHTML = 
@@ -6865,7 +6870,11 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           errEl.style.display = "";
           return;
         }
-        errEl.textContent = "La fecha es obligatoria.";
+        if (!time) {
+          errEl.textContent = "La hora es obligatoria.";
+          errEl.style.display = "";
+          return;
+        }
         errEl.style.display = "none";
         const isAdmin = currentUser.role === "admin";
         
@@ -6882,11 +6891,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           assignedTo = currentUser.id;
         }
         
-        // Validar que s'ha seleccionat un empleat quan el desplegable és visible
+      // Si el dropdown és visible però no s'ha seleccionat, assignar a l'usuari actual
         if (hasEmployeeDropdown && !assignedTo) {
-          errEl.textContent = "Selecciona un empleado para asignar la cita.";
-          errEl.style.display = "";
-          return;
+          assignedTo = currentUser.id;
         }
 
         // Validar que el tècnic assignat existeix
