@@ -6687,16 +6687,16 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           const SEDE_LIST = ['Mataró', 'Vilassar'];
           const DEPT_LIST = ['laboral', 'fiscal', 'mercantil'];
           
-          // CAMBIO 2A: Admin SOLO puede asignar a empleados de su misma sede
-          usersToShow = usersToShow.filter(u => u.sede === currentUser.sede);
+         // Si el filterParam és una seu concreta, filtrar per aquella seu
+          // Si no, filtrar per la seu del admin
+          const sedeToFilter = (filterDept && SEDE_LIST.includes(filterDept)) 
+            ? filterDept 
+            : currentUser.sede;
+          usersToShow = usersToShow.filter(u => u.sede === sedeToFilter);
           
-          // Si se llama desde calendario departamental, FILTRAR POR DEPTO TAMBIEN
+          // Si es departamental, filtrar també per departament
           if (filterDept && DEPT_LIST.includes(filterDept)) {
-            // ✅ Filtrar por departamento solicitado (y sede del admin)
             usersToShow = usersToShow.filter(u => u.departamento === filterDept);
-          } else if (filterDept && SEDE_LIST.includes(filterDept)) {
-            // Si es una sede, ya está filtrada arriba
-            usersToShow = usersToShow.filter(u => u.sede === filterDept);
           }
           
           employeeSelect.innerHTML = usersToShow
