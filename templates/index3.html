@@ -4677,10 +4677,11 @@
           // Notificar al servidor que el usuario se conectó
           if (currentUser) {
             socket.emit('user_login', {
-              username: currentUser.name,
-              userId: currentUser.id,
-              sede: currentUser.sede
-            });
+  username: currentUser.name,
+  userId: currentUser.id,
+  sede: currentUser.sede,
+  role: currentUser.role
+});
             // Precarregar historial privat — esperar 1.5s per assegurar que
             // el backend ha processat el user_login i entregat els pendents
             setTimeout(() => {
