@@ -3810,8 +3810,11 @@
               <span style="font-size:10px;margin-left:2px">▼</span>
             </button>
             <div class="wa-dropdown" id="ev-wa-dropdown">
-              <div class="wa-dropdown-title">Cuándo enviar al cliente</div>
-              <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', 'now', 'Ahora mismo', this)">
+             <div class="wa-dropdown-title">Cuándo enviar al cliente</div>
+              <div class="wa-dropdown-opt" onclick="clearWaReminder('aev'); toggleWaDropdown('aev-wa-dropdown')">
+                <span class="wa-opt-icon">🚫</span> No recordar
+              </div>
+              <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', 'now', 'Ahora mismo', this)">
                 <span class="wa-opt-icon">⚡</span> Ahora mismo
               </div>
               <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', '1h', '1 hora antes', this)">
@@ -4212,8 +4215,11 @@
                 <span style="font-size:10px;margin-left:2px">▼</span>
               </button>
               <div class="wa-dropdown" id="aev-wa-dropdown">
-                <div class="wa-dropdown-title">Cuándo enviar al cliente</div>
-                <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1h', '1 hora antes', this)">
+               <div class="wa-dropdown-title">Cuándo enviar al cliente</div>
+              <div class="wa-dropdown-opt" onclick="clearWaReminder('ev'); toggleWaDropdown('ev-wa-dropdown')">
+                <span class="wa-opt-icon">🚫</span> No recordar
+              </div>
+              <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', 'now', 'Ahora mismo', this)">
                   <span class="wa-opt-icon">⏰</span> 1 hora antes
                 </div>
                 <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1d', '1 día antes', this)">
@@ -6699,7 +6705,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             usersToShow = usersToShow.filter(u => u.departamento === filterDept);
           }
           
-          employeeSelect.innerHTML = usersToShow
+          employeeSelect.innerHTML = 
+            `<option value="">— Selecciona empleado —</option>` +
+            usersToShow
             .map(
               (u) =>
                 `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)} (${u.departamento || 'sin depto'}, ${u.sede || 'Sin sede'})</option>`,
@@ -6716,8 +6724,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           alert(`❌ No tienes permiso para ver o crear citas en el departamento ${deptDisplay}.\n\nContacta con tu administrador si crees que es un error.`);
           return;
         }
-        // Si tiene permiso, abrir el modal normalmente
-        openEventModal(false, null, dept);
+       // Si tiene permiso, abrir el modal normalmente
+        openEventModal(true, null, dept);
       }
 
       function openEventModal(isGlobal, dateStr, filterParam = null) {
@@ -6886,7 +6894,12 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           assignedTo = currentUser.id;
         }
         
-        // ✅ CAMBIO 11: Validar que el técnico asignado existe y tiene sede válida
+         // Validar que s'ha seleccionat un empleat
+        if (isAdmin && pendingIsGlobal && !assignedTo) {
+          errEl.textContent = "Selecciona un empleado para asignar la cita.";
+          errEl.style.display = "";
+          return;
+        }
         const assignedUser = USERS.find(u => u.id === assignedTo);
         if (!assignedUser) {
           errEl.textContent = "El empleado seleccionado no existe.";
