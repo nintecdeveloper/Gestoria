@@ -2956,10 +2956,18 @@
             <div class="nav-subitem admin-only" id="nav-mataro-calendar" onclick="showSection('mataro-calendar')">
               📍 Calendario Mataró
             </div>
+            <!-- Cal. Antonio — visible només per a no-admins de Mataró -->
+            <div class="nav-subitem" id="nav-cal-mataro-cap" onclick="openUserCalendar(1, 'Antonio')" style="display:none">
+              👤 Cal. Antonio
+            </div>
             <div class="nav-subitem admin-only" id="nav-vilassar-calendar" onclick="showSection('vilassar-calendar')">
               📍 Calendario Vilassar
             </div>
-            <!-- Cal. Administradores -->
+            <!-- Cal. Pau — visible només per a no-admins de Vilassar -->
+            <div class="nav-subitem" id="nav-cal-vilassar-cap" onclick="openUserCalendar(3, 'Pau')" style="display:none">
+              👤 Cal. Pau
+            </div>
+            <!-- Cal. Administradores (amagat per a no-admins, substituït per les entrades de cap de seu) -->
             <div class="nav-subitem" id="nav-admin-view-calendar" onclick="showSection('admin-view-calendar')">
               👤 Cal. Administradores
             </div>
@@ -5390,18 +5398,13 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const adminUser = getContextualAdminUser();
         const navAdminView = document.getElementById("nav-admin-view-calendar");
         if (navAdminView) {
-          if (isAdmin) {
-            // El admin no necesita ver "Cal. [Nombre]" porque ya tiene su propio calendario
-            navAdminView.style.display = "none";
-          } else {
-            navAdminView.style.display = "";
-            // Actualizar el nombre del nav con el nombre real del admin de su sede
-            if (adminUser) {
-              const adminFirstName = adminUser.name.split(' ')[0];
-              navAdminView.innerHTML = `<span class="icon">👤</span> Cal. ${adminFirstName}`;
-              // Actualizar también en SEC_TITLES
-              SEC_TITLES["admin-view-calendar"] = `Calendari de ${adminFirstName}`;
-            }
+          // Admins: amagat (tenen el propi calendari)
+          // No-admins: amagat (substituït per nav-cal-mataro-cap / nav-cal-vilassar-cap)
+          navAdminView.style.display = "none";
+          // Mantenim SEC_TITLES actualitzat per si es navega per URL directa
+          if (adminUser) {
+            const adminFirstName = adminUser.name.split(' ')[0];
+            SEC_TITLES["admin-view-calendar"] = `Calendari de ${adminFirstName}`;
           }
         }
 
@@ -5563,11 +5566,21 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           const canSeeMataroCalendar = isAdmin || userSede === 'Mataró';
           mataroCalNav.style.display = canSeeMataroCalendar ? '' : 'none';
         }
-        
+
         // ✅ Calendario Vilassar: solo admins o usuarios de Vilassar
         if (vilassarCalNav) {
           const canSeeVilassarCalendar = isAdmin || userSede === 'Vilassar';
           vilassarCalNav.style.display = canSeeVilassarCalendar ? '' : 'none';
+        }
+
+        // ✅ Cal. cap de seu: visible només per a no-admins de la seva seu
+        const calMataroCap = document.getElementById('nav-cal-mataro-cap');
+        if (calMataroCap) {
+          calMataroCap.style.display = (!isAdmin && userSede === 'Mataró') ? '' : 'none';
+        }
+        const calVilassarCap = document.getElementById('nav-cal-vilassar-cap');
+        if (calVilassarCap) {
+          calVilassarCap.style.display = (!isAdmin && userSede === 'Vilassar') ? '' : 'none';
         }
       }
 
