@@ -4507,129 +4507,8 @@
         }
       ];
 
-      let EVENTS = [
-        {
-          id: 1,
-          ownerId: 1,
-          assignedTo: 1,
-          date: dOff(0),
-          time: "09:00",
-          timeEnd: "10:00",
-          client: "Carlos Martínez",
-          service: "Assessorament Fiscal",
-          notes: "Revisió declaració anual",
-          private: false,
-        },
-        {
-          id: 2,
-          ownerId: 1,
-          assignedTo: 2,
-          date: dOff(1),
-          time: "11:00",
-          timeEnd: "12:00",
-          client: "Laura Gómez",
-          service: "Gestió Laboral",
-          notes: "Alta nou treballador",
-          private: false,
-        },
-        {
-          id: 3,
-          ownerId: 1,
-          assignedTo: 4,
-          date: dOff(2),
-          time: "16:00",
-          timeEnd: "17:00",
-          client: "Inversions Sud SA",
-          service: "Auditoria",
-          notes: "Primera reunió",
-          private: false,
-        },
-        {
-          id: 4,
-          ownerId: 2,
-          assignedTo: 2,
-          date: dOff(3),
-          time: "10:30",
-          timeEnd: "11:30",
-          client: "Ana Rodríguez",
-          service: "Comptabilitat",
-          notes: "Tancament trimestral",
-          private: false,
-        },
-        {
-          id: 5,
-          ownerId: 1,
-          assignedTo: 1,
-          date: dOff(1),
-          time: "15:00",
-          timeEnd: "16:30",
-          client: "Consultes Privades SL",
-          service: "Assessorament Jurídic",
-          notes: "Reunió confidencial de direcció",
-          private: true,
-        },
-        {
-          id: 6,
-          ownerId: 1,
-          assignedTo: 5,
-          date: dOff(4),
-          time: "14:00",
-          timeEnd: "15:00",
-          client: "Tech Solutions Inc",
-          service: "Consultoria Empresarial",
-          notes: "Revisió estratègia digital",
-          private: false,
-        },
-        // ✅ EVENTOS DE VILASSAR
-        {
-          id: 7,
-          ownerId: 1,
-          assignedTo: 6,
-          date: dOff(0),
-          time: "10:00",
-          timeEnd: "11:00",
-          client: "Empresa Vilassar SL",
-          service: "Gestió Laboral",
-          notes: "Revisió nòmines mes actual",
-          private: false,
-        },
-        {
-          id: 8,
-          ownerId: 1,
-          assignedTo: 7,
-          date: dOff(2),
-          time: "13:00",
-          timeEnd: "14:00",
-          client: "Comercios Vilassar",
-          service: "Assessorament Fiscal",
-          notes: "Anàlisi rendibilitat trimestral",
-          private: false,
-        },
-        {
-          id: 9,
-          ownerId: 1,
-          assignedTo: 6,
-          date: dOff(5),
-          time: "11:30",
-          timeEnd: "12:30",
-          client: "Construcciones Vila",
-          service: "Comptabilitat",
-          notes: "Tancament de projecte",
-          private: false,
-        },
-        {
-          id: 10,
-          ownerId: 1,
-          assignedTo: 7,
-          date: dOff(3),
-          time: "09:00",
-          timeEnd: "10:00",
-          client: "Tech Vilassar",
-          service: "Assessorament Jurídic",
-          notes: "Revisió contracte digital",
-          private: false,
-        },
-      ];
+      // EVENTS s'omple des de la BD via loadEvents() després del login
+      let EVENTS = [];
 
       // ═══════════════════════════════════════════════════════════════
       // ALMACENAMIENTO DE MENSAJES — ESTRUCTURA LIMPIA
@@ -5445,6 +5324,26 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       //  INIT
       // ══════════════════════════════════════════
 
+      // ══════════════════════════════════════════
+      //  PERSISTÈNCIA D'EVENTS — API
+      // ══════════════════════════════════════════
+
+      async function loadEvents() {
+        try {
+          const res = await fetch('/api/events');
+          const data = await res.json();
+          if (data.ok) {
+            EVENTS = data.events || [];
+            refreshCals();
+            renderDashboard();
+          } else {
+            console.error('❌ [loadEvents] Error del servidor:', data.error);
+          }
+        } catch (e) {
+          console.error('❌ [loadEvents] Error de xarxa:', e);
+        }
+      }
+
       function initApp() {
         const isAdmin = currentUser.role === "admin";
         
@@ -5542,6 +5441,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
 
         // Carregar clients des de la base de dades
         loadClientsFromDB();
+
+        // Carregar events des de la base de dades
+        loadEvents();
       }
 
       // ══════════════════════════════════════════
@@ -6552,13 +6454,19 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         openModal("detail-modal");
       }
 
-      function deleteCurrentEvent() {
+      async function deleteCurrentEvent() {
         if (currentDetailId === null) return;
-        EVENTS = EVENTS.filter((e) => e.id !== currentDetailId);
+        const evId = currentDetailId;
+        EVENTS = EVENTS.filter((e) => e.id !== evId);
         currentDetailId = null;
         closeModal("detail-modal");
         refreshCals();
         renderDashboard();
+        try {
+          await fetch(`/api/events/${evId}`, { method: 'DELETE' });
+        } catch (e) {
+          console.error('❌ [deleteCurrentEvent] Error:', e);
+        }
       }
 
       function editCurrentEvent() {
@@ -6573,15 +6481,20 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const ev = EVENTS.find((x) => x.id === evId);
         if (ev) openEditEvent(ev);
       }
-      function deleteEventFromList(evId, e) {
+      async function deleteEventFromList(evId, e) {
         if (e) e.stopPropagation();
         if (!confirm("Vols eliminar aquesta cita?")) return;
         EVENTS = EVENTS.filter((x) => x.id !== evId);
         refreshCals();
         renderDashboard();
+        try {
+          await fetch(`/api/events/${evId}`, { method: 'DELETE' });
+        } catch (err) {
+          console.error('❌ [deleteEventFromList] Error:', err);
+        }
       }
 
-      function toggleEventPrivacy(evId, e) {
+      async function toggleEventPrivacy(evId, e) {
         if (e) e.stopPropagation();
         if (currentUser.role !== "admin") return;
         const ev = EVENTS.find((x) => x.id === evId);
@@ -6589,9 +6502,18 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         ev.private = !ev.private;
         refreshCals();
         renderDashboard();
+        try {
+          await fetch(`/api/events/${evId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ private: ev.private }),
+          });
+        } catch (err) {
+          console.error('❌ [toggleEventPrivacy] Error:', err);
+        }
       }
 
-      function toggleCurrentEventPrivacy() {
+      async function toggleCurrentEventPrivacy() {
         if (currentUser.role !== "admin" || currentDetailId === null) return;
         const ev = EVENTS.find((x) => x.id === currentDetailId);
         if (!ev) return;
@@ -6607,6 +6529,15 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         }
         refreshCals();
         renderDashboard();
+        try {
+          await fetch(`/api/events/${ev.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ private: ev.private }),
+          });
+        } catch (err) {
+          console.error('❌ [toggleCurrentEventPrivacy] Error:', err);
+        }
       }
 
       // ══════════════════════════════════════════
@@ -6857,7 +6788,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         openModal("event-modal");
       }
 
-      function saveEvent() {
+      async function saveEvent() {
         const date = document.getElementById("ev-date").value;
         const time = document.getElementById("ev-time").value;
         const client = document.getElementById("ev-client").value.trim();
@@ -6940,31 +6871,50 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             ev.notes = notes;
             ev.clientPhone = clientPhoneForWa || ev.clientPhone || null;
             if (isAdmin) { ev.assignedTo = assignedTo; ev.private = isPrivate; }
-            
-            // ✅ CAMBIO: Guardar múltiples recordatorios personales al editar
+
+            // Recordatoris personals
             if (prReminders.length > 0) {
-              ev.prReminders = prReminders; // Guardar como array
+              ev.prReminders = prReminders;
               requestNotificationPermission();
-              // Programar cada recordatorio
-              prReminders.forEach(reminder => {
-                scheduleReminder(ev, reminder.timing);
-              });
+              prReminders.forEach(reminder => scheduleReminder(ev, reminder.timing));
             } else {
               delete ev.prReminders;
             }
-            
-            // Guardar recordatorio WhatsApp al editar
+
+            // Recordatori WhatsApp
             if (waFirstTiming) {
               ev.waReminder = { timing: waFirstTiming, label: waFirstLabel };
               scheduleWaReminder(ev, waFirstTiming);
             } else {
               delete ev.waReminder;
             }
+
+            // Persistir edició a la BD
+            try {
+              await fetch(`/api/events/${ev.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  date:         ev.date,
+                  time:         ev.time,
+                  timeEnd:      ev.timeEnd,
+                  client:       ev.client,
+                  service:      ev.service,
+                  notes:        ev.notes,
+                  private:      ev.private,
+                  assignedTo:   ev.assignedTo,
+                  clientPhone:  ev.clientPhone || null,
+                  waReminder:   ev.waReminder || null,
+                  prReminders:  ev.prReminders || [],
+                }),
+              });
+            } catch (e) {
+              console.error('❌ [saveEvent PUT] Error:', e);
+            }
           }
         } else {
           const eventObj = {
-            id: nextEventId++,
-            ownerId: currentUser.id,
+            ownerId:     currentUser.id,
             assignedTo,
             date,
             time,
@@ -6972,27 +6922,54 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             client,
             service,
             notes,
-            private: isPrivate,
+            private:     isPrivate,
             clientPhone: clientPhoneForWa || null,
           };
-          
-          // ✅ CAMBIO: Agregar múltiples recordatorios personales
+
+          // Recordatoris personals
           if (prReminders.length > 0) {
-            eventObj.prReminders = prReminders; // Guardar como array
-            
-            // Programar notificaciones
+            eventObj.prReminders = prReminders;
             requestNotificationPermission();
-            prReminders.forEach(reminder => {
-              scheduleReminder(eventObj, reminder.timing);
-            });
+            prReminders.forEach(reminder => scheduleReminder(eventObj, reminder.timing));
           }
-          
-          // Agregar recordatorio WhatsApp si está configurado
+
+          // Recordatori WhatsApp
           if (waFirstTiming) {
             eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
             scheduleWaReminder(eventObj, waFirstTiming);
           }
-          
+
+          // Persistir nou event a la BD
+          try {
+            const res = await fetch('/api/events', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ownerId:     eventObj.ownerId,
+                assignedTo:  eventObj.assignedTo,
+                date:        eventObj.date,
+                time:        eventObj.time,
+                timeEnd:     eventObj.timeEnd || null,
+                client:      eventObj.client || null,
+                service:     eventObj.service || null,
+                notes:       eventObj.notes || null,
+                private:     eventObj.private,
+                clientPhone: eventObj.clientPhone || null,
+                waReminder:  eventObj.waReminder || null,
+                prReminders: eventObj.prReminders || [],
+              }),
+            });
+            const resData = await res.json();
+            if (resData.ok && resData.event) {
+              eventObj.id = resData.event.id;
+            } else {
+              eventObj.id = nextEventId++;
+            }
+          } catch (e) {
+            console.error('❌ [saveEvent POST] Error:', e);
+            eventObj.id = nextEventId++;
+          }
+
           EVENTS.push(eventObj);
         }
 
@@ -7575,7 +7552,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         ).join('');
       }
 
-      function saveAdminCalEvent() {
+      async function saveAdminCalEvent() {
         const date = document.getElementById("aev-date").value;
         const time = document.getElementById("aev-time").value;
         const timeEnd = (document.getElementById("aev-time-end") || {}).value || null;
@@ -7644,19 +7621,48 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           clientPhone: clientPhoneForWa || null,
         };
 
-        // ✅ CAMBIO: Agregar múltiples recordatorios personales si están configurados
+        // Recordatoris personals
         if (prReminders.length > 0) {
-          eventObj.prReminders = prReminders; // Guardar como array
+          eventObj.prReminders = prReminders;
           requestNotificationPermission();
-          prReminders.forEach(reminder => {
-            scheduleReminder(eventObj, reminder.timing);
-          });
+          prReminders.forEach(reminder => scheduleReminder(eventObj, reminder.timing));
         }
 
-        // Agregar recordatorio WhatsApp si está configurado
+        // Recordatori WhatsApp
         if (waFirstTiming) {
           eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
           scheduleWaReminder(eventObj, waFirstTiming);
+        }
+
+        // Persistir a la BD
+        try {
+          const res = await fetch('/api/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ownerId:     eventObj.ownerId,
+              assignedTo:  eventObj.assignedTo,
+              date:        eventObj.date,
+              time:        eventObj.time,
+              timeEnd:     eventObj.timeEnd || null,
+              client:      eventObj.client || null,
+              service:     eventObj.service || null,
+              notes:       eventObj.notes || null,
+              private:     eventObj.private,
+              clientPhone: eventObj.clientPhone || null,
+              waReminder:  eventObj.waReminder || null,
+              prReminders: eventObj.prReminders || [],
+            }),
+          });
+          const resData = await res.json();
+          if (resData.ok && resData.event) {
+            eventObj.id = resData.event.id;
+          } else {
+            eventObj.id = nextEventId++;
+          }
+        } catch (e) {
+          console.error('❌ [saveAdminCalEvent POST] Error:', e);
+          eventObj.id = nextEventId++;
         }
 
         EVENTS.push(eventObj);

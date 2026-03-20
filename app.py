@@ -2,13 +2,14 @@ import os
 import json
 from flask import Flask, render_template, jsonify, request, send_file
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from io import BytesIO
 import io
 import requests
 import logging
 import base64
-import pandas as pd 
+import pandas as pd
 # ═══════════════════════════════════════════════════════════════
 # LOGGING — CONFIGURACIÓN INMEDIATA
 # ═══════════════════════════════════════════════════════════════
@@ -211,6 +212,57 @@ app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
 app.config['DEBUG'] = False if app.config['ENV'] == 'production' else True
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB màxim per request
+
+# ═══════════════════════════════════════════════════════════════
+# SQLALCHEMY — CONFIGURACIÓ I MODEL EVENT
+# ═══════════════════════════════════════════════════════════════
+_db_url = os.environ.get('DATABASE_URL', '')
+if _db_url.startswith('postgres://'):
+    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = _db_url if _db_url else 'sqlite:///events.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+class Event(db.Model):
+    __tablename__ = 'events'
+    id            = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    title         = db.Column(db.String(200), nullable=True)
+    date          = db.Column(db.String(10))
+    start_time    = db.Column(db.String(5))
+    end_time      = db.Column(db.String(5),   nullable=True)
+    client_name   = db.Column(db.String(200), nullable=True)
+    client_phone  = db.Column(db.String(50),  nullable=True)
+    assigned_to   = db.Column(db.Integer)
+    created_by    = db.Column(db.Integer)
+    calendar_type = db.Column(db.String(50),  nullable=True)
+    sede          = db.Column(db.String(50),  nullable=True)
+    department    = db.Column(db.String(50),  nullable=True)
+    service_type  = db.Column(db.String(100), nullable=True)
+    notes         = db.Column(db.String(1000),nullable=True)
+    is_private    = db.Column(db.Boolean,     default=False)
+    wa_reminder   = db.Column(db.String(500), nullable=True)   # JSON string
+    pr_reminder   = db.Column(db.String(1000),nullable=True)   # JSON string
+    created_at    = db.Column(db.DateTime,    default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id':           self.id,
+            'ownerId':      self.created_by,
+            'assignedTo':   self.assigned_to,
+            'date':         self.date,
+            'time':         self.start_time,
+            'timeEnd':      self.end_time,
+            'client':       self.client_name or '',
+            'service':      self.service_type or '',
+            'notes':        self.notes or '',
+            'private':      bool(self.is_private),
+            'clientPhone':  self.client_phone,
+            'calendarType': self.calendar_type,
+            'sede':         self.sede,
+            'department':   self.department,
+            'waReminder':   json.loads(self.wa_reminder) if self.wa_reminder else None,
+            'prReminders':  json.loads(self.pr_reminder) if self.pr_reminder else [],
+        }
 
 import uuid
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
@@ -1233,6 +1285,91 @@ def api_health():
     }), 200
 
 # ═══════════════════════════════════════════════════════════════
+# API EVENTS — Persistència d'events de calendari a PostgreSQL
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/events', methods=['GET'])
+def get_events():
+    """Retorna tots els events. El frontend s'encarrega del filtratge per permisos."""
+    try:
+        events = Event.query.order_by(Event.date.asc(), Event.start_time.asc()).all()
+        return jsonify({'ok': True, 'events': [e.to_dict() for e in events]})
+    except Exception as e:
+        logger.error(f"❌ [Events GET] {str(e)}")
+        return jsonify({'ok': False, 'error': str(e), 'events': []}), 500
+
+@app.route('/api/events', methods=['POST'])
+def create_event():
+    """Crea un nou event i el retorna amb l'id assignat per la BD."""
+    try:
+        data = request.get_json(force=True) or {}
+        ev = Event(
+            date          = data.get('date', ''),
+            start_time    = data.get('time', ''),
+            end_time      = data.get('timeEnd') or None,
+            client_name   = data.get('client') or None,
+            client_phone  = data.get('clientPhone') or None,
+            assigned_to   = int(data.get('assignedTo', 0)),
+            created_by    = int(data.get('ownerId', 0)),
+            calendar_type = data.get('calendarType') or None,
+            sede          = data.get('sede') or None,
+            department    = data.get('department') or None,
+            service_type  = data.get('service') or None,
+            notes         = data.get('notes') or None,
+            is_private    = bool(data.get('private', False)),
+            wa_reminder   = json.dumps(data['waReminder']) if data.get('waReminder') else None,
+            pr_reminder   = json.dumps(data['prReminders']) if data.get('prReminders') else None,
+        )
+        db.session.add(ev)
+        db.session.commit()
+        return jsonify({'ok': True, 'event': ev.to_dict()}), 201
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ [Events POST] {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/events/<int:ev_id>', methods=['PUT'])
+def update_event(ev_id):
+    """Actualitza un event existent."""
+    try:
+        ev = Event.query.get(ev_id)
+        if not ev:
+            return jsonify({'ok': False, 'error': 'Event no trobat'}), 404
+        data = request.get_json(force=True) or {}
+        ev.date          = data.get('date', ev.date)
+        ev.start_time    = data.get('time', ev.start_time)
+        ev.end_time      = data.get('timeEnd') if 'timeEnd' in data else ev.end_time
+        ev.client_name   = data.get('client') or ev.client_name
+        ev.client_phone  = data.get('clientPhone') if 'clientPhone' in data else ev.client_phone
+        ev.assigned_to   = int(data['assignedTo']) if 'assignedTo' in data else ev.assigned_to
+        ev.service_type  = data.get('service') if 'service' in data else ev.service_type
+        ev.notes         = data.get('notes') if 'notes' in data else ev.notes
+        ev.is_private    = bool(data['private']) if 'private' in data else ev.is_private
+        ev.wa_reminder   = json.dumps(data['waReminder']) if data.get('waReminder') else (None if 'waReminder' in data else ev.wa_reminder)
+        ev.pr_reminder   = json.dumps(data['prReminders']) if data.get('prReminders') else (None if 'prReminders' in data else ev.pr_reminder)
+        db.session.commit()
+        return jsonify({'ok': True, 'event': ev.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ [Events PUT {ev_id}] {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/events/<int:ev_id>', methods=['DELETE'])
+def delete_event(ev_id):
+    """Esborra un event."""
+    try:
+        ev = Event.query.get(ev_id)
+        if not ev:
+            return jsonify({'ok': False, 'error': 'Event no trobat'}), 404
+        db.session.delete(ev)
+        db.session.commit()
+        return jsonify({'ok': True, 'deleted': ev_id})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ [Events DELETE {ev_id}] {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
 # MANEJO DE ERRORES
 # ═══════════════════════════════════════════════════════════════
 
@@ -1246,6 +1383,17 @@ def server_error(error):
     """Manejar errores 500"""
     logger.error(f"Error 500: {str(error)}")
     return jsonify({'error': 'Internal server error', 'details': str(error)}), 500
+
+# ═══════════════════════════════════════════════════════════════
+# CREAR TAULES A LA BD (si no existeixen)
+# ═══════════════════════════════════════════════════════════════
+
+with app.app_context():
+    try:
+        db.create_all()
+        logger.info("✅ Taules de BD creades/verificades correctament")
+    except Exception as _e:
+        logger.error(f"❌ Error creant taules: {_e}")
 
 # ═══════════════════════════════════════════════════════════════
 # INICIALIZAR SCHEDULER (si está disponible)
