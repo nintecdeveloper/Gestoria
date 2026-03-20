@@ -264,6 +264,27 @@ class Event(db.Model):
             'prReminders':  json.loads(self.pr_reminder) if self.pr_reminder else [],
         }
 
+class PersonalReminder(db.Model):
+    __tablename__ = 'personal_reminders'
+    id         = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    event_id   = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), nullable=True)
+    user_id    = db.Column(db.Integer, nullable=False)
+    remind_at  = db.Column(db.DateTime, nullable=False)
+    message    = db.Column(db.String(500), nullable=True)
+    is_sent    = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id':        self.id,
+            'eventId':   self.event_id,
+            'userId':    self.user_id,
+            'remindAt':  self.remind_at.isoformat() if self.remind_at else None,
+            'message':   self.message,
+            'isSent':    bool(self.is_sent),
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+        }
+
 import uuid
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -1367,6 +1388,67 @@ def delete_event(ev_id):
     except Exception as e:
         db.session.rollback()
         logger.error(f"❌ [Events DELETE {ev_id}] {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
+# API REMINDERS — Recordatoris personals
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/reminders', methods=['GET'])
+def get_reminders():
+    """Retorna recordatoris pendents. Filtra per user_id i opcionalment event_id."""
+    try:
+        user_id  = request.args.get('user_id',  type=int)
+        event_id = request.args.get('event_id', type=int)
+        if not user_id:
+            return jsonify({'ok': False, 'error': 'user_id requerit', 'reminders': []}), 400
+        q = PersonalReminder.query.filter_by(user_id=user_id, is_sent=False)
+        if event_id:
+            q = q.filter_by(event_id=event_id)
+        reminders = q.order_by(PersonalReminder.remind_at.asc()).all()
+        return jsonify({'ok': True, 'reminders': [r.to_dict() for r in reminders]})
+    except Exception as e:
+        logger.error(f"❌ [Reminders GET] {str(e)}")
+        return jsonify({'ok': False, 'error': str(e), 'reminders': []}), 500
+
+@app.route('/api/reminders', methods=['POST'])
+def create_reminder():
+    """Crea un nou recordatori personal."""
+    try:
+        data = request.get_json(force=True) or {}
+        remind_at_str = data.get('remindAt', '')
+        try:
+            remind_at = datetime.fromisoformat(remind_at_str.replace('Z', '+00:00')) if remind_at_str else datetime.utcnow()
+        except Exception:
+            remind_at = datetime.utcnow()
+        r = PersonalReminder(
+            event_id  = data.get('eventId') or None,
+            user_id   = int(data.get('userId', 0)),
+            remind_at = remind_at,
+            message   = data.get('message') or None,
+            is_sent   = False,
+        )
+        db.session.add(r)
+        db.session.commit()
+        return jsonify({'ok': True, 'reminder': r.to_dict()}), 201
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ [Reminders POST] {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/reminders/<int:rem_id>', methods=['DELETE'])
+def delete_reminder(rem_id):
+    """Esborra un recordatori per id."""
+    try:
+        r = PersonalReminder.query.get(rem_id)
+        if not r:
+            return jsonify({'ok': False, 'error': 'Recordatori no trobat'}), 404
+        db.session.delete(r)
+        db.session.commit()
+        return jsonify({'ok': True, 'deleted': rem_id})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ [Reminders DELETE {rem_id}] {str(e)}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 # ═══════════════════════════════════════════════════════════════

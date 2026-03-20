@@ -2935,6 +2935,7 @@
             onclick="showSection('dashboard')"
           >
             <span class="icon">&#9672;</span> Inici
+            <span class="nav-badge" id="reminder-badge" style="display:none">0</span>
           </div>
           <!-- ════════════════════════════════════════════════════════════ -->
           <!-- CALENDARIOS - MENÚ PRINCIPAL EXPANDIBLE -->
@@ -5333,6 +5334,86 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       // ══════════════════════════════════════════
 
       // ══════════════════════════════════════════
+      //  RECORDATORIS PERSONALS — API
+      // ══════════════════════════════════════════
+
+      /** Calcula la data/hora ISO del recordatori (hora cita − offset del timing). */
+      function calcRemindAt(date, time, timing) {
+        const offsets = {
+          'now': 0,
+          '15m': 15 * 60 * 1000,
+          '30m': 30 * 60 * 1000,
+          '1h':  1  * 60 * 60 * 1000,
+          '2h':  2  * 60 * 60 * 1000,
+          '1d':  24 * 60 * 60 * 1000,
+          '1w':  7  * 24 * 60 * 60 * 1000,
+        };
+        const offset  = offsets[timing] ?? 0;
+        const eventMs = new Date(date + 'T' + (time || '00:00')).getTime();
+        return new Date(eventMs - offset).toISOString();
+      }
+
+      /** Desa al backend un recordatori per cada timing del pr-reminder. Retorna els ids creats. */
+      async function saveBackendReminders(eventId, prReminders, date, time, client, service) {
+        if (!prReminders || prReminders.length === 0 || !eventId) return [];
+        const ids = [];
+        for (const rem of prReminders) {
+          if (!rem.timing || rem.timing === 'none') continue;
+          try {
+            const res = await fetch('/api/reminders', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                eventId:  eventId,
+                userId:   currentUser.id,
+                remindAt: calcRemindAt(date, time, rem.timing),
+                message:  `Recordatori: ${service || 'Cita'} - ${client || ''} a les ${time || ''}`,
+              }),
+            });
+            const data = await res.json();
+            if (data.ok && data.reminder) ids.push(data.reminder.id);
+          } catch (e) {
+            console.error('❌ [saveBackendReminders] Error:', e);
+          }
+        }
+        return ids;
+      }
+
+      /** Esborra tots els recordatoris pendents d'una cita per a l'usuari actual. */
+      async function deleteBackendRemindersByEvent(eventId) {
+        if (!eventId || !currentUser) return;
+        try {
+          const res  = await fetch(`/api/reminders?user_id=${currentUser.id}&event_id=${eventId}`);
+          const data = await res.json();
+          if (!data.ok) return;
+          for (const rem of (data.reminders || [])) {
+            await fetch(`/api/reminders/${rem.id}`, { method: 'DELETE' });
+          }
+        } catch (e) {
+          console.error('❌ [deleteBackendRemindersByEvent] Error:', e);
+        }
+      }
+
+      /** Actualitza el badge de recordatoris d'avui al menú lateral. */
+      async function loadTodayReminderBadge() {
+        if (!currentUser) return;
+        try {
+          const res  = await fetch(`/api/reminders?user_id=${currentUser.id}`);
+          const data = await res.json();
+          if (!data.ok) return;
+          const today      = new Date().toISOString().slice(0, 10);
+          const todayCount = (data.reminders || []).filter(r => r.remindAt && r.remindAt.slice(0, 10) === today).length;
+          const badge = document.getElementById('reminder-badge');
+          if (badge) {
+            badge.textContent = todayCount;
+            badge.style.display = todayCount > 0 ? '' : 'none';
+          }
+        } catch (e) {
+          console.error('❌ [loadTodayReminderBadge] Error:', e);
+        }
+      }
+
+      // ══════════════════════════════════════════
       //  PERSISTÈNCIA D'EVENTS — API
       // ══════════════════════════════════════════
 
@@ -5447,6 +5528,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
 
         // Carregar events des de la base de dades
         loadEvents();
+
+        // Mostrar badge de recordatoris d'avui
+        loadTodayReminderBadge();
       }
 
       // ══════════════════════════════════════════
@@ -6477,6 +6561,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         renderDashboard();
         try {
           await fetch(`/api/events/${evId}`, { method: 'DELETE' });
+          deleteBackendRemindersByEvent(evId).then(() => loadTodayReminderBadge());
         } catch (e) {
           console.error('❌ [deleteCurrentEvent] Error:', e);
         }
@@ -6502,6 +6587,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         renderDashboard();
         try {
           await fetch(`/api/events/${evId}`, { method: 'DELETE' });
+          deleteBackendRemindersByEvent(evId).then(() => loadTodayReminderBadge());
         } catch (err) {
           console.error('❌ [deleteEventFromList] Error:', err);
         }
@@ -6924,6 +7010,16 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             } catch (e) {
               console.error('❌ [saveEvent PUT] Error:', e);
             }
+
+            // Sync recordatoris personals: esborrar vells i desar nous
+            deleteBackendRemindersByEvent(ev.id).then(() => {
+              if (prReminders.length > 0) {
+                saveBackendReminders(ev.id, prReminders, ev.date, ev.time, ev.client, ev.service)
+                  .then(() => loadTodayReminderBadge());
+              } else {
+                loadTodayReminderBadge();
+              }
+            });
           }
         } else {
           const eventObj = {
@@ -6984,6 +7080,12 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           }
 
           EVENTS.push(eventObj);
+
+          // Desar recordatoris personals al backend
+          if (prReminders.length > 0 && eventObj.id) {
+            saveBackendReminders(eventObj.id, prReminders, date, time, client, service)
+              .then(() => loadTodayReminderBadge());
+          }
         }
 
         closeModal("event-modal");
@@ -7679,6 +7781,12 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         }
 
         EVENTS.push(eventObj);
+
+        // Desar recordatoris personals al backend (admin event modal)
+        if (prReminders.length > 0 && eventObj.id) {
+          saveBackendReminders(eventObj.id, prReminders, date, time, client, service)
+            .then(() => loadTodayReminderBadge());
+        }
 
         closeModal("admin-event-modal");
         refreshCals();
