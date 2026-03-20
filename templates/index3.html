@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="ca">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rodonvergés Associats · Gestión Interna</title>
+    <title>Rodonvergés Associats · Gestió Interna</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:wght@300;400;500&display=swap"
       rel="stylesheet"
@@ -2884,18 +2884,18 @@
 
         <!-- form panel -->
         <div class="login-body">
-          <p class="login-sub">Gestión Interna &middot; Panel de Empleados</p>
+          <p class="login-sub">Gestió Interna &middot; Panell d'Empleats</p>
 
           <div class="form-group">
-            <label>Nombre de usuario</label>
-            <input type="text" id="login-user" placeholder="Escriba su nombre de usuario" autocomplete="username" />
+            <label>Nom d'usuari</label>
+            <input type="text" id="login-user" placeholder="Escriviu el vostre nom d'usuari" autocomplete="username" />
           </div>
 
           <div class="form-group">
-            <label>Contraseña</label>
+            <label>Contrasenya</label>
             <div style="position: relative;">
               <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" style="padding-right: 40px;" />
-              <button type="button" id="login-pass-toggle" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; padding: 0; font-size: 16px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; transition: color 0.2s;" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar contraseña">
+              <button type="button" id="login-pass-toggle" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; padding: 0; font-size: 16px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; transition: color 0.2s;" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar contrasenya">
                 <!-- SVG Heroicons: Eye Closed (oculto) -->
                 <svg id="eye-closed-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;display:block">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -2911,11 +2911,11 @@
           </div>
 
           <div class="login-error" id="login-error">
-            Usuario o contraseña incorrectos.
+            Usuari o contrasenya incorrectes.
           </div>
 
           <button class="btn btn-primary btn-full" style="margin-top:10px" onclick="doLogin()">
-            Iniciar sesión &rarr;
+            Iniciar sessió &rarr;
           </button>
         </div>
 
@@ -2934,7 +2934,7 @@
             data-sec="dashboard"
             onclick="showSection('dashboard')"
           >
-            <span class="icon">&#9672;</span> Inicio
+            <span class="icon">&#9672;</span> Inici
           </div>
           <!-- ════════════════════════════════════════════════════════════ -->
           <!-- CALENDARIOS - MENÚ PRINCIPAL EXPANDIBLE -->
@@ -2946,11 +2946,11 @@
           <div class="nav-submenu expanded" id="calendars-submenu">
             <!-- Mi Calendario -->
             <div class="nav-subitem" onclick="viewMyOwnCalendar()">
-              📌 Mi Calendario
+              📌 El meu Calendari
             </div>
             <!-- Calendario Global (Admin) -->
             <div class="nav-subitem admin-only" id="nav-global-calendar" onclick="showSection('global-calendar')">
-              ➕ Calendario Global
+              ➕ Calendari Global
             </div>
             <!-- NUEVO: Calendarios por Sede -->
             <div class="nav-subitem admin-only" id="nav-mataro-calendar" onclick="showSection('mataro-calendar')">
@@ -2965,23 +2965,23 @@
             </div>
             <!-- Calendarios Departamentales (Expandible) -->
             <div class="nav-expandable-sub expanded" onclick="toggleSubMenu(event, 'dept-calendars-sub')">
-              <span>🏢 Calendarios Departamentales</span>
+              <span>🏢 Calendaris Departamentals</span>
               <span class="nav-expand-icon">▶</span>
             </div>
             <div class="nav-submenu expanded" id="dept-calendars-sub">
-              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('laboral')) showSection('cal-laboral'); else alert('No tienes permiso para ver este calendario');">
+              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('laboral')) showSection('cal-laboral'); else alert('No tens permís per veure aquest calendari');">
                 💼 Cal. Laboral
               </div>
-              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('mercantil')) showSection('cal-mercantil'); else alert('No tienes permiso para ver este calendario');">
+              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('mercantil')) showSection('cal-mercantil'); else alert('No tens permís per veure aquest calendari');">
                 📊 Cal. Mercantil
               </div>
-              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('fiscal')) showSection('cal-fiscal'); else alert('No tienes permiso para ver este calendario');">
+              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('fiscal')) showSection('cal-fiscal'); else alert('No tens permís per veure aquest calendari');">
                 📋 Cal. Fiscal
               </div>
             </div>
             <!-- Calendarios Personales (Expandible) -->
             <div class="nav-expandable-sub expanded" onclick="toggleSubMenu(event, 'personal-calendars-sub')">
-              <span>👥 Calendarios Personales</span>
+              <span>👥 Calendaris Personals</span>
               <span class="nav-expand-icon">▶</span>
             </div>
             <div class="nav-submenu expanded" id="personal-calendars-sub">
@@ -2994,7 +2994,7 @@
             data-sec="users"
             onclick="showSection('users')"
           >
-            <span class="icon">&#8857;</span> Usuarios
+            <span class="icon">&#8857;</span> Usuaris
           </div>
           <!-- NUEVO: Gestión de Calendarios y Permisos -->
           <div
@@ -3009,7 +3009,7 @@
             data-sec="services"
             onclick="showSection('services')"
           >
-            <span class="icon">&#9671;</span> Servicios
+            <span class="icon">&#9671;</span> Serveis
           </div>
           <!-- CLIENTES - SECCIÓN SIMPLE -->
           <div
@@ -3017,15 +3017,15 @@
             data-sec="clients"
             onclick="showSection('clients')"
           >
-            <span class="icon">👥</span> Clientes
+            <span class="icon">👥</span> Clients
           </div>
-          <div class="nav-section-title">Comunicación</div>
+          <div class="nav-section-title">Comunicació</div>
           <div
             class="nav-item"
             data-sec="messages"
             onclick="showSection('messages')"
           >
-            <span class="icon">&#10003;</span> Mensajería
+            <span class="icon">&#10003;</span> Missatgeria
             <span class="nav-badge" id="msg-badge" style="display: none"
               >0</span
             >
@@ -3037,7 +3037,7 @@
             <div class="s-name" id="sidebar-name">—</div>
             <div class="s-role" id="sidebar-role">—</div>
           </div>
-          <button class="s-logout" onclick="doLogout()" title="Cerrar sesión">
+          <button class="s-logout" onclick="doLogout()" title="Tancar sessió">
             &#9211;
           </button>
         </div>
@@ -3046,7 +3046,7 @@
       <main class="main">
         <header class="topbar">
           <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Menú">&#9776;</button>
-          <div class="topbar-title" id="topbar-title">Inicio</div>
+          <div class="topbar-title" id="topbar-title">Inici</div>
           <div
             style="font-size: 12px; color: var(--text-muted)"
             id="topbar-date"
@@ -3058,15 +3058,15 @@
           <div class="section" id="section-dashboard">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2 id="dash-greeting">Buenos días</h2>
-                <p id="dash-sub">Resumen de actividad de hoy</p>
+                <h2 id="dash-greeting">Bon dia</h2>
+                <p id="dash-sub">Resum d'activitat d'avui</p>
               </div>
             </div>
             <div class="stats-grid" id="stats-grid"></div>
             <div class="dash-grid">
               <div class="card">
                 <div class="card-hdr">
-                  <div class="card-title">Próximas citas</div>
+                  <div class="card-title">Properes cites</div>
                   <button
                     class="btn btn-sm btn-outline"
                     onclick="viewMyOwnCalendar()"
@@ -3078,7 +3078,7 @@
               </div>
               <div class="card">
                 <div class="card-hdr">
-                  <div class="card-title">Mensajes pendientes</div>
+                  <div class="card-title">Missatges pendents</div>
                 </div>
                 <div class="card-body" id="pending-messages"></div>
               </div>
@@ -3089,14 +3089,14 @@
           <div class="section" id="section-my-calendar">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2 id="my-calendar-title">Mi Calendario</h2>
-                <p id="my-calendar-subtitle">Tus citas personales</p>
+                <h2 id="my-calendar-title">El meu Calendari</h2>
+                <p id="my-calendar-subtitle">Les teves cites personals</p>
               </div>
               <button
                 class="btn btn-primary btn-sm"
                 onclick="openEventModal(false, null)"
               >
-                + Nueva cita
+                + Nova cita
               </button>
             </div>
             <div class="calendar-wrapper">
@@ -3106,19 +3106,19 @@
                 <button class="cal-nav" onclick="calNav(1,'my')">&rsaquo;</button>
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="my-btn-month" onclick="setCalView('my','month')">Mes</button>
-                  <button class="cal-view-btn" id="my-btn-week" onclick="setCalView('my','week')">Semana</button>
-                  <button class="cal-view-btn" id="my-btn-day" onclick="setCalView('my','day')">Día</button>
+                  <button class="cal-view-btn" id="my-btn-week" onclick="setCalView('my','week')">Setmana</button>
+                  <button class="cal-view-btn" id="my-btn-day" onclick="setCalView('my','day')">Dia</button>
                 </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
-                  <div class="cal-day-name">Lun</div>
-                  <div class="cal-day-name">Mar</div>
-                  <div class="cal-day-name">Mié</div>
-                  <div class="cal-day-name">Jue</div>
-                  <div class="cal-day-name">Vie</div>
-                  <div class="cal-day-name">Sáb</div>
-                  <div class="cal-day-name">Dom</div>
+                  <div class="cal-day-name">Dll</div>
+                  <div class="cal-day-name">Dmt</div>
+                  <div class="cal-day-name">Dcr</div>
+                  <div class="cal-day-name">Dj</div>
+                  <div class="cal-day-name">Dv</div>
+                  <div class="cal-day-name">Ds</div>
+                  <div class="cal-day-name">Dg</div>
                 </div>
                 <div class="cal-cells" id="my-cal-cells"></div>
               </div>
@@ -3130,21 +3130,21 @@
           <div class="section" id="section-global-calendar">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendario Global</h2>
-                <p>Todas las citas del equipo</p>
+                <h2>Calendari Global</h2>
+                <p>Totes les cites de l'equip</p>
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar por:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar per:</label>
                   <select id="global-filter-person" onchange="renderCalendar('global')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
-                    <option value="all">Todos</option>
+                    <option value="all">Tots</option>
                   </select>
                 </div>
                 <button
                   class="btn btn-primary btn-sm"
                   onclick="openEventModal(true, null)"
                 >
-                  + Agendar cita
+                  + Programar cita
                 </button>
               </div>
             </div>
@@ -3155,19 +3155,19 @@
                 <button class="cal-nav" onclick="calNav(1,'global')">&rsaquo;</button>
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="global-btn-month" onclick="setCalView('global','month')">Mes</button>
-                  <button class="cal-view-btn" id="global-btn-week" onclick="setCalView('global','week')">Semana</button>
-                  <button class="cal-view-btn" id="global-btn-day" onclick="setCalView('global','day')">Día</button>
+                  <button class="cal-view-btn" id="global-btn-week" onclick="setCalView('global','week')">Setmana</button>
+                  <button class="cal-view-btn" id="global-btn-day" onclick="setCalView('global','day')">Dia</button>
                 </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
-                  <div class="cal-day-name">Lun</div>
-                  <div class="cal-day-name">Mar</div>
-                  <div class="cal-day-name">Mié</div>
-                  <div class="cal-day-name">Jue</div>
-                  <div class="cal-day-name">Vie</div>
-                  <div class="cal-day-name">Sáb</div>
-                  <div class="cal-day-name">Dom</div>
+                  <div class="cal-day-name">Dll</div>
+                  <div class="cal-day-name">Dmt</div>
+                  <div class="cal-day-name">Dcr</div>
+                  <div class="cal-day-name">Dj</div>
+                  <div class="cal-day-name">Dv</div>
+                  <div class="cal-day-name">Ds</div>
+                  <div class="cal-day-name">Dg</div>
                 </div>
                 <div class="cal-cells" id="global-cal-cells"></div>
               </div>
@@ -3179,17 +3179,17 @@
           <div class="section" id="section-mataro-calendar" style="display:none">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendario Mataró</h2>
-                <p>Citas del equipo de Mataró</p>
+                <h2>Calendari Mataró</h2>
+                <p>Cites de l'equip de Mataró</p>
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar por:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar per:</label>
                   <select id="mataro-filter-person" onchange="renderCalendar('mataro')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
-                    <option value="all">Todos</option>
+                    <option value="all">Tots</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openEventModal(true, null, 'Mataró')">+ Agendar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openEventModal(true, null, 'Mataró')">+ Programar cita</button>
               </div>
             </div>
             <div class="calendar-wrapper">
@@ -3199,19 +3199,19 @@
                 <button class="cal-nav" onclick="calNav(1,'mataro')">&rsaquo;</button>
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="mataro-btn-month" onclick="setCalView('mataro','month')">Mes</button>
-                  <button class="cal-view-btn" id="mataro-btn-week" onclick="setCalView('mataro','week')">Semana</button>
-                  <button class="cal-view-btn" id="mataro-btn-day" onclick="setCalView('mataro','day')">Día</button>
+                  <button class="cal-view-btn" id="mataro-btn-week" onclick="setCalView('mataro','week')">Setmana</button>
+                  <button class="cal-view-btn" id="mataro-btn-day" onclick="setCalView('mataro','day')">Dia</button>
                 </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
-                  <div class="cal-day-name">Lun</div>
-                  <div class="cal-day-name">Mar</div>
-                  <div class="cal-day-name">Mié</div>
-                  <div class="cal-day-name">Jue</div>
-                  <div class="cal-day-name">Vie</div>
-                  <div class="cal-day-name">Sáb</div>
-                  <div class="cal-day-name">Dom</div>
+                  <div class="cal-day-name">Dll</div>
+                  <div class="cal-day-name">Dmt</div>
+                  <div class="cal-day-name">Dcr</div>
+                  <div class="cal-day-name">Dj</div>
+                  <div class="cal-day-name">Dv</div>
+                  <div class="cal-day-name">Ds</div>
+                  <div class="cal-day-name">Dg</div>
                 </div>
                 <div class="cal-cells" id="mataro-cal-cells"></div>
               </div>
@@ -3223,17 +3223,17 @@
           <div class="section" id="section-vilassar-calendar" style="display:none">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendario Vilassar</h2>
-                <p>Citas del equipo de Vilassar</p>
+                <h2>Calendari Vilassar</h2>
+                <p>Cites de l'equip de Vilassar</p>
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar por:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Filtrar per:</label>
                   <select id="vilassar-filter-person" onchange="renderCalendar('vilassar')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
-                    <option value="all">Todos</option>
+                    <option value="all">Tots</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openEventModal(true, null, 'Vilassar')">+ Agendar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openEventModal(true, null, 'Vilassar')">+ Programar cita</button>
               </div>
             </div>
             <div class="calendar-wrapper">
@@ -3243,19 +3243,19 @@
                 <button class="cal-nav" onclick="calNav(1,'vilassar')">&rsaquo;</button>
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="vilassar-btn-month" onclick="setCalView('vilassar','month')">Mes</button>
-                  <button class="cal-view-btn" id="vilassar-btn-week" onclick="setCalView('vilassar','week')">Semana</button>
-                  <button class="cal-view-btn" id="vilassar-btn-day" onclick="setCalView('vilassar','day')">Día</button>
+                  <button class="cal-view-btn" id="vilassar-btn-week" onclick="setCalView('vilassar','week')">Setmana</button>
+                  <button class="cal-view-btn" id="vilassar-btn-day" onclick="setCalView('vilassar','day')">Dia</button>
                 </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
-                  <div class="cal-day-name">Lun</div>
-                  <div class="cal-day-name">Mar</div>
-                  <div class="cal-day-name">Mié</div>
-                  <div class="cal-day-name">Jue</div>
-                  <div class="cal-day-name">Vie</div>
-                  <div class="cal-day-name">Sáb</div>
-                  <div class="cal-day-name">Dom</div>
+                  <div class="cal-day-name">Dll</div>
+                  <div class="cal-day-name">Dmt</div>
+                  <div class="cal-day-name">Dcr</div>
+                  <div class="cal-day-name">Dj</div>
+                  <div class="cal-day-name">Dv</div>
+                  <div class="cal-day-name">Ds</div>
+                  <div class="cal-day-name">Dg</div>
                 </div>
                 <div class="cal-cells" id="vilassar-cal-cells"></div>
               </div>
@@ -3271,8 +3271,8 @@
           <div class="section" id="section-admin-view-calendar">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendario Administradores</h2>
-                <p id="admin-view-cal-sub">Citas de todos los administradores</p>
+                <h2>Calendari Administradors</h2>
+                <p id="admin-view-cal-sub">Cites de tots els administradors</p>
               </div>
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                 <!-- NUEVO: filtro por admin -->
@@ -3280,7 +3280,7 @@
                   <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Ver:</label>
                   <select id="admin-view-filter" onchange="renderAdminViewCalendar()"
                     style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);outline:none">
-                    <option value="all">Todos los admins</option>
+                    <option value="all">Tots els admins</option>
                   </select>
                 </div>
                 <button
@@ -3288,7 +3288,7 @@
                   id="btn-add-admin-appt"
                   onclick="openAdminCalEventModal(null)"
                 >
-                  + Solicitar cita
+                  + Sol·licitar cita
                 </button>
               </div>
             </div>
@@ -3298,8 +3298,8 @@
             <div class="admin-cal-banner" id="admin-cal-info-banner" style="display:none">
               <span style="font-size:18px">📅</span>
               <div>
-                <strong>Calendario de Administradores</strong> — Puedes ver las citas y solicitar una nueva.
-                Las citas marcadas como <em>🔒 Hora bloqueada</em> no están disponibles.
+                <strong>Calendari d'Administradors</strong> — Pots veure les cites i sol·licitar-ne una de nova.
+                Les cites marcades com <em>🔒 Hora bloquejada</em> no estan disponibles.
               </div>
             </div>
             <div class="calendar-wrapper">
@@ -3309,19 +3309,19 @@
                 <button class="cal-nav" onclick="calNavAdminView(1)">&rsaquo;</button>
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="admin-view-btn-month" onclick="setCalView('admin-view','month')">Mes</button>
-                  <button class="cal-view-btn" id="admin-view-btn-week" onclick="setCalView('admin-view','week')">Semana</button>
-                  <button class="cal-view-btn" id="admin-view-btn-day" onclick="setCalView('admin-view','day')">Día</button>
+                  <button class="cal-view-btn" id="admin-view-btn-week" onclick="setCalView('admin-view','week')">Setmana</button>
+                  <button class="cal-view-btn" id="admin-view-btn-day" onclick="setCalView('admin-view','day')">Dia</button>
                 </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
-                  <div class="cal-day-name">Lun</div>
-                  <div class="cal-day-name">Mar</div>
-                  <div class="cal-day-name">Mié</div>
-                  <div class="cal-day-name">Jue</div>
-                  <div class="cal-day-name">Vie</div>
-                  <div class="cal-day-name">Sáb</div>
-                  <div class="cal-day-name">Dom</div>
+                  <div class="cal-day-name">Dll</div>
+                  <div class="cal-day-name">Dmt</div>
+                  <div class="cal-day-name">Dcr</div>
+                  <div class="cal-day-name">Dj</div>
+                  <div class="cal-day-name">Dv</div>
+                  <div class="cal-day-name">Ds</div>
+                  <div class="cal-day-name">Dg</div>
                 </div>
                 <div class="cal-cells" id="admin-view-cal-cells"></div>
               </div>
@@ -3334,12 +3334,12 @@
           <div class="section" id="section-cal-laboral">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendario Laboral</h2>
-                <p>Citas del departamento laboral</p>
+                <h2>Calendari Laboral</h2>
+                <p>Cites del departament laboral</p>
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Sede:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Seu:</label>
                   <select id="dept-laboral-filter-sede" onchange="renderDeptCalendar('laboral')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
                     <option value="all">Todas</option>
                     <option value="Mataró">Mataró</option>
@@ -3347,12 +3347,12 @@
                   </select>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleado:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleat:</label>
                   <select id="dept-laboral-filter-person" onchange="renderDeptCalendar('laboral')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
-                    <option value="all">Todos</option>
+                    <option value="all">Tots</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('laboral')">+ Agendar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('laboral')">+ Programar cita</button>
               </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
@@ -3364,14 +3364,14 @@
                 <button class="cal-nav" onclick="calNavDept(1,'laboral')">&rsaquo;</button>
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="dept-laboral-btn-month" onclick="setCalView('dept-laboral','month')">Mes</button>
-                  <button class="cal-view-btn" id="dept-laboral-btn-week" onclick="setCalView('dept-laboral','week')">Semana</button>
-                  <button class="cal-view-btn" id="dept-laboral-btn-day" onclick="setCalView('dept-laboral','day')">Día</button>
+                  <button class="cal-view-btn" id="dept-laboral-btn-week" onclick="setCalView('dept-laboral','week')">Setmana</button>
+                  <button class="cal-view-btn" id="dept-laboral-btn-day" onclick="setCalView('dept-laboral','day')">Dia</button>
                 </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
-                  <div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mié</div>
-                  <div class="cal-day-name">Jue</div><div class="cal-day-name">Vie</div><div class="cal-day-name">Sáb</div><div class="cal-day-name">Dom</div>
+                  <div class="cal-day-name">Dll</div><div class="cal-day-name">Dmt</div><div class="cal-day-name">Dcr</div>
+                  <div class="cal-day-name">Dj</div><div class="cal-day-name">Dv</div><div class="cal-day-name">Ds</div><div class="cal-day-name">Dg</div>
                 </div>
                 <div class="cal-cells" id="dept-laboral-cal-cells"></div>
               </div>
@@ -3383,12 +3383,12 @@
           <div class="section" id="section-cal-fiscal">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendario Fiscal</h2>
-                <p>Citas del departamento fiscal</p>
+                <h2>Calendari Fiscal</h2>
+                <p>Cites del departament fiscal</p>
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Sede:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Seu:</label>
                   <select id="dept-fiscal-filter-sede" onchange="renderDeptCalendar('fiscal')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
                     <option value="all">Todas</option>
                     <option value="Mataró">Mataró</option>
@@ -3396,12 +3396,12 @@
                   </select>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleado:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleat:</label>
                   <select id="dept-fiscal-filter-person" onchange="renderDeptCalendar('fiscal')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
-                    <option value="all">Todos</option>
+                    <option value="all">Tots</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('fiscal')">+ Agendar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('fiscal')">+ Programar cita</button>
               </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
@@ -3413,14 +3413,14 @@
                 <button class="cal-nav" onclick="calNavDept(1,'fiscal')">&rsaquo;</button>
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="dept-fiscal-btn-month" onclick="setCalView('dept-fiscal','month')">Mes</button>
-                  <button class="cal-view-btn" id="dept-fiscal-btn-week" onclick="setCalView('dept-fiscal','week')">Semana</button>
-                  <button class="cal-view-btn" id="dept-fiscal-btn-day" onclick="setCalView('dept-fiscal','day')">Día</button>
+                  <button class="cal-view-btn" id="dept-fiscal-btn-week" onclick="setCalView('dept-fiscal','week')">Setmana</button>
+                  <button class="cal-view-btn" id="dept-fiscal-btn-day" onclick="setCalView('dept-fiscal','day')">Dia</button>
                 </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
-                  <div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mié</div>
-                  <div class="cal-day-name">Jue</div><div class="cal-day-name">Vie</div><div class="cal-day-name">Sáb</div><div class="cal-day-name">Dom</div>
+                  <div class="cal-day-name">Dll</div><div class="cal-day-name">Dmt</div><div class="cal-day-name">Dcr</div>
+                  <div class="cal-day-name">Dj</div><div class="cal-day-name">Dv</div><div class="cal-day-name">Ds</div><div class="cal-day-name">Dg</div>
                 </div>
                 <div class="cal-cells" id="dept-fiscal-cal-cells"></div>
               </div>
@@ -3432,12 +3432,12 @@
           <div class="section" id="section-cal-mercantil">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendario Mercantil</h2>
-                <p>Citas del departamento mercantil</p>
+                <h2>Calendari Mercantil</h2>
+                <p>Cites del departament mercantil</p>
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Sede:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Seu:</label>
                   <select id="dept-mercantil-filter-sede" onchange="renderDeptCalendar('mercantil')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
                     <option value="all">Todas</option>
                     <option value="Mataró">Mataró</option>
@@ -3445,12 +3445,12 @@
                   </select>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleado:</label>
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleat:</label>
                   <select id="dept-mercantil-filter-person" onchange="renderDeptCalendar('mercantil')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
-                    <option value="all">Todos</option>
+                    <option value="all">Tots</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('mercantil')">+ Agendar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('mercantil')">+ Programar cita</button>
               </div>
             </div>
             <!-- NUEVO: leyenda de empleados del departamento -->
@@ -3462,14 +3462,14 @@
                 <button class="cal-nav" onclick="calNavDept(1,'mercantil')">&rsaquo;</button>
                 <div class="cal-view-toggle">
                   <button class="cal-view-btn active" id="dept-mercantil-btn-month" onclick="setCalView('dept-mercantil','month')">Mes</button>
-                  <button class="cal-view-btn" id="dept-mercantil-btn-week" onclick="setCalView('dept-mercantil','week')">Semana</button>
-                  <button class="cal-view-btn" id="dept-mercantil-btn-day" onclick="setCalView('dept-mercantil','day')">Día</button>
+                  <button class="cal-view-btn" id="dept-mercantil-btn-week" onclick="setCalView('dept-mercantil','week')">Setmana</button>
+                  <button class="cal-view-btn" id="dept-mercantil-btn-day" onclick="setCalView('dept-mercantil','day')">Dia</button>
                 </div>
               </div>
               <div class="cal-grid">
                 <div class="cal-days-header">
-                  <div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mié</div>
-                  <div class="cal-day-name">Jue</div><div class="cal-day-name">Vie</div><div class="cal-day-name">Sáb</div><div class="cal-day-name">Dom</div>
+                  <div class="cal-day-name">Dll</div><div class="cal-day-name">Dmt</div><div class="cal-day-name">Dcr</div>
+                  <div class="cal-day-name">Dj</div><div class="cal-day-name">Dv</div><div class="cal-day-name">Ds</div><div class="cal-day-name">Dg</div>
                 </div>
                 <div class="cal-cells" id="dept-mercantil-cal-cells"></div>
               </div>
@@ -3481,8 +3481,8 @@
           <div class="section" id="section-admin-calendars">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendarios</h2>
-                <p>Acceso a todos los calendarios y configuración de permisos</p>
+                <h2>Calendaris</h2>
+                <p>Accés a tots els calendaris i configuració de permisos</p>
               </div>
             </div>
 
@@ -3491,31 +3491,31 @@
               <div class="card" style="cursor:pointer" onclick="viewMyOwnCalendar()">
                 <div class="card-body" style="display:flex;align-items:center;gap:12px">
                   <div style="width:38px;height:38px;border-radius:8px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📅</div>
-                  <div><div style="font-weight:600;font-size:14px">Mi Calendario</div><div style="font-size:12px;color:var(--text-muted)">Personal</div></div>
+                  <div><div style="font-weight:600;font-size:14px">El meu Calendari</div><div style="font-size:12px;color:var(--text-muted)">Personal</div></div>
                 </div>
               </div>
               <div class="card" style="cursor:pointer" onclick="showSection('global-calendar')">
                 <div class="card-body" style="display:flex;align-items:center;gap:12px">
                   <div style="width:38px;height:38px;border-radius:8px;background:#e8f4e8;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🌐</div>
-                  <div><div style="font-weight:600;font-size:14px">Calendario Global</div><div style="font-size:12px;color:var(--text-muted)">Todo el equipo</div></div>
+                  <div><div style="font-weight:600;font-size:14px">Calendari Global</div><div style="font-size:12px;color:var(--text-muted)">Tot l'equip</div></div>
                 </div>
               </div>
               <div class="card" style="cursor:pointer" onclick="showSection('cal-laboral')">
                 <div class="card-body" style="display:flex;align-items:center;gap:12px">
                   <div style="width:38px;height:38px;border-radius:8px;background:#e0f0ff;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📋</div>
-                  <div><div style="font-weight:600;font-size:14px">Dept. Laboral</div><div style="font-size:12px;color:var(--text-muted)">Todos los miembros</div></div>
+                  <div><div style="font-weight:600;font-size:14px">Dept. Laboral</div><div style="font-size:12px;color:var(--text-muted)">Tots els membres</div></div>
                 </div>
               </div>
               <div class="card" style="cursor:pointer" onclick="showSection('cal-fiscal')">
                 <div class="card-body" style="display:flex;align-items:center;gap:12px">
                   <div style="width:38px;height:38px;border-radius:8px;background:#fff3e0;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📋</div>
-                  <div><div style="font-weight:600;font-size:14px">Dept. Fiscal</div><div style="font-size:12px;color:var(--text-muted)">Todos los miembros</div></div>
+                  <div><div style="font-weight:600;font-size:14px">Dept. Fiscal</div><div style="font-size:12px;color:var(--text-muted)">Tots els membres</div></div>
                 </div>
               </div>
               <div class="card" style="cursor:pointer" onclick="showSection('cal-mercantil')">
                 <div class="card-body" style="display:flex;align-items:center;gap:12px">
                   <div style="width:38px;height:38px;border-radius:8px;background:#f3e8ff;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📋</div>
-                  <div><div style="font-weight:600;font-size:14px">Dept. Mercantil</div><div style="font-size:12px;color:var(--text-muted)">Todos los miembros</div></div>
+                  <div><div style="font-weight:600;font-size:14px">Dept. Mercantil</div><div style="font-size:12px;color:var(--text-muted)">Tots els membres</div></div>
                 </div>
               </div>
             </div>
@@ -3523,7 +3523,7 @@
             <!-- Configuración de permisos -->
             <div class="card">
               <div class="card-hdr">
-                <div class="card-title">Configuración de Permisos por Departamento</div>
+                <div class="card-title">Configuració de Permisos per Departament</div>
               </div>
               <div class="card-body" id="permissions-panel"></div>
             </div>
@@ -3531,16 +3531,16 @@
           <div class="section" id="section-users">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Gestión de Usuarios</h2>
-                <p>Empleados y administradores</p>
+                <h2>Gestió d'Usuaris</h2>
+                <p>Empleats i administradors</p>
               </div>
               <button class="btn btn-primary btn-sm" onclick="openUserModal()">
-                + Nuevo usuario
+                + Nou usuari
               </button>
             </div>
             <div class="table-wrap">
               <div class="table-header">
-                <div class="card-title">Equipo</div>
+                <div class="card-title">Equip</div>
                 <span
                   id="user-count"
                   style="font-size: 13px; color: var(--text-muted)"
@@ -3549,14 +3549,14 @@
               <table>
                 <thead>
                   <tr>
-                    <th>Usuario</th>
+                    <th>Usuari</th>
                     <th>Rol</th>
-                    <th>Departamento</th>
-                    <th>Sede</th>
+                    <th>Departament</th>
+                    <th>Seu</th>
                     <th>Email</th>
-                    <th>Teléfono</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
+                    <th>Telèfon</th>
+                    <th>Estat</th>
+                    <th>Accions</th>
                   </tr>
                 </thead>
                 <tbody id="users-table-body"></tbody>
@@ -3568,14 +3568,14 @@
           <div class="section" id="section-services">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Servicios</h2>
-                <p>Catálogo de servicios disponibles</p>
+                <h2>Serveis</h2>
+                <p>Catàleg de serveis disponibles</p>
               </div>
               <button
                 class="btn btn-primary btn-sm admin-only"
                 onclick="openServiceModal()"
               >
-                + Nuevo servicio
+                + Nou servei
               </button>
             </div>
             <div class="srv-list" id="services-list"></div>
@@ -3585,14 +3585,14 @@
           <div class="section" id="section-clients">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Clientes</h2>
-                <p>Gestiona tu cartera de clientes</p>
+                <h2>Clients</h2>
+                <p>Gestiona la teva cartera de clients</p>
               </div>
               <div style="display:flex;gap:8px" class="admin-only">
                 <button
                   class="btn btn-outline btn-sm"
                   onclick="openClientsImportModal()"
-                  title="Importar clientes desde Excel"
+                  title="Importar clients des d'Excel"
                 >
                   📥 Importar Excel
                 </button>
@@ -3600,7 +3600,7 @@
                   class="btn btn-primary btn-sm"
                   onclick="openClientModal()"
                 >
-                  + Nuevo cliente
+                  + Nou client
                 </button>
               </div>
             </div>
@@ -3610,12 +3610,12 @@
                 <input 
                   type="text" 
                   id="clients-search"
-                  placeholder="🔍 Buscar cliente por nombre o teléfono..."
+                  placeholder="🔍 Cercar client per nom o telèfon..."
                   style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;background:var(--surface);color:var(--text)"
                   oninput="filterClients(this.value)"
                   autocomplete="off"
                 />
-                <div id="clients-search-clear" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;display:none;font-size:18px;opacity:0.6;transition:opacity 0.2s" onclick="clearClientsSearch()" title="Limpiar búsqueda">✕</div>
+                <div id="clients-search-clear" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;display:none;font-size:18px;opacity:0.6;transition:opacity 0.2s" onclick="clearClientsSearch()" title="Netejar cerca">✕</div>
               </div>
             </div>
             <div class="clients-list" id="clients-list"></div>
@@ -3626,21 +3626,21 @@
           <div class="section" id="section-messages">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Mensajería</h2>
-                <p>Conversaciones privadas del equipo</p>
+                <h2>Missatgeria</h2>
+                <p>Converses privades de l'equip</p>
               </div>
             </div>
             <div class="msg-layout">
               <div class="msg-sidebar">
                 <div class="msg-sidebar-header">
-                  <div class="card-title">Conversaciones</div>
+                  <div class="card-title">Converses</div>
                 </div>
 
                 <div class="msg-search">
                   <input
                     type="text"
                     id="msg-search-inp"
-                    placeholder="Buscar..."
+                    placeholder="Cercar..."
                     oninput="filterConvs()"
                   />
                 </div>
@@ -3650,7 +3650,7 @@
                 <div class="msg-empty" id="msg-empty-state">
                   <div class="msg-empty-icon">&#10003;</div>
                   <div style="font-size: 15px; font-weight: 500">
-                    Selecciona una conversación
+                    Selecciona una conversa
                   </div>
                   <div
                     style="
@@ -3659,7 +3659,7 @@
                       color: var(--text-muted);
                     "
                   >
-                    Elige un contacto para iniciar
+                    Tria un contacte per iniciar
                   </div>
                 </div>
                 <div
@@ -3667,7 +3667,7 @@
                   style="display: none; flex: 1; flex-direction: column; min-height: 0; overflow: hidden;"
                 >
                   <div class="msg-main-header">
-                    <button class="msg-back-btn" onclick="closeMobileConv()" title="Volver">&#8592;</button>
+                    <button class="msg-back-btn" onclick="closeMobileConv()" title="Tornar">&#8592;</button>
                     <div
                       class="s-avatar"
                       id="chat-avatar"
@@ -3696,7 +3696,7 @@
                     <label
                       for="msg-file-input"
                       class="msg-attach-btn"
-                      title="Adjuntar archivo (máx. 5 MB, no ejecutables)"
+                      title="Adjuntar fitxer (màx. 5 MB, no executables)"
                       role="button"
                       tabindex="0"
                       onkeydown="if(event.key==='Enter'||event.key===' '){document.getElementById('msg-file-input').click();}"
@@ -3714,7 +3714,7 @@
                   <div class="msg-composer">
                     <textarea
                       id="msg-input"
-                      placeholder="Escribe un mensaje... (Enter para enviar)"
+                      placeholder="Escriu un missatge... (Enter per enviar)"
                       onkeydown="msgKeydown(event)"
                     ></textarea>
                     <button class="msg-send-btn" onclick="sendMsg()">
@@ -3735,24 +3735,24 @@
         <button class="modal-close" onclick="closeModal('event-modal')">
           &times;
         </button>
-        <div class="modal-title" id="event-modal-title">Nueva cita</div>
+        <div class="modal-title" id="event-modal-title">Nova cita</div>
         <div class="modal-sub" id="event-modal-sub">
-          Rellena los datos de la cita
+          Omple les dades de la cita
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="ev-date">Fecha *</label>
+            <label for="ev-date">Data *</label>
             <input type="date" id="ev-date" />
           </div>
           <div class="form-group">
-            <label for="ev-time">Hora inicio *</label>
+            <label for="ev-time">Hora inici *</label>
             <input type="time" id="ev-time" value="09:00" oninput="updateEvDuration()" />
           </div>
         </div>
-        <!-- Hora fin OBLIGATORIA -->
+        <!-- Hora fi OBLIGATORIA -->
         <div class="form-row" style="margin-top:-8px">
           <div class="form-group">
-            <label for="ev-time-end">Hora fin *</label>
+            <label for="ev-time-end">Hora fi *</label>
             <input type="time" id="ev-time-end" oninput="updateEvDuration()" />
           </div>
           <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:18px">
@@ -3760,9 +3760,9 @@
           </div>
         </div>
         <div class="form-group">
-          <label for="ev-client">Cliente *</label>
+          <label for="ev-client">Client *</label>
           <div class="client-autocomplete-wrap">
-            <input type="text" id="ev-client" placeholder="Escribe para buscar cliente..." autocomplete="off"
+            <input type="text" id="ev-client" placeholder="Escriu per cercar client..." autocomplete="off"
               oninput="clientSuggest('ev-client','ev-client-suggestions','ev-client-phone')"
               onkeydown="clientSuggestKey(event,'ev-client-suggestions','ev-client','ev-client-phone')"
               onfocus="clientSuggest('ev-client','ev-client-suggestions','ev-client-phone')"
@@ -3773,58 +3773,58 @@
           <div id="ev-client-phone-display"></div>
         </div>
         <div class="form-group">
-          <label>Tipo de servicio</label>
+          <label>Tipus de servei</label>
           <select id="ev-service"></select>
         </div>
         <div class="form-group" id="ev-employee-group">
-          <label>Técnico / Empleado asignado</label>
+          <label>Tècnic / Empleat assignat</label>
           <select id="ev-employee"></select>
         </div>
         <div class="form-group">
-          <label>Notas</label
+          <label>Notes</label
           ><textarea
             id="ev-notes"
             rows="3"
-            placeholder="Información adicional..."
+            placeholder="Informació addicional..."
           ></textarea>
         </div>
         <div class="form-group admin-only" id="ev-private-group" style="display:flex;align-items:center;gap:10px;background:var(--bg2);padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border)">
           <input type="checkbox" id="ev-private" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" />
           <div>
             <label for="ev-private" style="font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0">🔒 Cita privada</label>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Solo visible para el admin y el empleado asignado</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Només visible per a l'admin i l'empleat assignat</div>
           </div>
         </div>
         <div class="form-err" id="ev-err">
-          Rellena los campos obligatorios (*).
+          Omple els camps obligatoris (*).
         </div>
 
         <!-- ════════════════════════════════════════════════════════════ -->
         <!-- WhatsApp Reminder (Para el CLIENTE) -->
         <!-- ════════════════════════════════════════════════════════════ -->
         <div style="margin-top:16px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
-          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">💬 Recordatorio WhatsApp</div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">💬 Recordatori WhatsApp</div>
           <div class="wa-reminder-wrap">
             <button class="btn-wa" type="button" onclick="toggleWaDropdown('ev-wa-dropdown')">
-              <span class="wa-icon">💬</span> Añadir recordatorio
+              <span class="wa-icon">💬</span> Afegir recordatori
               <span style="font-size:10px;margin-left:2px">▼</span>
             </button>
             <div class="wa-dropdown" id="ev-wa-dropdown">
-              <div class="wa-dropdown-title">Cuándo enviar al cliente</div>
+              <div class="wa-dropdown-title">Quan enviar al client</div>
               <div class="wa-dropdown-opt" onclick="clearWaReminder('ev'); toggleWaDropdown('ev-wa-dropdown')">
                 <span class="wa-opt-icon">🚫</span> No recordar
               </div>
-              <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', 'now', 'Ahora mismo', this)">
-                <span class="wa-opt-icon">⚡</span> Ahora mismo
+              <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', 'now', 'Ara mateix', this)">
+                <span class="wa-opt-icon">⚡</span> Ara mateix
               </div>
-              <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', '1h', '1 hora antes', this)">
-                <span class="wa-opt-icon">⏰</span> 1 hora antes
+              <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', '1h', '1 hora abans', this)">
+                <span class="wa-opt-icon">⏰</span> 1 hora abans
               </div>
-              <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', '1d', '1 día antes', this)">
-                <span class="wa-opt-icon">📅</span> 1 día antes
+              <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', '1d', '1 dia abans', this)">
+                <span class="wa-opt-icon">📅</span> 1 dia abans
               </div>
-              <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', '1w', '1 semana antes', this)">
-                <span class="wa-opt-icon">🗓️</span> 1 semana antes
+              <div class="wa-dropdown-opt" onclick="selectWaReminder('ev', '1w', '1 setmana abans', this)">
+                <span class="wa-opt-icon">🗓️</span> 1 setmana abans
               </div>
             </div>
           </div>
@@ -3836,37 +3836,37 @@
         <!-- Personal Reminder (Para TI - el usuario) -->
         <!-- ════════════════════════════════════════════════════════════ -->
         <div style="margin-top:16px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
-          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">🔔 Recordatorio Personal</div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">🔔 Recordatori Personal</div>
           <div class="pr-reminder-wrap">
             <button class="btn-pr" type="button" onclick="togglePrDropdown('ev-pr-dropdown')">
-              <span class="pr-icon">🔔</span> Añadir recordatorio
+              <span class="pr-icon">🔔</span> Afegir recordatori
               <span style="font-size:10px;margin-left:2px">▼</span>
             </button>
             <div class="pr-dropdown" id="ev-pr-dropdown">
-              <div class="pr-dropdown-title">Cuándo recordarme</div>
+              <div class="pr-dropdown-title">Quan recordar-me</div>
               <div class="pr-dropdown-opt" onclick="clearPrReminder('ev'); togglePrDropdown('ev-pr-dropdown')">
                 <span class="pr-opt-icon">🚫</span> No recordar
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', 'now', 'Ahora mismo', this)">
-                <span class="pr-opt-icon">⚡</span> Ahora mismo
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', 'now', 'Ara mateix', this)">
+                <span class="pr-opt-icon">⚡</span> Ara mateix
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '15m', '15 minutos antes', this)">
-                <span class="pr-opt-icon">⏰</span> 15 minutos antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '15m', '15 minuts abans', this)">
+                <span class="pr-opt-icon">⏰</span> 15 minuts abans
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '30m', '30 minutos antes', this)">
-                <span class="pr-opt-icon">⏰</span> 30 minutos antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '30m', '30 minuts abans', this)">
+                <span class="pr-opt-icon">⏰</span> 30 minuts abans
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '1h', '1 hora antes', this)">
-                <span class="pr-opt-icon">⏰</span> 1 hora antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '1h', '1 hora abans', this)">
+                <span class="pr-opt-icon">⏰</span> 1 hora abans
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '2h', '2 horas antes', this)">
-                <span class="pr-opt-icon">⏰</span> 2 horas antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '2h', '2 hores abans', this)">
+                <span class="pr-opt-icon">⏰</span> 2 hores abans
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '1d', '1 día antes', this)">
-                <span class="pr-opt-icon">📅</span> 1 día antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '1d', '1 dia abans', this)">
+                <span class="pr-opt-icon">📅</span> 1 dia abans
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '1w', '1 semana antes', this)">
-                <span class="pr-opt-icon">🗓️</span> 1 semana antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('ev', '1w', '1 setmana abans', this)">
+                <span class="pr-opt-icon">🗓️</span> 1 setmana abans
               </div>
             </div>
           </div>
@@ -3875,14 +3875,14 @@
 
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal('event-modal')">
-            Cancelar
+            Cancel·lar
           </button>
           <button
             class="btn btn-primary"
             id="ev-save-btn"
             onclick="saveEvent()"
           >
-            Guardar cita
+            Desar cita
           </button>
         </div>
       </div>
@@ -3894,7 +3894,7 @@
         <button class="modal-close" onclick="closeModal('detail-modal')">
           &times;
         </button>
-        <div class="modal-title" id="detail-title">Detalle de la cita</div>
+        <div class="modal-title" id="detail-title">Detall de la cita</div>
         <div
           id="detail-body"
           style="line-height: 2; font-size: 14px; margin-top: 16px"
@@ -3913,7 +3913,7 @@
             onclick="toggleCurrentEventPrivacy()"
             style="display:none"
           >
-            🔒 Privatizar
+            🔒 Privatitzar
           </button>
           <button
             class="btn btn-outline btn-sm"
@@ -3926,7 +3926,7 @@
             class="btn btn-ghost btn-sm"
             onclick="closeModal('detail-modal')"
           >
-            Cerrar
+            Tancar
           </button>
         </div>
       </div>
@@ -3938,41 +3938,41 @@
         <button class="modal-close" onclick="closeModal('user-modal')">
           &times;
         </button>
-        <div class="modal-title" id="user-modal-title">Nuevo usuario</div>
-        <div class="modal-sub">Añade un nuevo miembro al equipo</div>
+        <div class="modal-title" id="user-modal-title">Nou usuari</div>
+        <div class="modal-sub">Afegeix un nou membre a l'equip</div>
         <div class="form-row">
           <div class="form-group">
-            <label>Nombre completo *</label
-            ><input type="text" id="nu-name" placeholder="Nombre Apellido" />
+            <label>Nom complet *</label
+            ><input type="text" id="nu-name" placeholder="Nom Cognoms" />
           </div>
           <div class="form-group">
             <label>Rol *</label>
             <select id="nu-role">
-              <option value="empleado">Empleado</option>
+              <option value="empleado">Empleat</option>
               <option value="admin">Administrador</option>
             </select>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Usuario *</label
-            ><input type="text" id="nu-user" placeholder="nombre.usuario" />
+            <label>Usuari *</label
+            ><input type="text" id="nu-user" placeholder="nom.usuari" />
           </div>
           <div class="form-group">
-            <label>Contraseña *</label
+            <label>Contrasenya *</label
            ><input type="text" id="nu-pass" placeholder="••••••••" />
           </div>
         </div>
         <div class="form-group">
           <label>Email</label
-          ><input type="email" id="nu-email" placeholder="correo@empresa.com" />
+          ><input type="email" id="nu-email" placeholder="correu@empresa.com" />
         </div>
         <div class="form-group">
-          <label>Teléfono</label
+          <label>Telèfon</label
           ><input type="tel" id="nu-phone" placeholder="+34 600 000 000" />
         </div>
         <div class="form-group" id="nu-dept-group">
-          <label>Departamento *</label>
+          <label>Departament *</label>
           <select id="nu-dept">
             <option value="laboral">Laboral</option>
             <option value="fiscal">Fiscal</option>
@@ -3981,7 +3981,7 @@
         </div>
         <!-- NUEVO: Selector de Sede -->
         <div class="form-group">
-          <label>Sede *</label>
+          <label>Seu *</label>
           <select id="nu-sede">
             <option value="Mataró">Mataró</option>
             <option value="Vilassar">Vilassar</option>
@@ -3989,17 +3989,17 @@
         </div>
         <!-- NUEVO: selector de color de usuario -->
         <div class="form-group">
-          <label>Color en calendarios</label>
+          <label>Color als calendaris</label>
           <div id="nu-color-picker" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"></div>
           <input type="hidden" id="nu-color" value="teal" />
         </div>
         <div class="form-err" id="nu-err"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal('user-modal')">
-            Cancelar
+            Cancel·lar
           </button>
           <button class="btn btn-primary" id="nu-save-btn" onclick="saveUser()">
-            Crear usuario
+            Crear usuari
           </button>
         </div>
       </div>
@@ -4011,83 +4011,83 @@
         <button class="modal-close" onclick="closeModal('service-modal')">
           &times;
         </button>
-        <div class="modal-title" id="srv-modal-title">Nuevo servicio</div>
+        <div class="modal-title" id="srv-modal-title">Nou servei</div>
         <div class="modal-sub">
-          Define el nombre y la descripción del servicio
+          Defineix el nom i la descripció del servei
         </div>
         <div class="form-group">
-          <label>Nombre del servicio *</label
+          <label>Nom del servei *</label
           ><input
             type="text"
             id="srv-name"
-            placeholder="Ej: Consultoría Empresarial"
+            placeholder="Ex: Consultoria Empresarial"
           />
         </div>
         <div class="form-group">
-          <label>Descripción</label
+          <label>Descripció</label
           ><textarea
             id="srv-desc"
             rows="4"
-            placeholder="Descripción breve del servicio ofrecido..."
+            placeholder="Descripció breu del servei ofert..."
           ></textarea>
         </div>
         <div class="form-err" id="srv-err">
-          El nombre del servicio es obligatorio.
+          El nom del servei és obligatori.
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal('service-modal')">
-            Cancelar
+            Cancel·lar
           </button>
           <button
             class="btn btn-primary"
             id="srv-save-btn"
             onclick="saveService()"
           >
-            Guardar
+            Desar
           </button>
         </div>
       </div>
     </div>
 
-    <!-- MODAL: GESTIÓN DE CLIENTES -->
+    <!-- MODAL: GESTIÓ DE CLIENTS -->
     <div class="modal-overlay" id="client-modal">
       <div class="modal" style="width: 420px">
         <button class="modal-close" onclick="closeModal('client-modal')">
           &times;
         </button>
-        <div class="modal-title" id="client-modal-title">Nuevo cliente</div>
+        <div class="modal-title" id="client-modal-title">Nou client</div>
         <div class="modal-sub">
-          Añade el nombre y teléfono del cliente
+          Afegeix el nom i telèfon del client
         </div>
         <div class="form-group">
-          <label>Nombre / Empresa *</label>
+          <label>Nom / Empresa *</label>
           <input
             type="text"
             id="client-name"
-            placeholder="Ej: Juan García López"
+            placeholder="Ex: Joan García López"
           />
         </div>
         <div class="form-group">
-          <label>Teléfono *</label>
+          <label>Telèfon *</label>
           <input
             type="tel"
             id="client-phone"
-            placeholder="Ej: +34 666 123 456"
+            placeholder="Ex: +34 666 123 456"
           />
         </div>
         <div class="form-err" id="client-err">
-          El nombre y teléfono del cliente son obligatorios.
+          El nom i el telèfon del client són obligatoris.
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal('client-modal')">
-            Cancelar
+            Cancel·lar
           </button>
           <button
             class="btn btn-primary"
             id="client-save-btn"
             onclick="saveClient()"
           >
-            Guardar
+            Desar
           </button>
         </div>
       </div>
@@ -4099,20 +4099,20 @@
         <button class="modal-close" onclick="closeModal('import-clients-modal')">
           &times;
         </button>
-        <div class="modal-title">Importar Clientes</div>
+        <div class="modal-title">Importar Clients</div>
         <div class="modal-sub">
-          El archivo debe tener las columnas: <strong>Nombre</strong> y <strong>Número de Teléfono</strong>
+          El fitxer ha de tenir les columnes: <strong>Nom</strong> i <strong>Número de Telèfon</strong>
         </div>
         <div style="background:var(--accent-light);border-radius:var(--radius);padding:10px 14px;font-size:11.5px;color:var(--text-muted);margin-bottom:14px;border:1px solid var(--border)">
-          📋 Formato esperado de columnas:<br>
-          <span style="font-family:monospace;color:var(--text)">Nombre</span> · 
-          <span style="font-family:monospace;color:var(--text)">Número de Teléfono</span>
-          <span style="opacity:0.6"> (el resto de columnas son opcionales)</span>
+          📋 Format esperat de columnes:<br>
+          <span style="font-family:monospace;color:var(--text)">Nom</span> ·
+          <span style="font-family:monospace;color:var(--text)">Número de Telèfon</span>
+          <span style="opacity:0.6"> (la resta de columnes són opcionals)</span>
         </div>
         <div style="padding:20px;background:var(--bg2);border-radius:var(--radius);border:2px dashed var(--border);text-align:center;cursor:pointer;" onclick="document.getElementById('excel-file-input').click()">
           <div style="font-size:24px;margin-bottom:8px">📄</div>
-          <div style="font-weight:500;color:var(--text)">Selecciona un archivo Excel</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">o arrastra aquí (XLS, XLSX, CSV)</div>
+          <div style="font-weight:500;color:var(--text)">Selecciona un fitxer Excel</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">o arrossega aquí (XLS, XLSX, CSV)</div>
         </div>
         <input
           type="file"
@@ -4122,15 +4122,15 @@
           onchange="handleExcelFileSelect(event)"
         />
         <div id="import-preview" style="margin-top:16px;display:none">
-          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">Vista previa (primeras filas):</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">Vista prèvia (primeres files):</div>
           <div id="import-preview-content" style="max-height:200px;overflow-y:auto;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px"></div>
         </div>
         <div class="form-err" id="import-err" style="display:none">
-          Error al procesar el archivo
+          Error en processar el fitxer
         </div>
         <div class="modal-actions" style="margin-top:20px">
           <button class="btn btn-ghost" onclick="closeModal('import-clients-modal')">
-            Cancelar
+            Cancel·lar
           </button>
           <button
             class="btn btn-primary"
@@ -4152,8 +4152,8 @@
     <div class="modal-overlay" id="admin-event-modal">
       <div class="modal">
         <button class="modal-close" onclick="closeModal('admin-event-modal')">&times;</button>
-        <div class="modal-title" id="admin-event-modal-title">Solicitar cita con Antonio</div>
-        <div class="modal-sub" id="admin-event-modal-sub">Rellena los datos de la cita solicitada</div>
+        <div class="modal-title" id="admin-event-modal-title">Sol·licitar cita amb Antonio</div>
+        <div class="modal-sub" id="admin-event-modal-sub">Omple les dades de la cita sol·licitada</div>
         <!-- NUEVO: selección de admin si hay múltiples -->
         <div class="form-group" id="aev-admin-group" style="display:none">
           <label>Administrador *</label>
@@ -4161,18 +4161,18 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Fecha *</label>
+            <label>Data *</label>
             <input type="date" id="aev-date" />
           </div>
           <div class="form-group">
-            <label>Hora inicio *</label>
+            <label>Hora inici *</label>
             <input type="time" id="aev-time" value="09:00" oninput="updateAevDuration()" />
           </div>
         </div>
-        <!-- Hora fin OBLIGATORIA -->
+        <!-- Hora fi OBLIGATORIA -->
         <div class="form-row" style="margin-top:-8px">
           <div class="form-group">
-            <label>Hora fin *</label>
+            <label>Hora fi *</label>
             <input type="time" id="aev-time-end" oninput="updateAevDuration()" />
           </div>
           <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:18px">
@@ -4180,9 +4180,9 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Cliente / Motivo *</label>
+          <label>Client / Motiu *</label>
           <div class="client-autocomplete-wrap">
-            <input type="text" id="aev-client" placeholder="Escribe para buscar cliente..." autocomplete="off"
+            <input type="text" id="aev-client" placeholder="Escriu per cercar client..." autocomplete="off"
               oninput="clientSuggest('aev-client','aev-client-suggestions','aev-client-phone')"
               onkeydown="clientSuggestKey(event,'aev-client-suggestions','aev-client','aev-client-phone')"
               onfocus="clientSuggest('aev-client','aev-client-suggestions','aev-client-phone')"
@@ -4193,49 +4193,49 @@
           <div id="aev-client-phone-display"></div>
         </div>
         <div class="form-group">
-          <label>Tipo de servicio</label>
+          <label>Tipus de servei</label>
           <select id="aev-service"></select>
         </div>
         <div class="form-group">
-          <label>Notas</label>
-          <textarea id="aev-notes" rows="3" placeholder="Información adicional..."></textarea>
+          <label>Notes</label>
+          <textarea id="aev-notes" rows="3" placeholder="Informació addicional..."></textarea>
         </div>
         <!-- Aviso de horario bloqueado -->
         <div id="aev-blocked-warning" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:var(--radius);padding:10px 14px;font-size:13px;color:#856404;margin-bottom:12px">
-          ⚠️ <strong>Horario bloqueado:</strong> Ya existe una cita en este horario. Por favor, elige otra hora.
+          ⚠️ <strong>Horari bloquejat:</strong> Ja existeix una cita en aquest horari. Si us plau, tria una altra hora.
         </div>
-        <div class="form-err" id="aev-err">Rellena los campos obligatorios (*).</div>
+        <div class="form-err" id="aev-err">Omple els camps obligatoris (*).</div>
 
         <!-- ════════════════════════════════════════════════════════════ -->
         <!-- WhatsApp Reminder (Para el CLIENTE) -->
         <!-- ════════════════════════════════════════════════════════════ -->
         <div style="margin-top:12px;margin-bottom:8px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
-          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">💬 Recordatorio WhatsApp</div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">💬 Recordatori WhatsApp</div>
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
             <div class="wa-reminder-wrap">
               <button class="btn-wa" type="button" onclick="toggleWaDropdown('aev-wa-dropdown')">
-                <span class="wa-icon">💬</span> Añadir recordatorio
+                <span class="wa-icon">💬</span> Afegir recordatori
                 <span style="font-size:10px;margin-left:2px">▼</span>
               </button>
               <div class="wa-dropdown" id="aev-wa-dropdown">
-                <div class="wa-dropdown-title">Cuándo enviar al cliente</div>
+                <div class="wa-dropdown-title">Quan enviar al client</div>
                 <div class="wa-dropdown-opt" onclick="clearWaReminder('aev'); toggleWaDropdown('aev-wa-dropdown')">
                   <span class="wa-opt-icon">🚫</span> No recordar
                 </div>
-                <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1h', '1 hora antes', this)">
-                  <span class="wa-opt-icon">⏰</span> 1 hora antes
+                <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1h', '1 hora abans', this)">
+                  <span class="wa-opt-icon">⏰</span> 1 hora abans
                 </div>
-                <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1d', '1 día antes', this)">
-                  <span class="wa-opt-icon">📅</span> 1 día antes
+                <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1d', '1 dia abans', this)">
+                  <span class="wa-opt-icon">📅</span> 1 dia abans
                 </div>
-                <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1w', '1 semana antes', this)">
-                  <span class="wa-opt-icon">🗓️</span> 1 semana antes
+                <div class="wa-dropdown-opt" onclick="selectWaReminder('aev', '1w', '1 setmana abans', this)">
+                  <span class="wa-opt-icon">🗓️</span> 1 setmana abans
                 </div>
               </div>
             </div>
             <div id="aev-wa-badge" style="display:none" class="wa-reminder-badge">
-              💬 Recordatorio: <span id="aev-wa-badge-text"></span>
-              <button onclick="clearWaReminder('aev')" style="background:none;border:none;cursor:pointer;color:#128C7E;font-size:14px;padding:0;line-height:1" title="Quitar recordatorio">&times;</button>
+              💬 Recordatori: <span id="aev-wa-badge-text"></span>
+              <button onclick="clearWaReminder('aev')" style="background:none;border:none;cursor:pointer;color:#128C7E;font-size:14px;padding:0;line-height:1" title="Treure recordatori">&times;</button>
             </div>
           </div>
         </div>
@@ -4244,34 +4244,34 @@
         <!-- Personal Reminder (Para TI - el usuario/admin) -->
         <!-- ════════════════════════════════════════════════════════════ -->
         <div style="margin-top:8px;margin-bottom:8px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
-          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">🔔 Recordatorio Personal</div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">🔔 Recordatori Personal</div>
           <div class="pr-reminder-wrap">
             <button class="btn-pr" type="button" onclick="togglePrDropdown('aev-pr-dropdown')">
-              <span class="pr-icon">🔔</span> Añadir recordatorio
+              <span class="pr-icon">🔔</span> Afegir recordatori
               <span style="font-size:10px;margin-left:2px">▼</span>
             </button>
             <div class="pr-dropdown" id="aev-pr-dropdown">
-              <div class="pr-dropdown-title">Cuándo recordarme</div>
+              <div class="pr-dropdown-title">Quan recordar-me</div>
               <div class="pr-dropdown-opt" onclick="clearPrReminder('aev'); togglePrDropdown('aev-pr-dropdown')">
                 <span class="pr-opt-icon">🚫</span> No recordar
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '15m', '15 minutos antes', this)">
-                <span class="pr-opt-icon">⏰</span> 15 minutos antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '15m', '15 minuts abans', this)">
+                <span class="pr-opt-icon">⏰</span> 15 minuts abans
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '30m', '30 minutos antes', this)">
-                <span class="pr-opt-icon">⏰</span> 30 minutos antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '30m', '30 minuts abans', this)">
+                <span class="pr-opt-icon">⏰</span> 30 minuts abans
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '1h', '1 hora antes', this)">
-                <span class="pr-opt-icon">⏰</span> 1 hora antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '1h', '1 hora abans', this)">
+                <span class="pr-opt-icon">⏰</span> 1 hora abans
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '2h', '2 horas antes', this)">
-                <span class="pr-opt-icon">⏰</span> 2 horas antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '2h', '2 hores abans', this)">
+                <span class="pr-opt-icon">⏰</span> 2 hores abans
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '1d', '1 día antes', this)">
-                <span class="pr-opt-icon">📅</span> 1 día antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '1d', '1 dia abans', this)">
+                <span class="pr-opt-icon">📅</span> 1 dia abans
               </div>
-              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '1w', '1 semana antes', this)">
-                <span class="pr-opt-icon">🗓️</span> 1 semana antes
+              <div class="pr-dropdown-opt" onclick="selectPrReminder('aev', '1w', '1 setmana abans', this)">
+                <span class="pr-opt-icon">🗓️</span> 1 setmana abans
               </div>
             </div>
           </div>
@@ -4279,7 +4279,7 @@
         </div>
 
         <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="closeModal('admin-event-modal')">Cancelar</button>
+          <button class="btn btn-ghost" onclick="closeModal('admin-event-modal')">Cancel·lar</button>
           <button class="btn btn-primary" id="aev-save-btn" onclick="saveAdminCalEvent()">Confirmar cita</button>
         </div>
       </div>
@@ -4462,33 +4462,33 @@
       let SERVICES = [
         {
           id: 1,
-          name: "Asesoramiento Fiscal",
-          desc: "Optimización fiscal y cumplimiento normativo para particulares y empresas.",
+          name: "Assessorament Fiscal",
+          desc: "Optimització fiscal i compliment normatiu per a particulars i empreses.",
         },
         {
           id: 2,
-          name: "Gestión Laboral",
-          desc: "Nóminas, contratos, altas y bajas en la Seguridad Social.",
+          name: "Gestió Laboral",
+          desc: "Nòmines, contractes, altes i baixes a la Seguretat Social.",
         },
         {
           id: 3,
-          name: "Contabilidad",
-          desc: "Contabilidad general, balances y cuentas de resultados.",
+          name: "Comptabilitat",
+          desc: "Comptabilitat general, balanços i comptes de resultats.",
         },
         {
           id: 4,
-          name: "Auditoría",
-          desc: "Revisión independiente de estados financieros y procesos internos.",
+          name: "Auditoria",
+          desc: "Revisió independent d'estats financers i processos interns.",
         },
         {
           id: 5,
-          name: "Consultoría Empresarial",
-          desc: "Estrategia, organización y mejora de procesos de negocio.",
+          name: "Consultoria Empresarial",
+          desc: "Estratègia, organització i millora de processos de negoci.",
         },
         {
           id: 6,
-          name: "Asesoramiento Jurídico",
-          desc: "Apoyo legal en contratos mercantiles y disputas empresariales.",
+          name: "Assessorament Jurídic",
+          desc: "Suport legal en contractes mercantils i disputes empresarials.",
         },
       ];
 
@@ -4516,8 +4516,8 @@
           time: "09:00",
           timeEnd: "10:00",
           client: "Carlos Martínez",
-          service: "Asesoramiento Fiscal",
-          notes: "Revisión declaración anual",
+          service: "Assessorament Fiscal",
+          notes: "Revisió declaració anual",
           private: false,
         },
         {
@@ -4528,8 +4528,8 @@
           time: "11:00",
           timeEnd: "12:00",
           client: "Laura Gómez",
-          service: "Gestión Laboral",
-          notes: "Alta nuevo trabajador",
+          service: "Gestió Laboral",
+          notes: "Alta nou treballador",
           private: false,
         },
         {
@@ -4540,8 +4540,8 @@
           time: "16:00",
           timeEnd: "17:00",
           client: "Inversions Sud SA",
-          service: "Auditoría",
-          notes: "Primera reunión",
+          service: "Auditoria",
+          notes: "Primera reunió",
           private: false,
         },
         {
@@ -4552,8 +4552,8 @@
           time: "10:30",
           timeEnd: "11:30",
           client: "Ana Rodríguez",
-          service: "Contabilidad",
-          notes: "Cierre trimestral",
+          service: "Comptabilitat",
+          notes: "Tancament trimestral",
           private: false,
         },
         {
@@ -4564,8 +4564,8 @@
           time: "15:00",
           timeEnd: "16:30",
           client: "Consultes Privades SL",
-          service: "Asesoramiento Jurídico",
-          notes: "Reunión confidencial de dirección",
+          service: "Assessorament Jurídic",
+          notes: "Reunió confidencial de direcció",
           private: true,
         },
         {
@@ -4576,8 +4576,8 @@
           time: "14:00",
           timeEnd: "15:00",
           client: "Tech Solutions Inc",
-          service: "Consultoría Empresarial",
-          notes: "Revisión estrategia digital",
+          service: "Consultoria Empresarial",
+          notes: "Revisió estratègia digital",
           private: false,
         },
         // ✅ EVENTOS DE VILASSAR
@@ -4589,8 +4589,8 @@
           time: "10:00",
           timeEnd: "11:00",
           client: "Empresa Vilassar SL",
-          service: "Gestión Laboral",
-          notes: "Revisión nóminas mes actual",
+          service: "Gestió Laboral",
+          notes: "Revisió nòmines mes actual",
           private: false,
         },
         {
@@ -4601,8 +4601,8 @@
           time: "13:00",
           timeEnd: "14:00",
           client: "Comercios Vilassar",
-          service: "Asesoramiento Fiscal",
-          notes: "Análisis rentabilidad trimestral",
+          service: "Assessorament Fiscal",
+          notes: "Anàlisi rendibilitat trimestral",
           private: false,
         },
         {
@@ -4613,8 +4613,8 @@
           time: "11:30",
           timeEnd: "12:30",
           client: "Construcciones Vila",
-          service: "Contabilidad",
-          notes: "Cierre de proyecto",
+          service: "Comptabilitat",
+          notes: "Tancament de projecte",
           private: false,
         },
         {
@@ -4625,8 +4625,8 @@
           time: "09:00",
           timeEnd: "10:00",
           client: "Tech Vilassar",
-          service: "Asesoramiento Jurídico",
-          notes: "Revisión contrato digital",
+          service: "Assessorament Jurídic",
+          notes: "Revisió contracte digital",
           private: false,
         },
       ];
@@ -4744,7 +4744,7 @@
           }
 
           const time = msg.timestamp
-            ? new Date(msg.timestamp).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', hour12:false})
+            ? new Date(msg.timestamp).toLocaleTimeString('ca-ES', {hour:'2-digit', minute:'2-digit', hour12:false})
             : nowTime();
 
           CONVS[cid].push({
@@ -4779,7 +4779,7 @@
         // ✅ RECIBIR NOTIFICACIÓN DE MENSAJE PRIVADO
         socket.on('message_notification', function(notif) {
           console.log('🔔 [Socket] Notificación de mensaje:', notif);
-          showNotification('📨 Nuevo mensaje', `De: ${notif.from}`);
+          showNotification('📨 Nou missatge', `De: ${notif.from}`);
         });
         
         // ✅ RECIBIR MENSAJES DEL CHAT GENERAL
@@ -4803,7 +4803,7 @@
           if (msg.timestamp) {
             try {
               const dateObj = new Date(msg.timestamp);
-              time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+              time = dateObj.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
               date = dateObj.toISOString().split('T')[0];
             } catch(e) {
               console.warn('⚠️  [GENERAL_CHAT] Error al parsear timestamp:', msg.timestamp);
@@ -4861,7 +4861,7 @@
             if (msg.timestamp) {
               try {
                 const dateObj = new Date(msg.timestamp);
-                time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+                time = dateObj.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
                 date = dateObj.toISOString().split('T')[0];
               } catch(e) {
                 console.warn('⚠️  Error al parsear timestamp');
@@ -4920,7 +4920,7 @@
             if (msg.timestamp) {
               try {
                 const dateObj = new Date(msg.timestamp);
-                time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+                time = dateObj.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
                 date = dateObj.toISOString().split('T')[0];
               } catch(e) {
                 console.warn('⚠️  Error al parsear timestamp');
@@ -4979,7 +4979,7 @@
           if (msg.timestamp) {
             try {
               const dateObj = new Date(msg.timestamp);
-              time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+              time = dateObj.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
               date = dateObj.toISOString().split('T')[0];
             } catch(e) {
               console.warn('⚠️  Error al parsear timestamp');
@@ -5018,7 +5018,7 @@
           });
         
         socket.on('notification_received', function(notif) {
-          showNotification(notif.title || 'Notificación', notif.message);
+          showNotification(notif.title || 'Notificació', notif.message);
         });
         
         // Evento de usuarios online
@@ -5042,7 +5042,7 @@
               icon: '📢'
             });
           } catch(e) {
-            console.log('Notificación del navegador no soportada');
+            console.log('Notificació del navegador no suportada');
           }
         }
       }
@@ -5152,7 +5152,7 @@
       function fmtDate(s) {
         if (!s) return "";
         const d = new Date(s + "T00:00:00");
-        return d.toLocaleDateString("es-ES", {
+        return d.toLocaleDateString("ca-ES", {
           day: "numeric",
           month: "long",
           year: "numeric",
@@ -5161,10 +5161,10 @@
       function fmtDateShort(s) {
         if (!s) return "";
         const d = new Date(s + "T00:00:00");
-        return d.toLocaleDateString("es-ES", { day: "numeric", month: "long" });
+        return d.toLocaleDateString("ca-ES", { day: "numeric", month: "long" });
       }
       function mthName(d) {
-        const n = d.toLocaleDateString("es-ES", {
+        const n = d.toLocaleDateString("ca-ES", {
           month: "long",
           year: "numeric",
         });
@@ -5181,13 +5181,13 @@
       function greet() {
         const h = new Date().getHours();
         return h < 12
-          ? "Buenos días"
+          ? "Bon dia"
           : h < 19
-            ? "Buenas tardes"
-            : "Buenas noches";
+            ? "Bona tarda"
+            : "Bona nit";
       }
       function nowTime() {
-        return new Date().toLocaleTimeString("es-ES", {
+        return new Date().toLocaleTimeString("ca-ES", {
           hour: "2-digit",
           minute: "2-digit",
         });
@@ -5278,7 +5278,7 @@
           hint.textContent = "⏱ " + dur;
           hint.style.color = "var(--accent)";
         } else if (t2 && t1 && t2 <= t1) {
-          hint.textContent = "⚠ Hora fin inválida";
+          hint.textContent = "⚠ Hora fi no vàlida";
           hint.style.color = "var(--danger)";
         } else {
           hint.textContent = "";
@@ -5459,12 +5459,12 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         document.getElementById("sidebar-name").textContent = currentUser.name;
         document.getElementById("sidebar-role").textContent = isAdmin
           ? "Administrador"
-          : "Empleado";
+          : "Empleat";
         const greetingEl = document.getElementById("topbar-greeting");
         greetingEl.textContent = "Hola, " + currentUser.name.split(" ")[0] + "!";
         greetingEl.style.display = "block";
         document.getElementById("topbar-date").textContent =
-          new Date().toLocaleDateString("es-ES", {
+          new Date().toLocaleDateString("ca-ES", {
             weekday: "long",
             day: "numeric",
             month: "long",
@@ -5501,7 +5501,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               const adminFirstName = adminUser.name.split(' ')[0];
               navAdminView.innerHTML = `<span class="icon">👤</span> Cal. ${adminFirstName}`;
               // Actualizar también en SEC_TITLES
-              SEC_TITLES["admin-view-calendar"] = `Calendario de ${adminFirstName}`;
+              SEC_TITLES["admin-view-calendar"] = `Calendari de ${adminFirstName}`;
             }
           }
         }
@@ -5549,23 +5549,23 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       // ══════════════════════════════════════════
 
       const SEC_TITLES = {
-        dashboard: "Inicio",
-        "my-calendar": "Calendario",
-        "global-calendar": "Calendario Global",
+        dashboard: "Inici",
+        "my-calendar": "Calendari",
+        "global-calendar": "Calendari Global",
         // NUEVO: títulos para calendarios de sede
         "mataro-calendar": "Calendario Mataró",
         "vilassar-calendar": "Calendario Vilassar",
         // ✅ ARREGLO 2: título dinámico para el calendario del admin (se actualiza en initApp)
-        "admin-view-calendar": "Calendario Admin",
-        "cal-laboral": "Calendario Laboral",
-        "cal-fiscal": "Calendario Fiscal",
-        "cal-mercantil": "Calendario Mercantil",
+        "admin-view-calendar": "Calendari Admin",
+        "cal-laboral": "Calendari Laboral",
+        "cal-fiscal": "Calendari Fiscal",
+        "cal-mercantil": "Calendari Mercantil",
         "admin-calendars": "Permisos",
-        users: "Gestión de Usuarios",
-        services: "Servicios",
-        clients: "Clientes",
+        users: "Gestió d'Usuaris",
+        services: "Serveis",
+        clients: "Clients",
         "general-chat": "Chat General",
-        messages: "Mensajería",
+        messages: "Missatgeria",
       };
 
       // ══════════════════════════════════════════
@@ -5617,14 +5617,14 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         // Agrupar usuarios por sede
         const usersBysede = {};
         activeUsers.forEach(u => {
-          const sede = u.sede || 'Sin sede';
+          const sede = u.sede || 'Sense seu';
           if (!usersBysede[sede]) usersBysede[sede] = [];
           usersBysede[sede].push(u);
         });
         
         // Construir HTML agrupado por sede
         let html = '';
-        const sedesOrdenadas = ['Mataró', 'Vilassar', 'Sin sede'];
+        const sedesOrdenadas = ['Mataró', 'Vilassar', 'Sense seu'];
         sedesOrdenadas.forEach(sede => {
           if (!usersBysede[sede] || usersBysede[sede].length === 0) return;
           
@@ -5637,7 +5637,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           });
         });
         
-        container.innerHTML = html || '<div style="padding:12px;color:var(--text-muted);font-size:13px">No hay usuarios disponibles</div>';
+        container.innerHTML = html || '<div style="padding:12px;color:var(--text-muted);font-size:13px">No hi ha usuaris disponibles</div>';
       }
 
       // ✅ CORRECCIÓN 2: Nueva función para controlar visibilidad de calendarios según permisos
@@ -5708,7 +5708,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         
         // ✅ CAMBIO 7.3: Validar permisos antes de abrir
         if (!canViewUserCalendar(userId)) {
-          alert('❌ No tienes permiso para ver este calendario');
+          alert('❌ No tens permís per veure aquest calendari');
           return;
         }
         
@@ -5755,11 +5755,11 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         let titleText = SEC_TITLES[name] || name;
         if (name === "admin-view-calendar") {
           const adminUser = getAdminUser();
-          if (adminUser) titleText = "Calendario de " + adminUser.name.split(' ')[0];
+          if (adminUser) titleText = "Calendari de " + adminUser.name.split(' ')[0];
         }
         // ✅ NUEVO: Actualizar título si estamos viendo un calendario personal
         if (name === "my-calendar" && viewingUserIdForCalendar !== null && selectedCalendarUserName) {
-          titleText = "Calendario de " + selectedCalendarUserName;
+          titleText = "Calendari de " + selectedCalendarUserName;
         }
         document.getElementById("topbar-title").textContent = titleText;
 
@@ -5805,7 +5805,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         // ✅ CORRECCIÓN 7: Validar permisos para calendarios departamentales
         if (name === "cal-laboral") {
           if (!canAccessDeptCalendar("laboral")) {
-            alert("❌ No tienes permiso para ver este calendario");
+            alert("❌ No tens permís per veure aquest calendari");
             showSection("my-calendar");
             return;
           }
@@ -5813,7 +5813,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         }
         if (name === "cal-fiscal") {
           if (!canAccessDeptCalendar("fiscal")) {
-            alert("❌ No tienes permiso para ver este calendario");
+            alert("❌ No tens permís per veure aquest calendari");
             showSection("my-calendar");
             return;
           }
@@ -5821,7 +5821,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         }
         if (name === "cal-mercantil") {
           if (!canAccessDeptCalendar("mercantil")) {
-            alert("❌ No tienes permiso para ver este calendario");
+            alert("❌ No tens permís per veure aquest calendari");
             showSection("my-calendar");
             return;
           }
@@ -5848,25 +5848,25 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const stats = isAdmin
           ? [
               {
-                label: "Citas hoy",
+                label: "Cites avui",
                 value: todayEvs.length,
-                sub: "Total del día",
+                sub: "Total del dia",
                 cls: "",
               },
               {
-                label: "Citas total",
+                label: "Cites total",
                 value: EVENTS.length,
-                sub: "Programadas",
+                sub: "Programades",
                 cls: "green",
               },
               {
-                label: "Empleados",
+                label: "Empleats",
                 value: USERS.filter((u) => u.active).length,
-                sub: "Activos",
+                sub: "Actius",
                 cls: "amber",
               },
               {
-                label: "Servicios",
+                label: "Serveis",
                 value: SERVICES.length,
                 sub: "Disponibles",
                 cls: "",
@@ -5874,28 +5874,28 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             ]
           : [
               {
-                label: "Citas hoy",
+                label: "Cites avui",
                 value: todayEvs.length,
-                sub: "Tus citas de hoy",
+                sub: "Les teves cites d'avui",
                 cls: "",
               },
               {
-                label: "Citas mes",
+                label: "Cites mes",
                 value: myEvs.filter((e) => e.date.startsWith(today.slice(0, 7)))
                   .length,
-                sub: "Este mes",
+                sub: "Aquest mes",
                 cls: "green",
               },
               {
-                label: "Total citas",
+                label: "Total cites",
                 value: myEvs.length,
-                sub: "Programadas",
+                sub: "Programades",
                 cls: "amber",
               },
               {
-                label: "Clientes",
+                label: "Clients",
                 value: [...new Set(myEvs.map((e) => e.client))].length,
-                sub: "Únicos",
+                sub: "Únics",
                 cls: "",
               },
             ];
@@ -5914,7 +5914,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         document.getElementById("dash-greeting").textContent =
           greet() + ", " + currentUser.name + "!";
         document.getElementById("dash-sub").textContent =
-          "Resumen de actividad · " + fmtDate(today);
+          "Resum d'activitat · " + fmtDate(today);
 
         const upcoming = myEvs
           .filter((e) => e.date >= today)
@@ -5939,7 +5939,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         </div>`;
               })
               .join("")
-          : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">Sin citas pendientes.</div>';
+          : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">Sense cites pendents.</div>';
 
       // Renderizar mensajes pendientes — privats, general i sede
         const pendingMsgs = [];
@@ -6027,7 +6027,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
                   <span class="tag tag-gray" style="white-space:nowrap;flex-shrink:0">${msg.time}</span>
                 </div>`;
             }).join("")
-          : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">No hay mensajes pendientes.</div>';
+          : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">No hi ha missatges pendents.</div>';
 
         document.getElementById("pending-messages").innerHTML = pendingMsgsHtml;
       }
@@ -6061,13 +6061,13 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       }
       function _weekTitle(mon) {
         const sun = new Date(mon.getTime() + 6*86400000);
-        const f = (d, yr) => d.toLocaleDateString('es-ES', {day:'numeric', month:'short', ...(yr?{year:'numeric'}:{})});
+        const f = (d, yr) => d.toLocaleDateString('ca-ES', {day:'numeric', month:'short', ...(yr?{year:'numeric'}:{})});
         return mon.getMonth() === sun.getMonth()
           ? mon.getDate() + ' – ' + f(sun, true)
           : f(mon, false) + ' – ' + f(sun, true);
       }
       function _dayTitle(d) {
-        return d.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+        return d.toLocaleDateString('ca-ES', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
       }
       function _dsOf(d) {
         return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -6151,7 +6151,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           const d = new Date(mon.getTime() + i*86400000);
           const ds = _dsOf(d);
           const isToday = ds === today;
-          const dayName = d.toLocaleDateString('es-ES', {weekday:'short'});
+          const dayName = d.toLocaleDateString('ca-ES', {weekday:'short'});
           const dayEvs = evs.filter(e => e.date === ds);
           const evHtml = evHtmlFn(dayEvs);
           html += `<div class="cal-cell week-cell${isToday?' today':''}" onclick="calCellClick('${ds}',event,'${clickWhich}')">
@@ -6172,8 +6172,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const today = todayStr();
         const isToday = ds === today;
         const dayEvs = evs.filter(e => e.date === ds).sort((a,b) => a.time.localeCompare(b.time));
-        const weekday = d.toLocaleDateString('es-ES', {weekday:'long'});
-        const dateStr = d.toLocaleDateString('es-ES', {day:'numeric', month:'long', year:'numeric'});
+        const weekday = d.toLocaleDateString('ca-ES', {weekday:'long'});
+        const dateStr = d.toLocaleDateString('ca-ES', {day:'numeric', month:'long', year:'numeric'});
 
         // Build hourly grid from 07:00 to 21:00
         const HOURS_START = 7, HOURS_END = 21;
@@ -6204,7 +6204,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           <div class="day-view-header">
             <span class="day-view-weekday">${weekday}</span>
             <span class="day-view-date${isToday?' today-date':''}">${dateStr}</span>
-            ${isToday ? '<span class="tag tag-green" style="font-size:11px;padding:2px 8px">Hoy</span>' : ''}
+            ${isToday ? '<span class="tag tag-green" style="font-size:11px;padding:2px 8px">Avui</span>' : ''}
           </div>
           <div class="day-hours-grid">${hoursHtml}</div>
         </div>`;
@@ -6240,11 +6240,11 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           const subtitleEl = document.getElementById('my-calendar-subtitle');
           if (titleEl && subtitleEl) {
             if (viewingUserIdForCalendar !== null && selectedCalendarUserName) {
-              titleEl.textContent = "Calendario de " + selectedCalendarUserName;
-              subtitleEl.textContent = "Citas de " + selectedCalendarUserName;
+              titleEl.textContent = "Calendari de " + selectedCalendarUserName;
+              subtitleEl.textContent = "Cites de " + selectedCalendarUserName;
             } else {
-              titleEl.textContent = "Mi Calendario";
-              subtitleEl.textContent = "Tus citas personales";
+              titleEl.textContent = "El meu Calendari";
+              subtitleEl.textContent = "Les teves cites personals";
             }
           }
         }
@@ -6315,7 +6315,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const evHtml = (ev, i) => {
           const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
           if (shouldMask)
-            return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
+            return `<div class="cell-event blocked-private" title="Horari no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
           const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
           return `<div class="cell-event ${colors[i%3]}${ev.private?' private-event':''}" onclick="showEventDetail(${ev.id},event)">${ev.private?'🔒 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
         };
@@ -6349,7 +6349,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               return `<div class="day-event-row" style="cursor:default">
                 <div class="day-event-time">${ev.time}${ev.timeEnd?'<br>→ '+ev.timeEnd:''}</div>
                 <div class="day-event-bar" style="background:#bbb"></div>
-                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloqueada</div></div>
+                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloquejada</div></div>
               </div>`;
             }
             return `<div class="day-event-row" onclick="showEventDetail(${ev.id},event)">
@@ -6420,7 +6420,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           );
         if (!sorted.length) {
           el.innerHTML =
-            '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hay citas este mes</div>';
+            '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hi ha cites aquest mes</div>';
           return;
         }
         el.innerHTML = sorted
@@ -6431,7 +6431,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               ev.assignedTo === currentUser.id ||
               ev.ownerId === currentUser.id;
             const privBtn = isAdmin
-              ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>`
+              ? `<button class="btn-icon" title="${ev.private ? 'Fer pública' : 'Privatitzar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>`
               : '';
 
             // ══════════════════════════════════════════════════
@@ -6536,10 +6536,10 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         document.getElementById("detail-body").innerHTML =
           `<div style="display:grid;gap:14px">
     ${isPrivate ? `<div><span class="private-badge">🔒 Cita privada</span></div>` : ""}
-    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Fecha y hora</span><br>${fmtDate(ev.date)} a las ${timeLineHtml}</div>
-    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Servicio</span><br>${safeHtml(ev.service)}</div>
-    ${emp ? `<div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Empleado asignado</span><br>${safeHtml(emp.name)}</div>` : ""}
-    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Notas</span><br>${safeHtml(ev.notes) || "—"}</div>
+    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Data i hora</span><br>${fmtDate(ev.date)} a les ${timeLineHtml}</div>
+    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Servei</span><br>${safeHtml(ev.service)}</div>
+    ${emp ? `<div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Empleat assignat</span><br>${safeHtml(emp.name)}</div>` : ""}
+    <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Notes</span><br>${safeHtml(ev.notes) || "—"}</div>
     ${owner && owner.id !== ev.assignedTo ? `<div style="padding-top:6px;border-top:1px solid var(--border)"><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">Feta per</span><br><span style="font-size:13px;color:var(--text-muted);font-style:italic">${safeHtml(owner.name)}</span></div>` : ""}
   </div>`;
         document.getElementById("det-del-btn").style.display = canEdit ? "" : "none";
@@ -6547,7 +6547,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const privBtn = document.getElementById("det-privacy-btn");
         if (privBtn) {
           privBtn.style.display = isAdmin ? "" : "none";
-          privBtn.textContent = ev.private ? "🔓 Hacer pública" : "🔒 Privatizar";
+          privBtn.textContent = ev.private ? "🔓 Fer pública" : "🔒 Privatitzar";
         }
         openModal("detail-modal");
       }
@@ -6575,7 +6575,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       }
       function deleteEventFromList(evId, e) {
         if (e) e.stopPropagation();
-        if (!confirm("¿Eliminar esta cita?")) return;
+        if (!confirm("Vols eliminar aquesta cita?")) return;
         EVENTS = EVENTS.filter((x) => x.id !== evId);
         refreshCals();
         renderDashboard();
@@ -6597,7 +6597,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         if (!ev) return;
         ev.private = !ev.private;
         const privBtn = document.getElementById("det-privacy-btn");
-        if (privBtn) privBtn.textContent = ev.private ? "🔓 Hacer pública" : "🔒 Privatizar";
+        if (privBtn) privBtn.textContent = ev.private ? "🔓 Fer pública" : "🔒 Privatitzar";
         const badge = document.querySelector("#detail-body .private-badge");
         if (ev.private && !badge) {
           const firstDiv = document.querySelector("#detail-body > div > div:first-child");
@@ -6647,7 +6647,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         if (dur) {
           hint.textContent = "⏱ " + dur;
         } else if (t2 && t1 && t2 <= t1) {
-          hint.textContent = "⚠ Hora fin inválida";
+          hint.textContent = "⚠ Hora fi no vàlida";
           hint.style.color = "var(--danger)";
           return;
         } else {
@@ -6679,7 +6679,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           const targetUser = USERS.find(u => u.id === viewingUserIdForCalendar);
           if (targetUser) {
             grp.style.display = "";
-            employeeSelect.innerHTML = `<option value="${targetUser.id}" selected>${safeHtml(targetUser.name)} (${targetUser.departamento || 'sin depto'}, ${targetUser.sede || 'Sin sede'})</option>`;
+            employeeSelect.innerHTML = `<option value="${targetUser.id}" selected>${safeHtml(targetUser.name)} (${targetUser.departamento || 'sense depto'}, ${targetUser.sede || 'Sense seu'})</option>`;
             employeeSelect.disabled = true;  // Deshabilitar dropdown
             return;  // Salir sin continuar
           }
@@ -6713,9 +6713,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           }
           
           employeeSelect.innerHTML = 
-            `<option value="">— Selecciona empleado —</option>` +
+            `<option value="">— Selecciona empleat —</option>` +
             usersToShow.map(u =>
-              `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)} (${u.departamento || 'sin depto'}, ${u.sede || 'Sin sede'})</option>`
+              `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)} (${u.departamento || 'sense depto'}, ${u.sede || 'Sense seu'})</option>`
             ).join("");
         }
       }
@@ -6725,7 +6725,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         // Primero verificar que el usuario puede acceder a este departamento
         if (!canAccessDeptCalendar(dept)) {
           const deptDisplay = dept.charAt(0).toUpperCase() + dept.slice(1);
-          alert(`❌ No tienes permiso para ver o crear citas en el departamento ${deptDisplay}.\n\nContacta con tu administrador si crees que es un error.`);
+          alert(`❌ No tens permís per veure o crear cites al departament ${deptDisplay}.\n\nContacta amb el teu administrador si creus que és un error.`);
           return;
         }
         // Si tiene permiso, abrir el modal normalmente
@@ -6750,12 +6750,12 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         }
         
         document.getElementById("event-modal-title").textContent = isGlobal
-          ? "Agendar cita (Global)" + contextStr
-          : "Nueva cita" + contextStr;
+          ? "Programar cita (Global)" + contextStr
+          : "Nova cita" + contextStr;
         document.getElementById("event-modal-sub").textContent = isGlobal
-          ? "Asigna una cita a un empleado"
-          : "Añade una nueva cita a tu calendario";
-        document.getElementById("ev-save-btn").textContent = "Guardar cita";
+          ? "Assigna una cita a un empleat"
+          : "Afegeix una nova cita al teu calendari";
+        document.getElementById("ev-save-btn").textContent = "Desar cita";
         document.getElementById("ev-date").value = dateStr || todayStr();
         document.getElementById("ev-time").value = "09:00";
         // NUEVO: resetear hora fin y hint de duración
@@ -6796,8 +6796,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         document.getElementById("event-modal-title").textContent =
           "Editar cita";
         document.getElementById("event-modal-sub").textContent =
-          "Modifica los datos de la cita";
-        document.getElementById("ev-save-btn").textContent = "Guardar cambios";
+          "Modifica les dades de la cita";
+        document.getElementById("ev-save-btn").textContent = "Desar canvis";
         document.getElementById("ev-date").value = ev.date;
         document.getElementById("ev-time").value = ev.time;
         // NUEVO: cargar hora fin si existe, mostrar duración
@@ -7008,7 +7008,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const sel = document.getElementById("global-filter-person");
         if (!sel) return;
         const current = sel.value;
-        sel.innerHTML = '<option value="all">Todos</option>' +
+        sel.innerHTML = '<option value="all">Tots</option>' +
           USERS.filter(u => u.active).map(u =>
             `<option value="${u.id}"${String(u.id) === current ? ' selected' : ''}>${safeHtml(u.name)}</option>`
           ).join('');
@@ -7020,7 +7020,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         if (!sel) return;
         const current = sel.value;
         const mataroUsers = USERS.filter(u => u.active && u.sede === "Mataró");
-        sel.innerHTML = '<option value="all">Todos</option>' +
+        sel.innerHTML = '<option value="all">Tots</option>' +
           mataroUsers.map(u =>
             `<option value="${u.id}"${String(u.id) === current ? ' selected' : ''}>${safeHtml(u.name)}</option>`
           ).join('');
@@ -7032,7 +7032,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         if (!sel) return;
         const current = sel.value;
         const vilassarUsers = USERS.filter(u => u.active && u.sede === "Vilassar");
-        sel.innerHTML = '<option value="all">Todos</option>' +
+        sel.innerHTML = '<option value="all">Tots</option>' +
           vilassarUsers.map(u =>
             `<option value="${u.id}"${String(u.id) === current ? ' selected' : ''}>${safeHtml(u.name)}</option>`
           ).join('');
@@ -7114,7 +7114,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         // Llenar el select de filtro si es necesario
         if (filterSel && filterSel.options.length === 1) {
           const current = filterSel.value;
-          filterSel.innerHTML = '<option value="all">Todos</option>' +
+          filterSel.innerHTML = '<option value="all">Tots</option>' +
             deptUsers.map(u =>
               `<option value="${u.id}"${u.id === selectedEmployeeId ? ' selected' : ''}>${safeHtml(u.name)} (${u.sede})</option>`
             ).join('');
@@ -7144,7 +7144,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const deptEvHtml = (ev) => {
           const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
           if (shouldMask)
-            return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
+            return `<div class="cell-event blocked-private" title="Horari no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
           const emp = USERS.find(u => u.id === ev.assignedTo);
           const col = getUserColor(emp);
           const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
@@ -7160,7 +7160,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           if (!listEl) return;
           const sorted = evs.slice().sort((a,b) => a.date===b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date));
           if (!sorted.length) {
-            listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hay citas en este período</div>';
+            listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hi ha cites en aquest període</div>';
             return;
           }
           listEl.innerHTML = sorted.map(ev => {
@@ -7174,7 +7174,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             }
             const emp = USERS.find(u => u.id === ev.assignedTo);
             const canEdit = isAdmin || ev.assignedTo === currentUser.id || ev.ownerId === currentUser.id;
-            const privBtn = isAdmin ? `<button class="btn-icon" title="${ev.private?'Hacer pública':'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private?'🔓':'🔒'}</button>` : '';
+            const privBtn = isAdmin ? `<button class="btn-icon" title="${ev.private?'Fer pública':'Privatitzar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private?'🔓':'🔒'}</button>` : '';
             return `<div class="appt-item">
               <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd||'—'}</span><span>${ev.date}</span></div>
               <div class="appt-info">
@@ -7217,7 +7217,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               return `<div class="day-event-row" style="cursor:default">
                 <div class="day-event-time">${ev.time}${ev.timeEnd?'<br>→ '+ev.timeEnd:''}</div>
                 <div class="day-event-bar" style="background:#bbb"></div>
-                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloqueada</div></div>
+                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloquejada</div></div>
               </div>`;
             }
             const emp = USERS.find(u => u.id === ev.assignedTo);
@@ -7298,8 +7298,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           if (!adminUsers.length) {
             const titleEl = document.getElementById("admin-view-cal-title");
             const cellsEl = document.getElementById("admin-view-cal-cells");
-            if (titleEl) titleEl.textContent = "Calendario del administrador";
-            if (cellsEl) cellsEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);">⚠️ No hay administrador disponible en tu sede</div>';
+            if (titleEl) titleEl.textContent = "Calendari de l'administrador";
+            if (cellsEl) cellsEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);">⚠️ No hi ha administrador disponible a la teva seu</div>';
             return;
           }
         }
@@ -7308,7 +7308,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const filterSel = document.getElementById("admin-view-filter");
         if (filterSel) {
           const currentVal = filterSel.value;
-          filterSel.innerHTML = adminUsers.length > 1 ? '<option value="all">Todos los admins</option>' : '' +
+          filterSel.innerHTML = adminUsers.length > 1 ? '<option value="all">Tots els admins</option>' : '' +
             adminUsers.map(u => `<option value="${u.id}"${String(u.id) === currentVal ? ' selected' : ''}>${safeHtml(u.name)} (${u.sede})</option>`).join('');
         }
 
@@ -7334,9 +7334,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const subEl = document.getElementById("admin-view-cal-sub");
         const bannerEl = document.getElementById("admin-cal-info-banner");
         const btnAdd = document.getElementById("btn-add-admin-appt");
-        if (subEl) subEl.textContent = shownAdmins.length === 1 ? "Citas de " + shownAdmins[0].name : "Citas de todos los administradores";
+        if (subEl) subEl.textContent = shownAdmins.length === 1 ? "Cites de " + shownAdmins[0].name : "Cites de tots els administradors";
         if (bannerEl) bannerEl.style.display = isAdmin ? "none" : "flex";
-        if (btnAdd) btnAdd.textContent = isAdmin ? "+ Nueva cita" : "+ Solicitar cita";
+        if (btnAdd) btnAdd.textContent = isAdmin ? "+ Nova cita" : "+ Sol·licitar cita";
 
         const titleEl = document.getElementById("admin-view-cal-title");
         const cellsEl = document.getElementById("admin-view-cal-cells");
@@ -7346,7 +7346,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const adminEvHtml = (ev) => {
           const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
           if (shouldMask)
-            return `<div class="cell-event blocked-private" title="Horario no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
+            return `<div class="cell-event blocked-private" title="Horari no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
           const emp = USERS.find(u => u.id === ev.assignedTo);
           const col = getUserColor(emp);
           const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
@@ -7385,7 +7385,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               return `<div class="day-event-row" style="cursor:default">
                 <div class="day-event-time">${ev.time}${ev.timeEnd?'<br>→ '+ev.timeEnd:''}</div>
                 <div class="day-event-bar" style="background:#bbb"></div>
-                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloqueada</div></div>
+                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloquejada</div></div>
               </div>`;
             }
             const emp = USERS.find(u => u.id === ev.assignedTo);
@@ -7444,7 +7444,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date)
         );
         if (!sorted.length) {
-          listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hay citas este mes</div>';
+          listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No hi ha cites aquest mes</div>';
           return;
         }
         listEl.innerHTML = sorted.map(ev => {
@@ -7466,7 +7466,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           }
           const canEdit = isAdmin || ev.ownerId === currentUser.id || ev.assignedTo === currentUser.id;
           const privBtn = isAdmin
-            ? `<button class="btn-icon" title="${ev.private ? 'Hacer pública' : 'Privatizar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>`
+            ? `<button class="btn-icon" title="${ev.private ? 'Fer pública' : 'Privatitzar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private ? '🔓' : '🔒'}</button>`
             : '';
           const emp = USERS.find(u => u.id === ev.assignedTo);
           // NUEVO: indicador de color del admin en la lista si hay múltiples
@@ -7511,9 +7511,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const isAdmin = currentUser.role === "admin";
 
         document.getElementById("admin-event-modal-title").textContent =
-          isAdmin ? "Nueva cita en tu calendario" : "Solicitar cita con administrador";
+          isAdmin ? "Nova cita al teu calendari" : "Sol·licitar cita amb administrador";
         document.getElementById("admin-event-modal-sub").textContent =
-          isAdmin ? "Añade una cita a tu calendario de admin" : "Rellena los datos para solicitar la cita";
+          isAdmin ? "Afegeix una cita al teu calendari d'admin" : "Omple les dades per sol·licitar la cita";
 
         document.getElementById("aev-date").value = dateStr || todayStr();
         document.getElementById("aev-time").value = "09:00";
@@ -7571,7 +7571,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const filterSel = document.getElementById("admin-view-filter");
         const filterVal = filterSel ? filterSel.value : "all";
         sel.innerHTML = adminUsers.map(u =>
-          `<option value="${u.id}"${filterVal !== "all" && String(u.id) === filterVal ? ' selected' : ''}>${safeHtml(u.name)} (${u.sede || 'Sin sede'})</option>`
+          `<option value="${u.id}"${filterVal !== "all" && String(u.id) === filterVal ? ' selected' : ''}>${safeHtml(u.name)} (${u.sede || 'Sense seu'})</option>`
         ).join('');
       }
 
@@ -7600,7 +7600,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         }
         if (!targetAdmin) targetAdmin = getAdminUser();
         if (!targetAdmin) {
-          errEl.textContent = "No se encontró el administrador.";
+          errEl.textContent = "No s'ha trobat l'administrador.";
           errEl.style.display = "";
           return;
         }
@@ -7610,7 +7610,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         if (overlap) {
           const warningEl = document.getElementById("aev-blocked-warning");
           if (warningEl) {
-            warningEl.innerHTML = `⚠️ <strong>Horario no disponible:</strong> Ya existe una cita de ${overlap.time} a ${overlap.timeEnd} en esa franja. Por favor, elige otro horario.`;
+            warningEl.innerHTML = `⚠️ <strong>Horari no disponible:</strong> Ja existeix una cita de ${overlap.time} a ${overlap.timeEnd} en aquesta franja. Si us plau, trieu un altre horari.`;
             warningEl.style.display = "";
           }
           return;
@@ -7686,7 +7686,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           const adminForCheck = chkAdminId ? USERS.find(u => u.id === chkAdminId) : getAdminUser();
           const overlap = adminForCheck ? hasOverlappingEvent(adminForCheck.id, date, time, timeEnd, null) : null;
           if (overlap) {
-            warningEl.innerHTML = `⚠️ <strong>Horario no disponible:</strong> Ya existe una cita de ${overlap.time} a ${overlap.timeEnd || '?'} en esa franja.`;
+            warningEl.innerHTML = `⚠️ <strong>Horari no disponible:</strong> Ja existeix una cita de ${overlap.time} a ${overlap.timeEnd || '?'} en aquesta franja.`;
             warningEl.style.display = "";
           } else {
             warningEl.style.display = "none";
@@ -7746,24 +7746,24 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           return `<div class="perm-dept-block">
             <div class="perm-dept-title">
               <span class="tag tag-dept-${dept}">${deptLabel}</span>
-              Departamento ${deptLabel}
+              Departament ${deptLabel}
             </div>
             <div class="perm-radio-group">
               <label class="perm-radio-label">
                 <input type="radio" name="perm-${dept}" value="1" ${perm.level === 1 ? 'checked' : ''} onchange="setDeptPermLevel('${dept}',1)" />
-                <div><div>Solo calendario personal</div><div class="perm-radio-desc">El empleado solo ve sus propias citas</div></div>
+                <div><div>Només calendari personal</div><div class="perm-radio-desc">L'empleat només veu les seves pròpies cites</div></div>
               </label>
               <label class="perm-radio-label">
                 <input type="radio" name="perm-${dept}" value="2" ${perm.level === 2 ? 'checked' : ''} onchange="setDeptPermLevel('${dept}',2)" />
-                <div><div>Ver calendario de departamento</div><div class="perm-radio-desc">Ve las citas de todos sus compañeros de departamento</div></div>
+                <div><div>Veure calendari de departament</div><div class="perm-radio-desc">Veu les cites de tots els seus companys de departament</div></div>
               </label>
               <label class="perm-radio-label">
                 <input type="radio" name="perm-${dept}" value="3" ${perm.level === 3 ? 'checked' : ''} onchange="setDeptPermLevel('${dept}',3)" />
-                <div><div>Acceso a otros calendarios</div><div class="perm-radio-desc">Además de su departamento, puede acceder a otros departamentos seleccionados</div></div>
+                <div><div>Accés a altres calendaris</div><div class="perm-radio-desc">A més del seu departament, pot accedir a altres departaments seleccionats</div></div>
               </label>
             </div>
             <div class="perm-dept-access" id="perm-access-${dept}" style="${perm.level === 3 ? '' : 'display:none'}">
-              <div style="font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.8px">Departamentos accesibles:</div>
+              <div style="font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.8px">Departaments accessibles:</div>
               ${deptChecks}
             </div>
           </div>`;
@@ -7804,26 +7804,26 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
 
       function renderUsers() {
         const activeCount = USERS.filter((u) => u.active).length;
-        document.getElementById("user-count").textContent = `${activeCount} usuarios activos`;
+        document.getElementById("user-count").textContent = `${activeCount} usuaris actius`;
         
         // ✅ CAMBIO 4: Agrupar usuarios por sede
         const usersBysede = {
           'Mataró': [],
           'Vilassar': [],
-          'Sin sede': []
+          'Sense seu': []
         };
-        
+
         // Agrupar usuarios
         USERS.forEach(u => {
           if (u.sede === 'Mataró') usersBysede['Mataró'].push(u);
           else if (u.sede === 'Vilassar') usersBysede['Vilassar'].push(u);
-          else usersBysede['Sin sede'].push(u);
+          else usersBysede['Sense seu'].push(u);
         });
-        
+
         // Crear HTML agrupado por sede
         let htmlContent = '';
-        
-        ['Mataró', 'Vilassar', 'Sin sede'].forEach(sede => {
+
+        ['Mataró', 'Vilassar', 'Sense seu'].forEach(sede => {
           const users = usersBysede[sede];
           if (users.length === 0) return; // No mostrar sedes vacías
           
@@ -7845,12 +7845,12 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             
             htmlContent += `<tr>
               <td><div class="user-cell"><div class="mini-avatar">${initials(u.name)}</div><div><div style="font-weight:500">${safeHtml(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">@${safeHtml(u.username)}</div></div></div></td>
-              <td><span class="tag ${u.role === "admin" ? "tag-blue" : "tag-green"}">${u.role === "admin" ? "Admin" : "Empleado"}</span></td>
+              <td><span class="tag ${u.role === "admin" ? "tag-blue" : "tag-green"}">${u.role === "admin" ? "Admin" : "Empleat"}</span></td>
               <td>${deptTag}</td>
               <td>${sedeTag}</td>
               <td style="color:var(--text-muted)">${safeHtml(u.email || "—")}</td>
               <td style="color:var(--text-muted)">${safeHtml(u.phone || "—")}</td>
-              <td><span class="tag ${u.active ? "tag-green" : "tag-gray"}">${u.active ? "Activo" : "Inactivo"}</span></td>
+              <td><span class="tag ${u.active ? "tag-green" : "tag-gray"}">${u.active ? "Actiu" : "Inactiu"}</span></td>
               <td>
                 <div class="action-btns">
                   <button class="btn-icon" title="Editar" onclick="editUser(${u.id})">Editar</button>
@@ -7871,8 +7871,8 @@ function generarPasswordUsername(username) {
 }
       function openUserModal() {
         editingUserId = null;
-        document.getElementById("user-modal-title").textContent = "Nuevo usuario";
-        document.getElementById("nu-save-btn").textContent = "Crear usuario";
+        document.getElementById("user-modal-title").textContent = "Nou usuari";
+        document.getElementById("nu-save-btn").textContent = "Crear usuari";
         ["nu-name", "nu-user", "nu-pass", "nu-email", "nu-phone"].forEach(
           (id) => (document.getElementById(id).value = ""),
         );
@@ -7926,8 +7926,8 @@ document.getElementById("nu-user").addEventListener("input", function() {
         const u = USERS.find((x) => x.id === id);
         if (!u) return;
         editingUserId = id;
-        document.getElementById("user-modal-title").textContent = "Editar usuario";
-        document.getElementById("nu-save-btn").textContent = "Guardar cambios";
+        document.getElementById("user-modal-title").textContent = "Editar usuari";
+        document.getElementById("nu-save-btn").textContent = "Desar canvis";
         document.getElementById("nu-name").value = u.name;
         document.getElementById("nu-user").value = u.username;
         document.getElementById("nu-pass").value = u.password || "";
@@ -7962,7 +7962,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         const errEl = document.getElementById("nu-err");
 
         if (!name || !uname) {
-          errEl.textContent = "Nombre y usuario son obligatorios.";
+          errEl.textContent = "Nom i usuari són obligatoris.";
           errEl.style.display = "";
           return;
         }
@@ -7972,13 +7972,13 @@ document.getElementById("nu-user").addEventListener("input", function() {
           : pass;
         
         if (role !== "admin" && !dept) {
-          errEl.textContent = "El departamento es obligatorio para empleados.";
+          errEl.textContent = "El departament és obligatori per a empleats.";
           errEl.style.display = "";
           return;
         }
         // NUEVO: validar sede
         if (!sede) {
-          errEl.textContent = "La sede es obligatoria.";
+          errEl.textContent = "La seu és obligatòria.";
           errEl.style.display = "";
           return;
         }
@@ -7986,7 +7986,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
           (u) => u.username === uname && u.id !== editingUserId,
         );
         if (dupUser) {
-          errEl.textContent = "El nombre de usuario ya existe.";
+          errEl.textContent = "El nom d'usuari ja existeix.";
           errEl.style.display = "";
           return;
         }
@@ -8049,7 +8049,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
 
       function toggleUser(id) {
         if (id === currentUser.id) {
-          alert("No puedes desactivar tu propio usuario.");
+          alert("No pots desactivar el teu propi usuari.");
           return;
         }
         const u = USERS.find((x) => x.id === id);
@@ -8067,7 +8067,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         const isAdmin = currentUser.role === "admin";
         if (!SERVICES.length) {
           document.getElementById("services-list").innerHTML =
-            '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No hay servicios registrados.</div>';
+            '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No hi ha serveis registrats.</div>';
           return;
         }
         document.getElementById("services-list").innerHTML = SERVICES.map(
@@ -8094,8 +8094,8 @@ document.getElementById("nu-user").addEventListener("input", function() {
       function openServiceModal() {
         editingSrvId = null;
         document.getElementById("srv-modal-title").textContent =
-          "Nuevo servicio";
-        document.getElementById("srv-save-btn").textContent = "Guardar";
+          "Nou servei";
+        document.getElementById("srv-save-btn").textContent = "Desar";
         document.getElementById("srv-name").value = "";
         document.getElementById("srv-desc").value = "";
         document.getElementById("srv-err").style.display = "none";
@@ -8107,8 +8107,8 @@ document.getElementById("nu-user").addEventListener("input", function() {
         if (!s) return;
         editingSrvId = id;
         document.getElementById("srv-modal-title").textContent =
-          "Editar servicio";
-        document.getElementById("srv-save-btn").textContent = "Guardar cambios";
+          "Editar servei";
+        document.getElementById("srv-save-btn").textContent = "Desar canvis";
         document.getElementById("srv-name").value = s.name;
         document.getElementById("srv-desc").value = s.desc || "";
         document.getElementById("srv-err").style.display = "none";
@@ -8138,7 +8138,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
       }
 
       function deleteService(id) {
-        if (!confirm("¿Eliminar este servicio?")) return;
+        if (!confirm("Vols eliminar aquest servei?")) return;
         SERVICES = SERVICES.filter((s) => s.id !== id);
         renderServices();
       }
@@ -8152,7 +8152,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
       function renderClients() {
         if (!CLIENTS.length) {
           document.getElementById("clients-list").innerHTML =
-            '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No hay clientes registrados. <button class="btn btn-sm btn-primary" onclick="openClientModal()" style="margin-top:10px">Añadir el primer cliente</button></div>';
+            '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No hi ha clients registrats. <button class="btn btn-sm btn-primary" onclick="openClientModal()" style="margin-top:10px">Afegir el primer client</button></div>';
           return;
         }
 
@@ -8168,7 +8168,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         // Mostrar mensaje si no hay resultados de búsqueda
         if (filterQuery && !filteredClients.length) {
           document.getElementById("clients-list").innerHTML =
-            '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">📭 No hay clientes que coincidan con "<strong>' + safeHtml(clientsSearchFilter) + '</strong>"</div>';
+            '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">📭 No hi ha clients que coincideixin amb "<strong>' + safeHtml(clientsSearchFilter) + '</strong>"</div>';
           return;
         }
 
@@ -8178,7 +8178,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
     <div class="client-avatar">${initials(c.name)}</div>
     <div class="client-info">
       <div class="client-name">${safeHtml(c.name)}</div>
-      <div class="client-contact">${safeHtml(c.phone || 'Sin teléfono')}</div>
+      <div class="client-contact">${safeHtml(c.phone || 'Sense telèfon')}</div>
     </div>
     <div class="action-btns">
       <button class="btn-icon" title="Editar" onclick="editClient(${c.id})">Editar</button>
@@ -8216,13 +8216,13 @@ document.getElementById("nu-user").addEventListener("input", function() {
       function openClientModal() {
         // ✅ CAMBIO 10: Validar que solo admins pueden agregar clientes
         if (currentUser.role !== 'admin') {
-          alert('❌ Solo los administradores pueden añadir clientes');
+          alert('❌ Només els administradors poden afegir clients');
           return;
         }
         
         editingClientId = null;
-        document.getElementById("client-modal-title").textContent = "Nuevo cliente";
-        document.getElementById("client-save-btn").textContent = "Guardar";
+        document.getElementById("client-modal-title").textContent = "Nou client";
+        document.getElementById("client-save-btn").textContent = "Desar";
         document.getElementById("client-name").value = "";
         document.getElementById("client-phone").value = "";
         document.getElementById("client-err").style.display = "none";
@@ -8232,15 +8232,15 @@ document.getElementById("nu-user").addEventListener("input", function() {
       function editClient(id) {
         // ✅ CAMBIO 11: Validar que solo admins pueden editar clientes
         if (currentUser.role !== 'admin') {
-          alert('❌ Solo los administradores pueden editar clientes');
+          alert('❌ Només els administradors poden editar clients');
           return;
         }
         
         const c = CLIENTS.find((x) => x.id === id);
         if (!c) return;
         editingClientId = id;
-        document.getElementById("client-modal-title").textContent = "Editar cliente";
-        document.getElementById("client-save-btn").textContent = "Guardar cambios";
+        document.getElementById("client-modal-title").textContent = "Editar client";
+        document.getElementById("client-save-btn").textContent = "Desar canvis";
         document.getElementById("client-name").value = c.name;
         document.getElementById("client-phone").value = c.phone || "";
         document.getElementById("client-err").style.display = "none";
@@ -8279,11 +8279,11 @@ document.getElementById("nu-user").addEventListener("input", function() {
       function deleteClient(id) {
         // ✅ CAMBIO 13: Validar que solo admins pueden eliminar clientes
         if (currentUser.role !== 'admin') {
-          alert('❌ Solo los administradores pueden eliminar clientes');
+          alert('❌ Només els administradors poden eliminar clients');
           return;
         }
         
-        if (!confirm("¿Eliminar este cliente?")) return;
+        if (!confirm("Vols eliminar aquest client?")) return;
         CLIENTS = CLIENTS.filter((c) => c.id !== id);
         renderClients();
       }
@@ -8292,7 +8292,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
       function openClientsImportModal() {
         // ✅ CAMBIO 12: Validar que solo admins pueden importar clientes
         if (currentUser.role !== 'admin') {
-          alert('❌ Solo los administradores pueden importar clientes');
+          alert('❌ Només els administradors poden importar clients');
           return;
         }
         
@@ -8319,7 +8319,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
           reader.onload = function(e) {
             try {
               const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
-              if (lines.length < 2) { showImportError("El archivo CSV está vacío"); return; }
+              if (lines.length < 2) { showImportError("El fitxer CSV és buit"); return; }
               const headers = lines[0].split(/[,;]/).map(h => h.trim().replace(/^"|"$/g, ''));
               const rows = lines.slice(1).map(line => {
                 const cols = line.split(/[,;]/).map(c => c.trim().replace(/^"|"$/g, ''));
@@ -8328,7 +8328,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
                 return obj;
               });
               _processImportRows(rows);
-            } catch(err) { showImportError("Error al procesar CSV: " + err.message); }
+            } catch(err) { showImportError("Error en processar CSV: " + err.message); }
           };
           reader.readAsText(file, 'UTF-8');
           return;
@@ -8347,10 +8347,10 @@ document.getElementById("nu-user").addEventListener("input", function() {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-            if (!json.length) { showImportError("El archivo está vacío"); return; }
+            if (!json.length) { showImportError("El fitxer és buit"); return; }
             _processImportRows(json);
           } catch (err) {
-            showImportError("Error al procesar el archivo: " + err.message);
+            showImportError("Error en processar el fitxer: " + err.message);
           }
         };
         reader.readAsArrayBuffer(file);
@@ -8387,7 +8387,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         }).filter(c => c.name && c.name !== '' );
 
         if (!parsed.length) {
-          showImportError("No se encontraron clientes válidos. Asegúrate de tener columnas 'Nombre' y 'Número de Teléfono'.");
+          showImportError("No s'han trobat clients vàlids. Assegureu-vos de tenir columnes 'Nom' i 'Número de Telèfon'.");
           return;
         }
 
@@ -8400,7 +8400,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         const preview = document.getElementById("import-preview");
         let html = '<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr>';
         
-        const headers = ['Nombre', 'Teléfono'];
+        const headers = ['Nom', 'Telèfon'];
         headers.forEach(h => {
           html += `<th style="padding:4px;border:1px solid var(--border);text-align:left;background:var(--bg2);font-weight:600">${h}</th>`;
         });
@@ -8420,7 +8420,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         const moreCount = pendingClientsToImport.length - 5;
         if (moreCount > 0) {
           document.getElementById("import-preview-content").innerHTML += 
-            `<div style="margin-top:8px;color:var(--text-muted);font-size:11px">... y ${moreCount} cliente(s) más</div>`;
+            `<div style="margin-top:8px;color:var(--text-muted);font-size:11px">... i ${moreCount} client(s) més</div>`;
         }
       }
 
@@ -8555,7 +8555,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         if (!el) return;
         if (!GENERAL_CHAT || !GENERAL_CHAT.length) {
           el.innerHTML =
-            '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:40px 0">No hay mensajes aún. ¡Sé el primero en escribir!</div>';
+            '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:40px 0">Encara no hi ha missatges. Sigues el primer a escriure!</div>';
           return;
         }
 
@@ -8572,8 +8572,8 @@ document.getElementById("nu-user").addEventListener("input", function() {
           if (msgDate !== lastDate) {
             const today = todayStr();
             let label;
-            if (msgDate === today) label = "Hoy";
-            else if (msgDate === dOff(-1)) label = "Ayer";
+            if (msgDate === today) label = "Avui";
+            else if (msgDate === dOff(-1)) label = "Ahir";
             else label = fmtDateShort(msgDate);
             html += `<div class="gchat-day-sep"><span>${label}</span></div>`;
             lastDate = msgDate;
@@ -8628,13 +8628,13 @@ document.getElementById("nu-user").addEventListener("input", function() {
         files.forEach(file => {
           const ext = (file.name.split(".").pop() || "").toLowerCase();
           if (MSG_BLOCKED_EXTS.includes(ext)) {
-            errors.push('"' + file.name + '" no está permitido.');
+            errors.push('"' + file.name + '" no està permès.');
             pending--;
             if (pending === 0 && errors.length) alert(errors.join("\n"));
             return;
           }
           if (file.size > MSG_MAX_SIZE) {
-            errors.push('"' + file.name + '" supera el límite de 5 MB.');
+            errors.push('"' + file.name + '" supera el límit de 5 MB.');
             pending--;
             if (pending === 0 && errors.length) alert(errors.join("\n"));
             return;
@@ -8670,7 +8670,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
           '<div class="msg-attach-chip" title="' + safeHtml(att.name) + '">' +
           '<span class="msg-attach-chip-name">' + safeHtml(att.name) + '</span>' +
           '<span style="font-size:10px;color:var(--text-muted);flex-shrink:0">' + att.size + '</span>' +
-          '<button class="msg-attach-chip-del" onclick="gchatRemoveAttachment(' + idx + ')" title="Quitar">&times;</button>' +
+          '<button class="msg-attach-chip-del" onclick="gchatRemoveAttachment(' + idx + ')" title="Treure">&times;</button>' +
           '</div>'
         ).join("");
       }
@@ -8757,15 +8757,15 @@ document.getElementById("nu-user").addEventListener("input", function() {
         files.forEach(file => {
           const ext = (file.name.split(".").pop() || "").toLowerCase();
           if (MSG_BLOCKED_EXTS.includes(ext)) {
-            errors.push(`"${file.name}" no está permitido (tipo de archivo bloqueado).`);
+            errors.push(`"${file.name}" no està permès (tipus de fitxer bloquejat).`);
             pending--;
-            if (pending === 0 && errors.length) alert("Problemas con algunos archivos:\n" + errors.join("\n"));
+            if (pending === 0 && errors.length) alert("Problemes amb alguns fitxers:\n" + errors.join("\n"));
             return;
           }
           if (file.size > MSG_MAX_SIZE) {
-            errors.push(`"${file.name}" supera el límite de 5 MB.`);
+            errors.push(`"${file.name}" supera el límit de 5 MB.`);
             pending--;
-            if (pending === 0 && errors.length) alert("Problemas con algunos archivos:\n" + errors.join("\n"));
+            if (pending === 0 && errors.length) alert("Problemes amb alguns fitxers:\n" + errors.join("\n"));
             return;
           }
 
@@ -8835,7 +8835,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
           `<div class="msg-attach-chip" title="${safeHtml(att.name)}">
             <span class="msg-attach-chip-name">${safeHtml(att.name)}</span>
             <span style="font-size:10px;color:var(--text-muted);flex-shrink:0">${att.size}</span>
-            <button class="msg-attach-chip-del" onclick="msgRemoveAttachment(${idx})" title="Quitar">&times;</button>
+            <button class="msg-attach-chip-del" onclick="msgRemoveAttachment(${idx})" title="Treure">&times;</button>
           </div>`
         ).join("");
       }
@@ -8872,7 +8872,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
           <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:18px;flex-shrink:0">#</div>
           <div class="msg-conv-info">
             <div class="msg-conv-name" style="font-weight:600">Chat General</div>
-            <div class="msg-conv-preview">${generalLast ? (isMe_for(generalLast) ? "Tú: " : "") + (generalLast.text ? safeHtml(generalLast.text) : (generalLast.attachments && generalLast.attachments.length ? "📎 " + safeHtml(generalLast.attachments[0].name) : "")) : "Sin mensajes aún"}</div>
+            <div class="msg-conv-preview">${generalLast ? (isMe_for(generalLast) ? "Tu: " : "") + (generalLast.text ? safeHtml(generalLast.text) : (generalLast.attachments && generalLast.attachments.length ? "📎 " + safeHtml(generalLast.attachments[0].name) : "")) : "Sense missatges"}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
             ${generalLast ? `<div class="msg-conv-time">${generalLast.time}</div>` : ""}
@@ -8899,7 +8899,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
               <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:18px;flex-shrink:0">${sedeInfo.icon}</div>
               <div class="msg-conv-info">
                 <div class="msg-conv-name" style="font-weight:600">${sedeInfo.name}</div>
-                <div class="msg-conv-preview">${last ? (isMe_for(last) ? "Tú: " : "") + (last.text ? safeHtml(last.text) : (last.attachments && last.attachments.length ? "📎 " + safeHtml(last.attachments[0].name) : "")) : "Sin mensajes aún"}</div>
+                <div class="msg-conv-preview">${last ? (isMe_for(last) ? "Tu: " : "") + (last.text ? safeHtml(last.text) : (last.attachments && last.attachments.length ? "📎 " + safeHtml(last.attachments[0].name) : "")) : "Sense missatges"}</div>
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                 ${last ? `<div class="msg-conv-time">${last.time}</div>` : ""}
@@ -8940,7 +8940,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
       <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:12px;flex-shrink:0">${initials(u.name)}</div>
       <div class="msg-conv-info">
         <div class="msg-conv-name">${safeHtml(u.name)}</div>
-        <div class="msg-conv-preview">${last ? (isMe_for(last) ? "Tú: " : "") + (last.text ? safeHtml(last.text) : (last.attachments && last.attachments.length ? "📎 " + safeHtml(last.attachments[0].name) : "")) : "Inicia una conversación"}</div>
+        <div class="msg-conv-preview">${last ? (isMe_for(last) ? "Jo: " : "") + (last.text ? safeHtml(last.text) : (last.attachments && last.attachments.length ? "📎 " + safeHtml(last.attachments[0].name) : "")) : "Inicia una conversa"}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         ${last ? `<div class="msg-conv-time">${last.time}</div>` : ""}
@@ -9069,7 +9069,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         
         // Admin puede ver ambas sedes, no-admin solo su propia
         if (!isAdmin && userSede !== sedeInfo.sede) {
-          alert(`❌ No tienes acceso al chat de ${sedeInfo.sede}`);
+          alert(`❌ No tens accés al xat de ${sedeInfo.sede}`);
           return;
         }
         
@@ -9208,7 +9208,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
       </div>`;
               })
               .join("")
-          : '<div style="text-align:center;color:var(--text-muted);font-size:13px;margin:auto">Inicia la conversación</div>';
+          : '<div style="text-align:center;color:var(--text-muted);font-size:13px;margin:auto">Inicia la conversa</div>';
         // Scroll suave al final compatible con todos los navegadores
         requestAnimationFrame(() => {
           el.scrollTop = el.scrollHeight;
@@ -9653,7 +9653,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
             badge.appendChild(txt);
             const btn = document.createElement('button');
             btn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:0 0 0 4px;line-height:1';
-            btn.title = 'Quitar';
+            btn.title = 'Treure';
             btn.textContent = '×';
             btn.addEventListener('click', function() {
               _waReminders[prefix] = {};
@@ -9854,14 +9854,14 @@ document.getElementById("nu-user").addEventListener("input", function() {
             self.addEventListener('push', event => {
               const data = event.data ? event.data.json() : {};
               const options = {
-                body: data.body || 'Recordatorio de cita',
+                body: data.body || 'Recordatori de cita',
                 icon: '🔔',
                 badge: '🔔',
                 tag: 'gestionpro-reminder',
                 requireInteraction: true,
                 ...data
               };
-              event.waitUntil(self.registration.showNotification(data.title || 'Recordatorio', options));
+              event.waitUntil(self.registration.showNotification(data.title || 'Recordatori', options));
             });
 
             self.addEventListener('notificationclick', event => {
@@ -9918,8 +9918,8 @@ document.getElementById("nu-user").addEventListener("input", function() {
               if (permission === 'granted') {
                 console.log('✅ Permisos de notificación otorgados');
                 // Mostrar notificación de prueba
-                sendNotification('🔔 ¡Notificaciones activadas!', {
-                  body: 'Los recordatorios de citas aparecerán en tu pantalla',
+                sendNotification('🔔 Notificacions activades!', {
+                  body: 'Els recordatoris de cites apareixeran a la teva pantalla',
                   tag: 'test-notification'
                 });
               } else {
@@ -9995,7 +9995,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
 
         // Formatea la hora del evento de forma legible
         const eventDate = new Date(eventData.date);
-        const dateStr = eventDate.toLocaleDateString('es-ES', { 
+        const dateStr = eventDate.toLocaleDateString('ca-ES', { 
           weekday: 'long', 
           day: 'numeric', 
           month: 'long' 
@@ -10035,24 +10035,24 @@ document.getElementById("nu-user").addEventListener("input", function() {
 
         if (reminderTime <= now) {
           // Si ya pasó, notificar inmediatamente
-          sendNotification('📌 Recordatorio de cita', {
-            body: `${eventData.client} - ${eventData.service || 'Sin servicio'}
-${dateStr} a las ${eventData.time}`,
+          sendNotification('📌 Recordatori de cita', {
+            body: `${eventData.client} - ${eventData.service || 'Sense servei'}
+${dateStr} a les ${eventData.time}`,
             tag: `reminder-${eventData.id || Date.now()}`,
             requireInteraction: true
           });
         } else {
           // Programar para después
           const timeUntilReminder = reminderTime - now;
-          
+
           // Mostrar en consola cuándo se ejecutará
           const reminderDate = new Date(reminderTime);
-          console.log(`⏰ Recordatorio programado para ${reminderDate.toLocaleString('es-ES')}`);
-          
+          console.log(`⏰ Recordatori programat per a ${reminderDate.toLocaleString('ca-ES')}`);
+
           setTimeout(() => {
-            sendNotification('📌 Recordatorio de cita', {
-              body: `${eventData.client} - ${eventData.service || 'Sin servicio'}
-${dateStr} a las ${eventData.time}`,
+            sendNotification('📌 Recordatori de cita', {
+              body: `${eventData.client} - ${eventData.service || 'Sense servei'}
+${dateStr} a les ${eventData.time}`,
               tag: `reminder-${eventData.id || Date.now()}`,
               requireInteraction: true
             });
@@ -10096,12 +10096,12 @@ ${dateStr} a las ${eventData.time}`,
        */
       function buildWaMessage(eventData) {
         const dateStr = eventData.date
-          ? new Date(eventData.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' })
+          ? new Date(eventData.date + 'T12:00:00').toLocaleDateString('ca-ES', { weekday:'long', day:'numeric', month:'long' })
           : eventData.date;
         return (
-          `Hola ${eventData.client}, le recordamos su cita en Rodonvergés Associats el ${dateStr} a las ${eventData.time}` +
+          `Hola ${eventData.client}, li recordem la seva cita a Rodonvergés Associats el ${dateStr} a les ${eventData.time}` +
           (eventData.service ? ` (${eventData.service})` : '') +
-          `. ¡Le esperamos!`
+          `. L'esperem!`
         );
       }
 
@@ -10145,7 +10145,7 @@ ${dateStr} a las ${eventData.time}`,
           window.open(`https://wa.me/${phoneFormatted}?text=${encodeURIComponent(message)}`, '_blank');
         } else {
           // Sin teléfono: ofrecer copiar el mensaje
-          if (confirm(`📱 Recordatorio WhatsApp para "${eventData.client}"\n\nNo hay teléfono registrado.\n\n¿Copiar el mensaje al portapapeles?\n\n"${message}"`)) {
+          if (confirm(`📱 Recordatori WhatsApp per a "${eventData.client}"\n\nNo hi ha telèfon registrat.\n\nCopiar el missatge al porta-retalls?\n\n"${message}"`)) {
             try { navigator.clipboard.writeText(message); } catch(e) {}
           }
         }
@@ -10244,7 +10244,7 @@ ${dateStr} a las ${eventData.time}`,
             if (data.ok) {
               const mins = Math.round(timeUntil / 60000);
               console.log(`📅 [Servidor] WA para "${eventData.client}" programado en ${mins} min · job: ${jobId}`);
-              _showWaToast(`📅 Recordatorio WhatsApp programado para ${eventData.client}`);
+              _showWaToast(`📅 Recordatori WhatsApp programat per a ${eventData.client}`);
             } else {
               console.warn('⚠️ Servidor no pudo programar el job:', data.error);
               // Fallback: setTimeout en el navegador
@@ -10311,8 +10311,8 @@ ${dateStr} a las ${eventData.time}`,
             
             // Reprogramar en setTimeout
             setTimeout(() => {
-              sendNotification('📌 Recordatorio de cita', {
-                body: `${reminder.eventClient} - ${reminder.eventService || 'Sin servicio'}\n${reminder.eventDate} a las ${reminder.eventTime}`,
+              sendNotification('📌 Recordatori de cita', {
+                body: `${reminder.eventClient} - ${reminder.eventService || 'Sense servei'}\n${reminder.eventDate} a les ${reminder.eventTime}`,
                 tag: `reminder-${reminder.eventId}`,
                 requireInteraction: true
               });
@@ -10383,7 +10383,7 @@ ${dateStr} a las ${eventData.time}`,
             sender: msg.sender_username,
             text: msg.text,
             time: msg.timestamp
-              ? new Date(msg.timestamp).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', hour12:false})
+              ? new Date(msg.timestamp).toLocaleTimeString('ca-ES', {hour:'2-digit', minute:'2-digit', hour12:false})
               : nowTime(),
             date: msg.timestamp ? msg.timestamp.split('T')[0] : todayStr(),
                     read: isMine ? true : (activeConvId === otherId),
@@ -10441,13 +10441,13 @@ ${dateStr} a las ${eventData.time}`,
         const waInfoEl = document.getElementById(waInfoId);
         if (dispEl) {
           dispEl.innerHTML = phone
-            ? `<div class="client-phone-linked">📞 ${safeHtml(phone)} — teléfono vinculado para WhatsApp</div>`
+            ? `<div class="client-phone-linked">📞 ${safeHtml(phone)} — telèfon vinculat per a WhatsApp</div>`
             : "";
         }
         if (waInfoEl) {
           waInfoEl.innerHTML = phone
-            ? `<div class="wa-phone-detected">✅ WhatsApp se enviará a: ${safeHtml(phone)}</div>`
-            : `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">⚠️ No hay teléfono registrado para este cliente. Regístralo en la sección Clientes.</div>`;
+            ? `<div class="wa-phone-detected">✅ WhatsApp s'enviarà a: ${safeHtml(phone)}</div>`
+            : `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">⚠️ No hi ha telèfon registrat per a aquest client. Registra'l a la secció Clients.</div>`;
         }
       }
 
