@@ -2971,21 +2971,45 @@
             <div class="nav-subitem" id="nav-admin-view-calendar" onclick="showSection('admin-view-calendar')">
               👤 Cal. Administradores
             </div>
-            <!-- Calendarios Departamentales (Expandible) -->
+            <!-- Calendaris Departamentals -->
             <div class="nav-expandable-sub expanded" id="nav-dept-calendars-header" onclick="toggleSubMenu(event, 'dept-calendars-sub')">
               <span>🏢 Calendaris Departamentals</span>
               <span class="nav-expand-icon">▶</span>
             </div>
             <div class="nav-submenu expanded" id="dept-calendars-sub">
-              <div class="nav-subitem nav-subitem-nested" id="nav-dept-laboral" onclick="showSection('cal-laboral')">
-                💼 Cal. Laboral
+
+              <!-- ADMINS: dos sub-grups per seu -->
+              <div id="nav-dept-admin-mataro-grp">
+                <div class="nav-expandable-sub expanded" onclick="toggleSubMenu(event, 'dept-admin-mataro-sub')" style="padding-left:16px;font-size:12px">
+                  <span>📍 Mataró</span><span class="nav-expand-icon">▶</span>
+                </div>
+                <div class="nav-submenu expanded" id="dept-admin-mataro-sub">
+                  <div class="nav-subitem nav-subitem-nested" id="nav-dept-laboral-mataro" onclick="showSection('cal-laboral-mataro')">💼 Cal. Laboral</div>
+                  <div class="nav-subitem nav-subitem-nested" id="nav-dept-mercantil-mataro" onclick="showSection('cal-mercantil-mataro')">📊 Cal. Mercantil</div>
+                  <div class="nav-subitem nav-subitem-nested" id="nav-dept-fiscal-mataro" onclick="showSection('cal-fiscal-mataro')">📋 Cal. Fiscal</div>
+                </div>
               </div>
-              <div class="nav-subitem nav-subitem-nested" id="nav-dept-mercantil" onclick="showSection('cal-mercantil')">
-                📊 Cal. Mercantil
+              <div id="nav-dept-admin-vilassar-grp">
+                <div class="nav-expandable-sub expanded" onclick="toggleSubMenu(event, 'dept-admin-vilassar-sub')" style="padding-left:16px;font-size:12px">
+                  <span>📍 Vilassar</span><span class="nav-expand-icon">▶</span>
+                </div>
+                <div class="nav-submenu expanded" id="dept-admin-vilassar-sub">
+                  <div class="nav-subitem nav-subitem-nested" id="nav-dept-laboral-vilassar" onclick="showSection('cal-laboral-vilassar')">💼 Cal. Laboral</div>
+                  <div class="nav-subitem nav-subitem-nested" id="nav-dept-mercantil-vilassar" onclick="showSection('cal-mercantil-vilassar')">📊 Cal. Mercantil</div>
+                  <div class="nav-subitem nav-subitem-nested" id="nav-dept-fiscal-vilassar" onclick="showSection('cal-fiscal-vilassar')">📋 Cal. Fiscal</div>
+                </div>
               </div>
-              <div class="nav-subitem nav-subitem-nested" id="nav-dept-fiscal" onclick="showSection('cal-fiscal')">
-                📋 Cal. Fiscal
-              </div>
+
+              <!-- NO-ADMINS Mataró: ítems plans sense sub-capçalera -->
+              <div id="nav-dept-flat-laboral-mataro" class="nav-subitem nav-subitem-nested" onclick="showSection('cal-laboral-mataro')">💼 Cal. Laboral</div>
+              <div id="nav-dept-flat-mercantil-mataro" class="nav-subitem nav-subitem-nested" onclick="showSection('cal-mercantil-mataro')">📊 Cal. Mercantil</div>
+              <div id="nav-dept-flat-fiscal-mataro" class="nav-subitem nav-subitem-nested" onclick="showSection('cal-fiscal-mataro')">📋 Cal. Fiscal</div>
+
+              <!-- NO-ADMINS Vilassar: ítems plans sense sub-capçalera -->
+              <div id="nav-dept-flat-laboral-vilassar" class="nav-subitem nav-subitem-nested" onclick="showSection('cal-laboral-vilassar')">💼 Cal. Laboral</div>
+              <div id="nav-dept-flat-mercantil-vilassar" class="nav-subitem nav-subitem-nested" onclick="showSection('cal-mercantil-vilassar')">📊 Cal. Mercantil</div>
+              <div id="nav-dept-flat-fiscal-vilassar" class="nav-subitem nav-subitem-nested" onclick="showSection('cal-fiscal-vilassar')">📋 Cal. Fiscal</div>
+
             </div>
             <!-- Calendarios Personales (Expandible) -->
             <div class="nav-expandable-sub expanded" onclick="toggleSubMenu(event, 'personal-calendars-sub')">
@@ -3338,42 +3362,33 @@
           </div>
           <!-- FIN NUEVO: CALENDARIO DEL ADMIN -->
 
-          <!-- CALENDARIO LABORAL -->
-          <div class="section" id="section-cal-laboral">
+          <!-- CALENDARI LABORAL MATARÓ -->
+          <div class="section" id="section-cal-laboral-mataro">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendari Laboral</h2>
-                <p>Cites del departament laboral</p>
+                <h2>Calendari Laboral · Mataró</h2>
+                <p>Cites del departament laboral de Mataró</p>
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Seu:</label>
-                  <select id="dept-laboral-filter-sede" onchange="renderDeptCalendar('laboral')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
-                    <option value="all">Todas</option>
-                    <option value="Mataró">Mataró</option>
-                    <option value="Vilassar">Vilassar</option>
-                  </select>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px">
                   <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleat:</label>
-                  <select id="dept-laboral-filter-person" onchange="renderDeptCalendar('laboral')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                  <select id="dept-laboral-mataro-filter-person" onchange="renderDeptCalendar('laboral','mataro')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
                     <option value="all">Tots</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('laboral')">+ Programar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('laboral','mataro')">+ Programar cita</button>
               </div>
             </div>
-            <!-- NUEVO: leyenda de empleados del departamento -->
-            <div id="dept-laboral-legend" class="dept-legend" style="display:none"></div>
+            <div id="dept-laboral-mataro-legend" class="dept-legend" style="display:none"></div>
             <div class="calendar-wrapper">
               <div class="cal-header">
-                <button class="cal-nav" onclick="calNavDept(-1,'laboral')">&lsaquo;</button>
-                <div class="cal-title" id="dept-laboral-cal-title"></div>
-                <button class="cal-nav" onclick="calNavDept(1,'laboral')">&rsaquo;</button>
+                <button class="cal-nav" onclick="calNavDept(-1,'laboral-mataro')">&lsaquo;</button>
+                <div class="cal-title" id="dept-laboral-mataro-cal-title"></div>
+                <button class="cal-nav" onclick="calNavDept(1,'laboral-mataro')">&rsaquo;</button>
                 <div class="cal-view-toggle">
-                  <button class="cal-view-btn active" id="dept-laboral-btn-month" onclick="setCalView('dept-laboral','month')">Mes</button>
-                  <button class="cal-view-btn" id="dept-laboral-btn-week" onclick="setCalView('dept-laboral','week')">Setmana</button>
-                  <button class="cal-view-btn" id="dept-laboral-btn-day" onclick="setCalView('dept-laboral','day')">Dia</button>
+                  <button class="cal-view-btn active" id="dept-laboral-mataro-btn-month" onclick="setCalView('dept-laboral-mataro','month')">Mes</button>
+                  <button class="cal-view-btn" id="dept-laboral-mataro-btn-week" onclick="setCalView('dept-laboral-mataro','week')">Setmana</button>
+                  <button class="cal-view-btn" id="dept-laboral-mataro-btn-day" onclick="setCalView('dept-laboral-mataro','day')">Dia</button>
                 </div>
               </div>
               <div class="cal-grid">
@@ -3381,48 +3396,39 @@
                   <div class="cal-day-name">Dll</div><div class="cal-day-name">Dmt</div><div class="cal-day-name">Dcr</div>
                   <div class="cal-day-name">Dj</div><div class="cal-day-name">Dv</div><div class="cal-day-name">Ds</div><div class="cal-day-name">Dg</div>
                 </div>
-                <div class="cal-cells" id="dept-laboral-cal-cells"></div>
+                <div class="cal-cells" id="dept-laboral-mataro-cal-cells"></div>
               </div>
             </div>
-            <div class="appt-list" id="dept-laboral-appt-list"></div>
+            <div class="appt-list" id="dept-laboral-mataro-appt-list"></div>
           </div>
 
-          <!-- CALENDARIO FISCAL -->
-          <div class="section" id="section-cal-fiscal">
+          <!-- CALENDARI LABORAL VILASSAR -->
+          <div class="section" id="section-cal-laboral-vilassar">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendari Fiscal</h2>
-                <p>Cites del departament fiscal</p>
+                <h2>Calendari Laboral · Vilassar</h2>
+                <p>Cites del departament laboral de Vilassar</p>
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Seu:</label>
-                  <select id="dept-fiscal-filter-sede" onchange="renderDeptCalendar('fiscal')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
-                    <option value="all">Todas</option>
-                    <option value="Mataró">Mataró</option>
-                    <option value="Vilassar">Vilassar</option>
-                  </select>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px">
                   <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleat:</label>
-                  <select id="dept-fiscal-filter-person" onchange="renderDeptCalendar('fiscal')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                  <select id="dept-laboral-vilassar-filter-person" onchange="renderDeptCalendar('laboral','vilassar')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
                     <option value="all">Tots</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('fiscal')">+ Programar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('laboral','vilassar')">+ Programar cita</button>
               </div>
             </div>
-            <!-- NUEVO: leyenda de empleados del departamento -->
-            <div id="dept-fiscal-legend" class="dept-legend" style="display:none"></div>
+            <div id="dept-laboral-vilassar-legend" class="dept-legend" style="display:none"></div>
             <div class="calendar-wrapper">
               <div class="cal-header">
-                <button class="cal-nav" onclick="calNavDept(-1,'fiscal')">&lsaquo;</button>
-                <div class="cal-title" id="dept-fiscal-cal-title"></div>
-                <button class="cal-nav" onclick="calNavDept(1,'fiscal')">&rsaquo;</button>
+                <button class="cal-nav" onclick="calNavDept(-1,'laboral-vilassar')">&lsaquo;</button>
+                <div class="cal-title" id="dept-laboral-vilassar-cal-title"></div>
+                <button class="cal-nav" onclick="calNavDept(1,'laboral-vilassar')">&rsaquo;</button>
                 <div class="cal-view-toggle">
-                  <button class="cal-view-btn active" id="dept-fiscal-btn-month" onclick="setCalView('dept-fiscal','month')">Mes</button>
-                  <button class="cal-view-btn" id="dept-fiscal-btn-week" onclick="setCalView('dept-fiscal','week')">Setmana</button>
-                  <button class="cal-view-btn" id="dept-fiscal-btn-day" onclick="setCalView('dept-fiscal','day')">Dia</button>
+                  <button class="cal-view-btn active" id="dept-laboral-vilassar-btn-month" onclick="setCalView('dept-laboral-vilassar','month')">Mes</button>
+                  <button class="cal-view-btn" id="dept-laboral-vilassar-btn-week" onclick="setCalView('dept-laboral-vilassar','week')">Setmana</button>
+                  <button class="cal-view-btn" id="dept-laboral-vilassar-btn-day" onclick="setCalView('dept-laboral-vilassar','day')">Dia</button>
                 </div>
               </div>
               <div class="cal-grid">
@@ -3430,48 +3436,39 @@
                   <div class="cal-day-name">Dll</div><div class="cal-day-name">Dmt</div><div class="cal-day-name">Dcr</div>
                   <div class="cal-day-name">Dj</div><div class="cal-day-name">Dv</div><div class="cal-day-name">Ds</div><div class="cal-day-name">Dg</div>
                 </div>
-                <div class="cal-cells" id="dept-fiscal-cal-cells"></div>
+                <div class="cal-cells" id="dept-laboral-vilassar-cal-cells"></div>
               </div>
             </div>
-            <div class="appt-list" id="dept-fiscal-appt-list"></div>
+            <div class="appt-list" id="dept-laboral-vilassar-appt-list"></div>
           </div>
 
-          <!-- CALENDARIO MERCANTIL -->
-          <div class="section" id="section-cal-mercantil">
+          <!-- CALENDARI FISCAL MATARÓ -->
+          <div class="section" id="section-cal-fiscal-mataro">
             <div class="sec-hdr">
               <div class="sec-hdr-text">
-                <h2>Calendari Mercantil</h2>
-                <p>Cites del departament mercantil</p>
+                <h2>Calendari Fiscal · Mataró</h2>
+                <p>Cites del departament fiscal de Mataró</p>
               </div>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Seu:</label>
-                  <select id="dept-mercantil-filter-sede" onchange="renderDeptCalendar('mercantil')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
-                    <option value="all">Todas</option>
-                    <option value="Mataró">Mataró</option>
-                    <option value="Vilassar">Vilassar</option>
-                  </select>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px">
                   <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleat:</label>
-                  <select id="dept-mercantil-filter-person" onchange="renderDeptCalendar('mercantil')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                  <select id="dept-fiscal-mataro-filter-person" onchange="renderDeptCalendar('fiscal','mataro')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
                     <option value="all">Tots</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('mercantil')">+ Programar cita</button>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('fiscal','mataro')">+ Programar cita</button>
               </div>
             </div>
-            <!-- NUEVO: leyenda de empleados del departamento -->
-            <div id="dept-mercantil-legend" class="dept-legend" style="display:none"></div>
+            <div id="dept-fiscal-mataro-legend" class="dept-legend" style="display:none"></div>
             <div class="calendar-wrapper">
               <div class="cal-header">
-                <button class="cal-nav" onclick="calNavDept(-1,'mercantil')">&lsaquo;</button>
-                <div class="cal-title" id="dept-mercantil-cal-title"></div>
-                <button class="cal-nav" onclick="calNavDept(1,'mercantil')">&rsaquo;</button>
+                <button class="cal-nav" onclick="calNavDept(-1,'fiscal-mataro')">&lsaquo;</button>
+                <div class="cal-title" id="dept-fiscal-mataro-cal-title"></div>
+                <button class="cal-nav" onclick="calNavDept(1,'fiscal-mataro')">&rsaquo;</button>
                 <div class="cal-view-toggle">
-                  <button class="cal-view-btn active" id="dept-mercantil-btn-month" onclick="setCalView('dept-mercantil','month')">Mes</button>
-                  <button class="cal-view-btn" id="dept-mercantil-btn-week" onclick="setCalView('dept-mercantil','week')">Setmana</button>
-                  <button class="cal-view-btn" id="dept-mercantil-btn-day" onclick="setCalView('dept-mercantil','day')">Dia</button>
+                  <button class="cal-view-btn active" id="dept-fiscal-mataro-btn-month" onclick="setCalView('dept-fiscal-mataro','month')">Mes</button>
+                  <button class="cal-view-btn" id="dept-fiscal-mataro-btn-week" onclick="setCalView('dept-fiscal-mataro','week')">Setmana</button>
+                  <button class="cal-view-btn" id="dept-fiscal-mataro-btn-day" onclick="setCalView('dept-fiscal-mataro','day')">Dia</button>
                 </div>
               </div>
               <div class="cal-grid">
@@ -3479,10 +3476,130 @@
                   <div class="cal-day-name">Dll</div><div class="cal-day-name">Dmt</div><div class="cal-day-name">Dcr</div>
                   <div class="cal-day-name">Dj</div><div class="cal-day-name">Dv</div><div class="cal-day-name">Ds</div><div class="cal-day-name">Dg</div>
                 </div>
-                <div class="cal-cells" id="dept-mercantil-cal-cells"></div>
+                <div class="cal-cells" id="dept-fiscal-mataro-cal-cells"></div>
               </div>
             </div>
-            <div class="appt-list" id="dept-mercantil-appt-list"></div>
+            <div class="appt-list" id="dept-fiscal-mataro-appt-list"></div>
+          </div>
+
+          <!-- CALENDARI FISCAL VILASSAR -->
+          <div class="section" id="section-cal-fiscal-vilassar">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Calendari Fiscal · Vilassar</h2>
+                <p>Cites del departament fiscal de Vilassar</p>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleat:</label>
+                  <select id="dept-fiscal-vilassar-filter-person" onchange="renderDeptCalendar('fiscal','vilassar')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Tots</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('fiscal','vilassar')">+ Programar cita</button>
+              </div>
+            </div>
+            <div id="dept-fiscal-vilassar-legend" class="dept-legend" style="display:none"></div>
+            <div class="calendar-wrapper">
+              <div class="cal-header">
+                <button class="cal-nav" onclick="calNavDept(-1,'fiscal-vilassar')">&lsaquo;</button>
+                <div class="cal-title" id="dept-fiscal-vilassar-cal-title"></div>
+                <button class="cal-nav" onclick="calNavDept(1,'fiscal-vilassar')">&rsaquo;</button>
+                <div class="cal-view-toggle">
+                  <button class="cal-view-btn active" id="dept-fiscal-vilassar-btn-month" onclick="setCalView('dept-fiscal-vilassar','month')">Mes</button>
+                  <button class="cal-view-btn" id="dept-fiscal-vilassar-btn-week" onclick="setCalView('dept-fiscal-vilassar','week')">Setmana</button>
+                  <button class="cal-view-btn" id="dept-fiscal-vilassar-btn-day" onclick="setCalView('dept-fiscal-vilassar','day')">Dia</button>
+                </div>
+              </div>
+              <div class="cal-grid">
+                <div class="cal-days-header">
+                  <div class="cal-day-name">Dll</div><div class="cal-day-name">Dmt</div><div class="cal-day-name">Dcr</div>
+                  <div class="cal-day-name">Dj</div><div class="cal-day-name">Dv</div><div class="cal-day-name">Ds</div><div class="cal-day-name">Dg</div>
+                </div>
+                <div class="cal-cells" id="dept-fiscal-vilassar-cal-cells"></div>
+              </div>
+            </div>
+            <div class="appt-list" id="dept-fiscal-vilassar-appt-list"></div>
+          </div>
+
+          <!-- CALENDARI MERCANTIL MATARÓ -->
+          <div class="section" id="section-cal-mercantil-mataro">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Calendari Mercantil · Mataró</h2>
+                <p>Cites del departament mercantil de Mataró</p>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleat:</label>
+                  <select id="dept-mercantil-mataro-filter-person" onchange="renderDeptCalendar('mercantil','mataro')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Tots</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('mercantil','mataro')">+ Programar cita</button>
+              </div>
+            </div>
+            <div id="dept-mercantil-mataro-legend" class="dept-legend" style="display:none"></div>
+            <div class="calendar-wrapper">
+              <div class="cal-header">
+                <button class="cal-nav" onclick="calNavDept(-1,'mercantil-mataro')">&lsaquo;</button>
+                <div class="cal-title" id="dept-mercantil-mataro-cal-title"></div>
+                <button class="cal-nav" onclick="calNavDept(1,'mercantil-mataro')">&rsaquo;</button>
+                <div class="cal-view-toggle">
+                  <button class="cal-view-btn active" id="dept-mercantil-mataro-btn-month" onclick="setCalView('dept-mercantil-mataro','month')">Mes</button>
+                  <button class="cal-view-btn" id="dept-mercantil-mataro-btn-week" onclick="setCalView('dept-mercantil-mataro','week')">Setmana</button>
+                  <button class="cal-view-btn" id="dept-mercantil-mataro-btn-day" onclick="setCalView('dept-mercantil-mataro','day')">Dia</button>
+                </div>
+              </div>
+              <div class="cal-grid">
+                <div class="cal-days-header">
+                  <div class="cal-day-name">Dll</div><div class="cal-day-name">Dmt</div><div class="cal-day-name">Dcr</div>
+                  <div class="cal-day-name">Dj</div><div class="cal-day-name">Dv</div><div class="cal-day-name">Ds</div><div class="cal-day-name">Dg</div>
+                </div>
+                <div class="cal-cells" id="dept-mercantil-mataro-cal-cells"></div>
+              </div>
+            </div>
+            <div class="appt-list" id="dept-mercantil-mataro-appt-list"></div>
+          </div>
+
+          <!-- CALENDARI MERCANTIL VILASSAR -->
+          <div class="section" id="section-cal-mercantil-vilassar">
+            <div class="sec-hdr">
+              <div class="sec-hdr-text">
+                <h2>Calendari Mercantil · Vilassar</h2>
+                <p>Cites del departament mercantil de Vilassar</p>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Empleat:</label>
+                  <select id="dept-mercantil-vilassar-filter-person" onchange="renderDeptCalendar('mercantil','vilassar')" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer">
+                    <option value="all">Tots</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openDeptEventModal('mercantil','vilassar')">+ Programar cita</button>
+              </div>
+            </div>
+            <div id="dept-mercantil-vilassar-legend" class="dept-legend" style="display:none"></div>
+            <div class="calendar-wrapper">
+              <div class="cal-header">
+                <button class="cal-nav" onclick="calNavDept(-1,'mercantil-vilassar')">&lsaquo;</button>
+                <div class="cal-title" id="dept-mercantil-vilassar-cal-title"></div>
+                <button class="cal-nav" onclick="calNavDept(1,'mercantil-vilassar')">&rsaquo;</button>
+                <div class="cal-view-toggle">
+                  <button class="cal-view-btn active" id="dept-mercantil-vilassar-btn-month" onclick="setCalView('dept-mercantil-vilassar','month')">Mes</button>
+                  <button class="cal-view-btn" id="dept-mercantil-vilassar-btn-week" onclick="setCalView('dept-mercantil-vilassar','week')">Setmana</button>
+                  <button class="cal-view-btn" id="dept-mercantil-vilassar-btn-day" onclick="setCalView('dept-mercantil-vilassar','day')">Dia</button>
+                </div>
+              </div>
+              <div class="cal-grid">
+                <div class="cal-days-header">
+                  <div class="cal-day-name">Dll</div><div class="cal-day-name">Dmt</div><div class="cal-day-name">Dcr</div>
+                  <div class="cal-day-name">Dj</div><div class="cal-day-name">Dv</div><div class="cal-day-name">Ds</div><div class="cal-day-name">Dg</div>
+                </div>
+                <div class="cal-cells" id="dept-mercantil-vilassar-cal-cells"></div>
+              </div>
+            </div>
+            <div class="appt-list" id="dept-mercantil-vilassar-appt-list"></div>
           </div>
 
           <!-- ADMIN: CALENDARIOS Y PERMISOS -->
@@ -4952,9 +5069,14 @@
       };
 
       let deptCalMonth = {
-        laboral:   new Date(),
-        fiscal:    new Date(),
-        mercantil: new Date(),
+        'laboral-mataro':   new Date(),
+        'laboral-vilassar': new Date(),
+        'fiscal-mataro':    new Date(),
+        'fiscal-vilassar':  new Date(),
+        'mercantil-mataro':   new Date(),
+        'mercantil-vilassar': new Date(),
+        // backward compat
+        laboral: new Date(), fiscal: new Date(), mercantil: new Date(),
       };
 
       // ══════════════════════════════════════════
@@ -5650,21 +5772,48 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           calVilassarCap.style.display = (!isAdmin && userSede === 'Vilassar') ? '' : 'none';
         }
 
-        // ✅ Calendaris Departamentals: amagar ítems als quals l'usuari no té accés
-        const deptItems = {
-          laboral:   document.getElementById('nav-dept-laboral'),
-          mercantil: document.getElementById('nav-dept-mercantil'),
-          fiscal:    document.getElementById('nav-dept-fiscal'),
-        };
-        let anyDeptVisible = false;
-        for (const [dept, el] of Object.entries(deptItems)) {
-          if (el) {
-            const visible = canAccessDeptCalendar(dept);
-            el.style.display = visible ? '' : 'none';
-            if (visible) anyDeptVisible = true;
-          }
+        // ✅ Calendaris Departamentals: estructura diferent per admins i no-admins
+        const adminMataroGrp    = document.getElementById('nav-dept-admin-mataro-grp');
+        const adminVilassarGrp  = document.getElementById('nav-dept-admin-vilassar-grp');
+        const DEPT_NAMES = ['laboral', 'mercantil', 'fiscal'];
+        const SEUS = ['mataro', 'vilassar'];
+
+        if (isAdmin) {
+          // Admins: mostrar sub-grups per seu, amagar ítems plans
+          if (adminMataroGrp)   adminMataroGrp.style.display   = '';
+          if (adminVilassarGrp) adminVilassarGrp.style.display = '';
+          DEPT_NAMES.forEach(dept => {
+            SEUS.forEach(seu => {
+              const flatEl = document.getElementById(`nav-dept-flat-${dept}-${seu}`);
+              if (flatEl) flatEl.style.display = 'none';
+              // Admin always has access to all dept items - keep visible
+            });
+          });
+        } else {
+          // No-admins: amagar sub-grups, mostrar ítems plans de la seva seu
+          if (adminMataroGrp)   adminMataroGrp.style.display   = 'none';
+          if (adminVilassarGrp) adminVilassarGrp.style.display = 'none';
+          DEPT_NAMES.forEach(dept => {
+            SEUS.forEach(seu => {
+              const flatEl = document.getElementById(`nav-dept-flat-${dept}-${seu}`);
+              if (!flatEl) return;
+              const sedeCapitalized = seu === 'mataro' ? 'Mataró' : 'Vilassar';
+              const isUserSede = userSede === sedeCapitalized;
+              const hasAccess = canAccessDeptCalendar(dept);
+              flatEl.style.display = (isUserSede && hasAccess) ? '' : 'none';
+            });
+          });
         }
-        // Amagar el bloc sencer (capçalera + submenu) si cap dept és accessible
+
+        // Amagar el bloc sencer si cap element és visible
+        let anyDeptVisible = false;
+        if (isAdmin) {
+          anyDeptVisible = true; // admins always see the block
+        } else {
+          DEPT_NAMES.forEach(dept => {
+            if (canAccessDeptCalendar(dept)) anyDeptVisible = true;
+          });
+        }
         const deptHeader = document.getElementById('nav-dept-calendars-header');
         const deptSub    = document.getElementById('dept-calendars-sub');
         if (deptHeader) deptHeader.style.display = anyDeptVisible ? '' : 'none';
@@ -5828,6 +5977,30 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             return;
           }
           renderDeptCalendar("mercantil");
+        }
+        if (name === "cal-laboral-mataro") {
+          if (!canAccessDeptCalendar("laboral")) { showSection("my-calendar"); return; }
+          renderDeptCalendar("laboral", "mataro");
+        }
+        if (name === "cal-laboral-vilassar") {
+          if (!canAccessDeptCalendar("laboral")) { showSection("my-calendar"); return; }
+          renderDeptCalendar("laboral", "vilassar");
+        }
+        if (name === "cal-fiscal-mataro") {
+          if (!canAccessDeptCalendar("fiscal")) { showSection("my-calendar"); return; }
+          renderDeptCalendar("fiscal", "mataro");
+        }
+        if (name === "cal-fiscal-vilassar") {
+          if (!canAccessDeptCalendar("fiscal")) { showSection("my-calendar"); return; }
+          renderDeptCalendar("fiscal", "vilassar");
+        }
+        if (name === "cal-mercantil-mataro") {
+          if (!canAccessDeptCalendar("mercantil")) { showSection("my-calendar"); return; }
+          renderDeptCalendar("mercantil", "mataro");
+        }
+        if (name === "cal-mercantil-vilassar") {
+          if (!canAccessDeptCalendar("mercantil")) { showSection("my-calendar"); return; }
+          renderDeptCalendar("mercantil", "vilassar");
         }
         if (name === "admin-calendars") renderPermissionsPanel();
         if (name === "users") renderUsers();
@@ -6120,14 +6293,21 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       function calNavDept(dir, dept) {
         const calId = 'dept-' + dept;
         const v = _calView[calId];
+        // dept may be 'laboral-mataro' etc — split into base dept + sede
+        const parts = dept.split('-');
+        let baseDept = dept, sede = undefined;
+        if (parts.length >= 2 && (parts[parts.length-1] === 'mataro' || parts[parts.length-1] === 'vilassar')) {
+          sede = parts[parts.length-1];
+          baseDept = parts.slice(0, parts.length-1).join('-');
+        }
         if (v === 'week') {
           _initWeek(calId);
           _calWeek[calId] = new Date(_calWeek[calId].getTime() + dir*7*86400000);
-          renderDeptCalendar(dept);
+          renderDeptCalendar(baseDept, sede);
         } else if (v === 'day') {
           _initDay(calId);
           _calDay[calId] = new Date(_calDay[calId].getTime() + dir*86400000);
-          renderDeptCalendar(dept);
+          renderDeptCalendar(baseDept, sede);
         } else { changeDeptMonth(dir, dept); }
       }
       function calNavAdminView(dir) {
@@ -6224,8 +6404,17 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       }
 
       function changeDeptMonth(dir, dept) {
+        if (!deptCalMonth[dept]) deptCalMonth[dept] = new Date();
         deptCalMonth[dept] = new Date(deptCalMonth[dept].getFullYear(), deptCalMonth[dept].getMonth() + dir, 1);
-        renderDeptCalendar(dept);
+        // dept may be 'laboral-mataro' etc — split into base dept + sede
+        const parts = dept.split('-');
+        if (parts.length >= 2 && (parts[parts.length-1] === 'mataro' || parts[parts.length-1] === 'vilassar')) {
+          const sede = parts[parts.length-1];
+          const baseDept = parts.slice(0, parts.length-1).join('-');
+          renderDeptCalendar(baseDept, sede);
+        } else {
+          renderDeptCalendar(dept);
+        }
       }
 
       function renderCalendar(which) {
@@ -6754,7 +6943,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       }
 
       // ✅ CORRECCIÓN 5: Validar permisos antes de abrir modal departamental
-      function openDeptEventModal(dept) {
+      function openDeptEventModal(dept, sede) {
         // Primero verificar que el usuario puede acceder a este departamento
         if (!canAccessDeptCalendar(dept)) {
           const deptDisplay = dept.charAt(0).toUpperCase() + dept.slice(1);
@@ -6762,7 +6951,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           return;
         }
         // Si tiene permiso, abrir el modal normalmente
-        openEventModal(true, null, dept);
+        const filterParam = sede ? dept + '-' + sede : dept;
+        openEventModal(true, null, filterParam);
       }
 
       function openEventModal(isGlobal, dateStr, filterParam = null) {
@@ -7024,7 +7214,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         } else {
           // Determinar calendarType segons des d'on s'obre el formulari
           const DEPT_TYPES = ['laboral', 'fiscal', 'mercantil'];
-          const calType = currentEventFilterParam && DEPT_TYPES.includes(currentEventFilterParam)
+          const DEPT_SEDE_TYPES = ['laboral-mataro','laboral-vilassar','fiscal-mataro','fiscal-vilassar','mercantil-mataro','mercantil-vilassar'];
+          const calType = currentEventFilterParam && (DEPT_TYPES.includes(currentEventFilterParam) || DEPT_SEDE_TYPES.includes(currentEventFilterParam))
             ? currentEventFilterParam
             : (pendingIsGlobal ? 'global' : 'personal');
 
@@ -7151,6 +7342,16 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           if (mataroCalSection && mataroCalSection.classList.contains("active")) renderCalendar("mataro");
           if (vilassarCalSection && vilassarCalSection.classList.contains("active")) renderCalendar("vilassar");
           if (adminViewSection && adminViewSection.classList.contains("active")) renderAdminViewCalendar();
+          const DEPT_SEDE_COMBOS = [
+            ['laboral','mataro'],['laboral','vilassar'],
+            ['fiscal','mataro'],['fiscal','vilassar'],
+            ['mercantil','mataro'],['mercantil','vilassar'],
+          ];
+          DEPT_SEDE_COMBOS.forEach(([dept, sede]) => {
+            const sec = document.getElementById("section-cal-" + dept + "-" + sede);
+            if (sec && sec.classList.contains("active")) renderDeptCalendar(dept, sede);
+          });
+          // backward compat: also check old section IDs
           DEPARTAMENTOS.forEach(dept => {
             const sec = document.getElementById("section-cal-" + dept);
             if (sec && sec.classList.contains("active")) renderDeptCalendar(dept);
@@ -7177,41 +7378,45 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         return false;
       }
 
-      function renderDeptCalendar(dept) {
+      function renderDeptCalendar(dept, sede) {
         if (!canAccessDeptCalendar(dept)) { showSection('my-calendar'); return; }
-        const calId = 'dept-' + dept;
+        const calKey = sede ? dept + '-' + sede : dept;
+        const calId = 'dept-' + calKey;
         const viewMode = _calView[calId] || 'month';
-        const date = deptCalMonth[dept];
-        const titleEl = document.getElementById("dept-" + dept + "-cal-title");
-        const cellsEl = document.getElementById("dept-" + dept + "-cal-cells");
+        const date = deptCalMonth[calKey] || deptCalMonth[dept] || new Date();
+        const titleEl = document.getElementById("dept-" + calKey + "-cal-title");
+        const cellsEl = document.getElementById("dept-" + calKey + "-cal-cells");
         if (!titleEl || !cellsEl) return;
 
         const isAdmin = currentUser.role === "admin";
-        
-        // ✅ CAMBIO 6: FILTRAR POR DEPARTAMENTO Y SEDE
+
+        // Filter dept users; if sede provided, filter by that sede
         let deptUsers = USERS.filter(u => u.active && (u.departamento === dept || (isAdmin && u.id === currentUser.id)));
-        
-        // ✅ NUEVO: Obtener filtro de sede y aplicarlo
-        const sideFilterSel = document.getElementById("dept-" + dept + "-filter-sede");
-        let sedeFilter = sideFilterSel ? sideFilterSel.value : "all";
-        
-        if (sedeFilter && sedeFilter !== "all") {
-          deptUsers = deptUsers.filter(u => u.sede === sedeFilter);
-        } else if (currentUser.sede) {
-          // Si el usuario tiene sede y no hay filtro, solo mostrar usuarios de su sede
-          deptUsers = deptUsers.filter(u => u.sede === currentUser.sede);
+
+        if (sede) {
+          const sedeCapitalized = sede === 'mataro' ? 'Mataró' : 'Vilassar';
+          deptUsers = deptUsers.filter(u => u.sede === sedeCapitalized);
+        } else {
+          // backward compat: filter by current user's sede if no sede param
+          const sideFilterSel = document.getElementById("dept-" + dept + "-filter-sede");
+          let sedeFilter = sideFilterSel ? sideFilterSel.value : "all";
+          if (sedeFilter && sedeFilter !== "all") {
+            deptUsers = deptUsers.filter(u => u.sede === sedeFilter);
+          } else if (currentUser.sede) {
+            deptUsers = deptUsers.filter(u => u.sede === currentUser.sede);
+          }
         }
-        
-        // Obtener filtro de empleado
-        const filterSel = document.getElementById("dept-" + dept + "-filter-person");
+
+        // Obtenir filtre d'empleat
+        const filterSel = document.getElementById("dept-" + calKey + "-filter-person");
         let selectedEmployeeId = filterSel ? filterSel.value : "all";
         if (!selectedEmployeeId || selectedEmployeeId === "all") {
           selectedEmployeeId = "all";
         } else {
           selectedEmployeeId = parseInt(selectedEmployeeId);
         }
-        
-        // Llenar el select de filtro si es necesario
+
+        // Omplir el select de filtre si cal
         if (filterSel && filterSel.options.length === 1) {
           const current = filterSel.value;
           filterSel.innerHTML = '<option value="all">Tots</option>' +
@@ -7220,13 +7425,13 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             ).join('');
           filterSel.value = current;
         }
-        
-        const deptUserIds = selectedEmployeeId === "all" 
+
+        const deptUserIds = selectedEmployeeId === "all"
           ? deptUsers.map(u => u.id)
           : [selectedEmployeeId];
 
-        // Leyenda de empleados
-        const legendEl = document.getElementById("dept-" + dept + "-legend");
+        // Llegenda d'empleats
+        const legendEl = document.getElementById("dept-" + calKey + "-legend");
         if (legendEl) {
           if (deptUsers.length) {
             legendEl.innerHTML = '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
@@ -7240,7 +7445,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           } else { legendEl.style.display = "none"; }
         }
 
-        // HTML de evento para dept (colores por empleado)
+        // HTML d'event per dept (colors per empleat)
         const deptEvHtml = (ev) => {
           const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
           if (shouldMask)
@@ -7254,9 +7459,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           >${ev.private?'🔒 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
         };
 
-        // Render de la lista inferior
+        // Render de la llista inferior
         const renderList = (evs) => {
-          const listEl = document.getElementById("dept-" + dept + "-appt-list");
+          const listEl = document.getElementById("dept-" + calKey + "-appt-list");
           if (!listEl) return;
           const sorted = evs.slice().sort((a,b) => a.date===b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date));
           if (!sorted.length) {
@@ -7292,11 +7497,11 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           const mon = _calWeek[calId];
           const sun = new Date(mon.getTime() + 6*86400000);
           const startStr = _dsOf(mon), endStr = _dsOf(sun);
-          const evs = EVENTS.filter(e => e.date >= startStr && e.date <= endStr && deptUserIds.includes(e.assignedTo) && (e.calendarType === dept || !e.calendarType));
+          const evs = EVENTS.filter(e => e.date >= startStr && e.date <= endStr && deptUserIds.includes(e.assignedTo) && (e.calendarType === calKey || (!e.calendarType && deptUserIds.includes(e.assignedTo)) || (e.calendarType === dept && deptUserIds.includes(e.assignedTo))));
           const evsFiltered = isAdmin ? evs : evs.filter(e => !e.private || e.assignedTo === currentUser.id);
           titleEl.textContent = _weekTitle(mon);
           cellsEl.className = 'cal-cells week-view';
-          cellsEl.innerHTML = _renderWeekGrid(calId, evsFiltered, 'dept-'+dept,
+          cellsEl.innerHTML = _renderWeekGrid(calId, evsFiltered, 'dept-'+calKey,
             dayEvs => dayEvs.slice(0,4).map(ev => deptEvHtml(ev)).join(''));
           renderList(evsFiltered);
           return;
@@ -7307,11 +7512,11 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           _initDay(calId);
           const dayDate = _calDay[calId];
           const ds = _dsOf(dayDate);
-          let evs = EVENTS.filter(e => e.date === ds && deptUserIds.includes(e.assignedTo) && (e.calendarType === dept || !e.calendarType));
+          let evs = EVENTS.filter(e => e.date === ds && deptUserIds.includes(e.assignedTo) && (e.calendarType === calKey || (!e.calendarType && deptUserIds.includes(e.assignedTo)) || (e.calendarType === dept && deptUserIds.includes(e.assignedTo))));
           if (!isAdmin) evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
           titleEl.textContent = _dayTitle(dayDate);
           cellsEl.className = 'cal-cells day-view';
-          cellsEl.innerHTML = _renderDayView(calId, evs, 'dept-'+dept, (ev) => {
+          cellsEl.innerHTML = _renderDayView(calId, evs, 'dept-'+calKey, (ev) => {
             const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
             if (shouldMask) {
               return `<div class="day-event-row" style="cursor:default">
@@ -7344,7 +7549,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         dow = dow === 0 ? 6 : dow - 1;
         const monthStr = `${year}-${String(month+1).padStart(2,"0")}`;
 
-        let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && deptUserIds.includes(e.assignedTo) && (e.calendarType === dept || !e.calendarType));
+        let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && deptUserIds.includes(e.assignedTo) && (e.calendarType === calKey || (!e.calendarType && deptUserIds.includes(e.assignedTo)) || (e.calendarType === dept && deptUserIds.includes(e.assignedTo))));
         if (!isAdmin) evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
 
         const today = todayStr();
@@ -7355,7 +7560,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           const isToday = ds === today;
           const dayEvs = evs.filter(e => e.date === ds);
           const evHTML = dayEvs.slice(0,3).map(ev => deptEvHtml(ev)).join("");
-          html += `<div class="cal-cell${isToday?" today":""}" onclick="calCellClick('${ds}',event,'dept-${dept}')">
+          html += `<div class="cal-cell${isToday?" today":""}" onclick="calCellClick('${ds}',event,'dept-${calKey}')">
             <div class="cell-num">${day}</div>${evHTML}
             ${dayEvs.length>3?`<div style="font-size:10px;color:var(--text-muted);padding:1px 4px">+${dayEvs.length-3} más</div>`:""}
           </div>`;
