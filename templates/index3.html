@@ -2972,18 +2972,18 @@
               👤 Cal. Administradores
             </div>
             <!-- Calendarios Departamentales (Expandible) -->
-            <div class="nav-expandable-sub expanded" onclick="toggleSubMenu(event, 'dept-calendars-sub')">
+            <div class="nav-expandable-sub expanded" id="nav-dept-calendars-header" onclick="toggleSubMenu(event, 'dept-calendars-sub')">
               <span>🏢 Calendaris Departamentals</span>
               <span class="nav-expand-icon">▶</span>
             </div>
             <div class="nav-submenu expanded" id="dept-calendars-sub">
-              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('laboral')) showSection('cal-laboral'); else alert('No tens permís per veure aquest calendari');">
+              <div class="nav-subitem nav-subitem-nested" id="nav-dept-laboral" onclick="showSection('cal-laboral')">
                 💼 Cal. Laboral
               </div>
-              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('mercantil')) showSection('cal-mercantil'); else alert('No tens permís per veure aquest calendari');">
+              <div class="nav-subitem nav-subitem-nested" id="nav-dept-mercantil" onclick="showSection('cal-mercantil')">
                 📊 Cal. Mercantil
               </div>
-              <div class="nav-subitem nav-subitem-nested" onclick="if(canAccessDeptCalendar('fiscal')) showSection('cal-fiscal'); else alert('No tens permís per veure aquest calendari');">
+              <div class="nav-subitem nav-subitem-nested" id="nav-dept-fiscal" onclick="showSection('cal-fiscal')">
                 📋 Cal. Fiscal
               </div>
             </div>
@@ -5649,6 +5649,26 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         if (calVilassarCap) {
           calVilassarCap.style.display = (!isAdmin && userSede === 'Vilassar') ? '' : 'none';
         }
+
+        // ✅ Calendaris Departamentals: amagar ítems als quals l'usuari no té accés
+        const deptItems = {
+          laboral:   document.getElementById('nav-dept-laboral'),
+          mercantil: document.getElementById('nav-dept-mercantil'),
+          fiscal:    document.getElementById('nav-dept-fiscal'),
+        };
+        let anyDeptVisible = false;
+        for (const [dept, el] of Object.entries(deptItems)) {
+          if (el) {
+            const visible = canAccessDeptCalendar(dept);
+            el.style.display = visible ? '' : 'none';
+            if (visible) anyDeptVisible = true;
+          }
+        }
+        // Amagar el bloc sencer (capçalera + submenu) si cap dept és accessible
+        const deptHeader = document.getElementById('nav-dept-calendars-header');
+        const deptSub    = document.getElementById('dept-calendars-sub');
+        if (deptHeader) deptHeader.style.display = anyDeptVisible ? '' : 'none';
+        if (deptSub)    deptSub.style.display    = anyDeptVisible ? '' : 'none';
       }
 
       // ✅ CORRECCIÓN 3: Aplicar filtro automático por sede para usuarios no-admin
