@@ -6896,12 +6896,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const errEl = document.getElementById("ev-err");
 
         if (!date) {
-          errEl.textContent = "La fecha es obligatoria.";
-          errEl.style.display = "";
-          return;
-        }
-        if (!time) {
-          errEl.textContent = "La hora es obligatoria.";
+          errEl.textContent = "La data és obligatòria.";
           errEl.style.display = "";
           return;
         }
@@ -6939,12 +6934,14 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const notes = document.getElementById("ev-notes").value;
         const isPrivate = isAdmin ? (document.getElementById("ev-private")?.checked || false) : false;
 
-        // Verificar solapamiento con otras citas de la misma persona
-        const overlap = hasOverlappingEvent(assignedTo, date, time, timeEnd, editingEvId !== null ? editingEvId : null);
-        if (overlap) {
-          errEl.textContent = `⚠ ${overlap.client} ya tiene una cita de ${overlap.time} a ${overlap.timeEnd} en esa franja. Elige otro horario.`;
-          errEl.style.display = "";
-          return;
+        // Verificar solapament amb altres cites de la mateixa persona (només si hi ha hora)
+        if (time) {
+          const overlap = hasOverlappingEvent(assignedTo, date, time, timeEnd, editingEvId !== null ? editingEvId : null);
+          if (overlap) {
+            errEl.textContent = `⚠ ${overlap.client} ja té una cita de ${overlap.time} a ${overlap.timeEnd} en aquesta franja. Tria un altre horari.`;
+            errEl.style.display = "";
+            return;
+          }
         }
 
         // Obtener estado de recordatorios
