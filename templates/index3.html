@@ -472,9 +472,13 @@
         overflow-x: hidden;
         overflow-y: auto;
         scrollbar-width: none;
+        -ms-overflow-style: none;
       }
       .sidebar::-webkit-scrollbar {
         display: none;
+        width: 0px;
+        height: 0px;
+        background: transparent;
       }
       .sidebar-logo {
         padding: 20px 24px;
