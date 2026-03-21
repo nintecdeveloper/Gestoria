@@ -7002,8 +7002,14 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             });
           }
         } else {
+          // Determinar calendarType segons des d'on s'obre el formulari
+          const DEPT_TYPES = ['laboral', 'fiscal', 'mercantil'];
+          const calType = currentEventFilterParam && DEPT_TYPES.includes(currentEventFilterParam)
+            ? currentEventFilterParam
+            : (pendingIsGlobal ? 'global' : 'personal');
+
           const eventObj = {
-            ownerId:     currentUser.id,
+            ownerId:      currentUser.id,
             assignedTo,
             date,
             time,
@@ -7011,8 +7017,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             client,
             service,
             notes,
-            private:     isPrivate,
-            clientPhone: clientPhoneForWa || null,
+            private:      isPrivate,
+            clientPhone:  clientPhoneForWa || null,
+            calendarType: calType,
           };
 
           // Recordatoris personals
@@ -7034,18 +7041,19 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                ownerId:     eventObj.ownerId,
-                assignedTo:  eventObj.assignedTo,
-                date:        eventObj.date,
-                time:        eventObj.time,
-                timeEnd:     eventObj.timeEnd || null,
-                client:      eventObj.client || null,
-                service:     eventObj.service || null,
-                notes:       eventObj.notes || null,
-                private:     eventObj.private,
-                clientPhone: eventObj.clientPhone || null,
-                waReminder:  eventObj.waReminder || null,
-                prReminders: eventObj.prReminders || [],
+                ownerId:      eventObj.ownerId,
+                assignedTo:   eventObj.assignedTo,
+                date:         eventObj.date,
+                time:         eventObj.time,
+                timeEnd:      eventObj.timeEnd || null,
+                client:       eventObj.client || null,
+                service:      eventObj.service || null,
+                notes:        eventObj.notes || null,
+                private:      eventObj.private,
+                clientPhone:  eventObj.clientPhone || null,
+                calendarType: eventObj.calendarType || null,
+                waReminder:   eventObj.waReminder || null,
+                prReminders:  eventObj.prReminders || [],
               }),
             });
             const resData = await res.json();
@@ -7264,7 +7272,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           const mon = _calWeek[calId];
           const sun = new Date(mon.getTime() + 6*86400000);
           const startStr = _dsOf(mon), endStr = _dsOf(sun);
-          const evs = EVENTS.filter(e => e.date >= startStr && e.date <= endStr && deptUserIds.includes(e.assignedTo));
+          const evs = EVENTS.filter(e => e.date >= startStr && e.date <= endStr && deptUserIds.includes(e.assignedTo) && (e.calendarType === dept || !e.calendarType));
           const evsFiltered = isAdmin ? evs : evs.filter(e => !e.private || e.assignedTo === currentUser.id);
           titleEl.textContent = _weekTitle(mon);
           cellsEl.className = 'cal-cells week-view';
@@ -7279,7 +7287,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           _initDay(calId);
           const dayDate = _calDay[calId];
           const ds = _dsOf(dayDate);
-          let evs = EVENTS.filter(e => e.date === ds && deptUserIds.includes(e.assignedTo));
+          let evs = EVENTS.filter(e => e.date === ds && deptUserIds.includes(e.assignedTo) && (e.calendarType === dept || !e.calendarType));
           if (!isAdmin) evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
           titleEl.textContent = _dayTitle(dayDate);
           cellsEl.className = 'cal-cells day-view';
@@ -7316,7 +7324,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         dow = dow === 0 ? 6 : dow - 1;
         const monthStr = `${year}-${String(month+1).padStart(2,"0")}`;
 
-        let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && deptUserIds.includes(e.assignedTo));
+        let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && deptUserIds.includes(e.assignedTo) && (e.calendarType === dept || !e.calendarType));
         if (!isAdmin) evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
 
         const today = todayStr();
