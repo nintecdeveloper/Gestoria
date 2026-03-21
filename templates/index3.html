@@ -470,6 +470,11 @@
         transform: translateZ(0);
         will-change: transform;
         overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+      .sidebar::-webkit-scrollbar {
+        display: none;
       }
       .sidebar-logo {
         padding: 20px 24px;
