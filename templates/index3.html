@@ -2935,7 +2935,6 @@
             onclick="showSection('dashboard')"
           >
             <span class="icon">&#9672;</span> Inici
-            <span class="nav-badge" id="reminder-badge" style="display:none">0</span>
           </div>
           <!-- ════════════════════════════════════════════════════════════ -->
           <!-- CALENDARIOS - MENÚ PRINCIPAL EXPANDIBLE -->
@@ -5394,24 +5393,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         }
       }
 
-      /** Actualitza el badge de recordatoris d'avui al menú lateral. */
-      async function loadTodayReminderBadge() {
-        if (!currentUser) return;
-        try {
-          const res  = await fetch(`/api/reminders?user_id=${currentUser.id}`);
-          const data = await res.json();
-          if (!data.ok) return;
-          const today      = new Date().toISOString().slice(0, 10);
-          const todayCount = (data.reminders || []).filter(r => r.remindAt && r.remindAt.slice(0, 10) === today).length;
-          const badge = document.getElementById('reminder-badge');
-          if (badge) {
-            badge.textContent = todayCount;
-            badge.style.display = todayCount > 0 ? '' : 'none';
-          }
-        } catch (e) {
-          console.error('❌ [loadTodayReminderBadge] Error:', e);
-        }
-      }
+      /** No-op: badge de recordatoris eliminat de l'Inici. */
+      function loadTodayReminderBadge() {}
 
       // ══════════════════════════════════════════
       //  PERSISTÈNCIA D'EVENTS — API
