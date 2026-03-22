@@ -854,7 +854,50 @@ def get_messages(conv_id):
         return jsonify({'ok': True, 'conv_id': conv_id, 'messages': []})
     
     logger.info(f"📥 [Mensajes] Recuperando {len(messages)} mensajes de {resolved_id}")
-    return jsonify({'ok': True, 'conv_id': resolved_id, 'messages': messages})
+    # Ordenar per timestamp ascending
+    messages_sorted = sorted(messages, key=lambda m: m.get('timestamp', ''))
+    return jsonify({'ok': True, 'conv_id': resolved_id, 'messages': messages_sorted})
+
+@app.route('/api/messages/<conv_id>', methods=['POST'])
+def send_message_api(conv_id):
+    """Guarda un missatge via HTTP polling. Usat pel frontend en lloc de SocketIO."""
+    try:
+        data = request.get_json(force=True) or {}
+        msg_id    = data.get('id') or f'msg_{int(datetime.now().timestamp() * 1000)}'
+        sender    = data.get('sender_username', '')
+        text      = data.get('text', '').strip()
+        attachments = data.get('attachments', [])
+
+        if not text and not attachments:
+            return jsonify({'ok': False, 'error': 'Missatge buit'}), 400
+
+        msg_obj = {
+            'id':               msg_id,
+            'sender_id':        data.get('sender_id'),
+            'sender_username':  sender,
+            'recipient_username': data.get('recipient_username', ''),
+            'text':             text,
+            'timestamp':        data.get('timestamp', datetime.utcnow().isoformat()),
+            'attachments':      attachments,
+        }
+        if conv_id.startswith('sede_'):
+            msg_obj['sede_key'] = conv_id.replace('sede_', '')
+            msg_obj['sede']     = data.get('sede', '')
+
+        if conv_id not in message_storage:
+            message_storage[conv_id] = []
+
+        # Deduplicació
+        if any(m.get('id') == msg_id for m in message_storage[conv_id]):
+            return jsonify({'ok': True, 'message': msg_obj, 'duplicate': True})
+
+        message_storage[conv_id].append(msg_obj)
+        save_message_storage()
+        logger.info(f"✅ [Polling POST] {sender}: "{text[:40]}" → {conv_id}")
+        return jsonify({'ok': True, 'message': msg_obj}), 201
+    except Exception as e:
+        logger.error(f"❌ [Polling POST] Error: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 @app.route('/api/messages/<conv_id>/read', methods=['POST'])
 def mark_messages_read(conv_id):

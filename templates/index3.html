@@ -4718,429 +4718,188 @@
       //  SOCKET.IO - MENSAJERÍA EN TIEMPO REAL
       // ══════════════════════════════════════════
       
-      let socket = null;
-      let currentSocketId = null;
-      
+      // ══════════════════════════════════════════
+      //  MISSATGERIA EN TEMPS REAL — POLLING HTTP
+      //  (substitueix SocketIO — compatible amb Render Starter)
+      // ══════════════════════════════════════════
+
+      let _pollingTimer  = null;
+      let _pollKnownIds  = {}; // convId → Set<msgId> — IDs ja vistos
+
+      /** Retorna la llista de conv_ids a consultar per l'usuari actual. */
+      function _getPollConvIds() {
+        if (!currentUser) return [];
+        const ids = ['general'];
+        if (currentUser.role === 'admin') {
+          ids.push('sede_mataro', 'sede_vilassar');
+        } else if (currentUser.sede === 'Mataró') {
+          ids.push('sede_mataro');
+        } else if (currentUser.sede === 'Vilassar') {
+          ids.push('sede_vilassar');
+        }
+        // Xats privats: totes les direccions amb cada company actiu
+        const others = USERS.filter(u => u.id !== currentUser.id && u.active);
+        others.forEach(u => {
+          ids.push('private_' + currentUser.name + '_' + u.name);
+          ids.push('private_' + u.name + '_' + currentUser.name);
+        });
+        return ids;
+      }
+
+      /** Normalitza un missatge del servidor al format intern del frontend. */
+      function _normMsg(msg) {
+        const isMine = (msg.sender_username || '') === currentUser.name;
+        let time = nowTime(), date = todayStr();
+        if (msg.timestamp) {
+          try {
+            const d = new Date(msg.timestamp);
+            time = d.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+            date = d.toISOString().split('T')[0];
+          } catch(e) {}
+        }
+        return {
+          id:              msg.id,
+          mine:            isMine,
+          sender_id:       msg.sender_id,
+          sender_username: msg.sender_username,
+          sender:          msg.sender_username,
+          userId:          msg.sender_id,
+          username:        msg.sender_username,
+          text:            msg.text,
+          time:            time,
+          date:            date,
+          read:            isMine,
+          attachments:     msg.attachments || []
+        };
+      }
+
+      /** Fa poll d'una conversa i processa els missatges nous. */
+      async function _pollConv(convId) {
+        try {
+          const res = await fetch('/api/messages/' + encodeURIComponent(convId));
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data.ok || !Array.isArray(data.messages) || !data.messages.length) return;
+
+          const msgs = data.messages;
+
+          // Primera vegada: inicialitzar Set i sortir (historial ja carregat per loadMessageHistory)
+          if (!_pollKnownIds[convId]) {
+            _pollKnownIds[convId] = new Set(msgs.map(m => m.id));
+            return;
+          }
+
+          // Detectar missatges nous
+          const newMsgs = msgs.filter(m => !_pollKnownIds[convId].has(m.id));
+          if (!newMsgs.length) return;
+
+          newMsgs.forEach(m => _pollKnownIds[convId].add(m.id));
+
+          let hasChanges = false;
+
+          newMsgs.forEach(msg => {
+            const norm = _normMsg(msg);
+
+            // ── GENERAL ──────────────────────────────────────────────────
+            if (convId === 'general') {
+              if (!GENERAL_CHAT.some(m => m.id === msg.id)) {
+                GENERAL_CHAT.push(norm);
+                hasChanges = true;
+                if (activeConvId === 'general-chat') {
+                  renderGeneralChat();
+                } else if (!norm.mine) {
+                  showChatToast(msg.sender_username || 'Chat General', msg.text || '');
+                }
+              }
+              return;
+            }
+
+            // ── SEDE ─────────────────────────────────────────────────────
+            if (convId.startsWith('sede_')) {
+              const sedeKey = convId.replace('sede_', '');
+              if (!CONVS[convId]) CONVS[convId] = [];
+              if (!CONVS[convId].some(m => m.id === msg.id)) {
+                CONVS[convId].push(norm);
+                hasChanges = true;
+                if (activeSedeChat === sedeKey) {
+                  CONVS[convId].forEach(m => { if (!m.mine) m.read = true; });
+                  renderMsgsFromArray(CONVS[convId]);
+                } else if (!norm.mine) {
+                  showChatToast(msg.sender_username || 'Xat de seu', msg.text || '');
+                }
+              }
+              return;
+            }
+
+            // ── PRIVAT ───────────────────────────────────────────────────
+            if (convId.startsWith('private_')) {
+              if (norm.mine) return; // Propi: ja afegit localment a sendMsg
+              const senderName = (msg.sender_username || '').trim();
+              const senderUser = USERS.find(u =>
+                u.name.trim() === senderName ||
+                u.username.trim() === senderName ||
+                u.name.trim().toLowerCase() === senderName.toLowerCase()
+              );
+              if (!senderUser) return;
+              const cid = convKey(currentUser.id, senderUser.id);
+              if (!CONVS[cid]) CONVS[cid] = [];
+              if (!CONVS[cid].some(m => m.id === msg.id)) {
+                norm.read = (activeConvId === senderUser.id);
+                CONVS[cid].push(norm);
+                hasChanges = true;
+                if (activeConvId === senderUser.id) {
+                  renderMsgs(senderUser.id);
+                } else {
+                  showChatToast(senderName, msg.text || '');
+                }
+              }
+            }
+          });
+
+          if (hasChanges) {
+            saveMessagesToStorage();
+            updateBadge();
+            buildMsgList(document.getElementById('msg-search-inp')?.value || '');
+            if (document.getElementById('section-dashboard')?.classList.contains('active')) {
+              renderDashboard();
+            }
+          }
+        } catch(e) {
+          console.warn('[Polling] Error a', convId, ':', e.message);
+        }
+      }
+
+      /** Cicle complet de polling. */
+      async function _doPoll() {
+        if (!currentUser) return;
+        const ids = _getPollConvIds();
+        await Promise.all(ids.map(id => _pollConv(id)));
+      }
+
+      /** Inicia el polling cada 3 s. */
+      function startPolling() {
+        stopPolling();
+        _pollKnownIds = {};
+        console.log('[Polling] Iniciant polling cada 3 s...');
+        _doPoll(); // primer cicle immediat
+        _pollingTimer = setInterval(_doPoll, 3000);
+      }
+
+      /** Atura el polling (logout). */
+      function stopPolling() {
+        if (_pollingTimer) {
+          clearInterval(_pollingTimer);
+          _pollingTimer = null;
+          console.log('[Polling] Aturat');
+        }
+      }
+
       function initializeSocket() {
-        // Importar socket.io desde Flask (está servido en /socket.io/socket.io.js)
-        if (typeof io === 'undefined') {
-          const script = document.createElement('script');
-          script.src = '/socket.io/socket.io.js';  // ✅ CORREGIDO: Usar Flask en lugar de CDN
-          script.onload = connectSocket;
-          document.head.appendChild(script);
-        } else {
-          connectSocket();
-        }
+        // Compatibilitat: ara usa polling HTTP en lloc de SocketIO
+        startPolling();
       }
       
-      function connectSocket() {
-        // Transports explícits: WebSocket primer, polling com a fallback (Render)
-        socket = io({
-          transports: ['websocket', 'polling'],
-          reconnection: true,
-          reconnectionAttempts: 15,
-          reconnectionDelay: 1000,
-          reconnectionDelayMax: 5000,
-          timeout: 20000
-        });
-        
-        socket.on('connect', function() {
-          currentSocketId = socket.id;
-          console.log('✅ Socket.io conectado:', currentSocketId);
-          
-          // Notificar al servidor que el usuario se conectó
-          if (currentUser) {
-            console.log('[RT] emit user_login: username=' + currentUser.name + ' id=' + currentUser.id);
-            socket.emit('user_login', {
-              username: currentUser.name,
-              userId: currentUser.id,
-              sede: currentUser.sede,
-              role: currentUser.role
-            });
-            // Precarregar historial privat — esperar 1.5s per assegurar que
-            // el backend ha processat el user_login i entregat els pendents
-            setTimeout(() => {
-              if (!currentUser) return;
-              const others = USERS.filter(u => u.id !== currentUser.id && u.active);
-              others.forEach((u, i) => {
-                // Escalonar les peticions per no saturar el servidor
-                setTimeout(() => loadMessageHistory(u.id), i * 100);
-              });
-            }, 1500);
-          }
-        });
-        
-        socket.on('disconnect', function(reason) {
-          console.log('❌ Socket.io desconnectat. Causa:', reason);
-          currentSocketId = null;
-        });
 
-        // Re-enviar user_login en reconnexió per actualitzar username_to_sid al backend
-        socket.on('reconnect', function(attemptNumber) {
-          console.log('🔄 [RT] Socket.io reconnectat (intent ' + attemptNumber + ')');
-          if (currentUser) {
-            socket.emit('user_login', {
-              username: currentUser.name,
-              userId: currentUser.id,
-              sede: currentUser.sede,
-              role: currentUser.role
-            });
-            console.log('✅ [RT] user_login re-emès despres de reconnexió');
-          }
-        });
-
-        socket.on('reconnect_attempt', function(n) {
-          console.log('🔁 [RT] Reconnexió intent #' + n + '...');
-        });
-
-        socket.on('connect_error', function(err) {
-          console.warn('⚠️ [RT] connect_error:', err.message || err);
-        });
-        
-        // RECIBIR MENSAJES PRIVADOS
-        socket.on('receive_message', function(msg) {
-          // --- LOG COMPLET per diagnòstic ---
-          console.log('📨 RECEIVE_MESSAGE rebut. sender_username:', JSON.stringify(msg.sender_username),
-            'recipient_username:', JSON.stringify(msg.recipient_username),
-            'currentUser.name:', JSON.stringify(currentUser ? currentUser.name : null),
-            'text:', msg.text ? msg.text.slice(0,30) : '(buit)');
-
-          if (!currentUser) { console.warn('❌ currentUser null'); return; }
-
-          const senderName   = (msg.sender_username    || '').trim();
-          const recipientName = (msg.recipient_username || '').trim();
-
-          // Si sóc el remitent, ja l'he afegit localment a sendMsg — ignorar
-          if (senderName === currentUser.name) {
-            console.log('📨 Ignorant: sóc el remitent');
-            return;
-          }
-
-          // Trobar remitent a USERS — cerca robusta per nom i username
-          const senderUser = USERS.find(u =>
-            u.name.trim() === senderName ||
-            u.username.trim() === senderName ||
-            u.name.trim().toLowerCase() === senderName.toLowerCase() ||
-            u.username.trim().toLowerCase() === senderName.toLowerCase()
-          );
-          if (!senderUser) {
-            console.warn('❌ Remitent no trobat:', JSON.stringify(senderName),
-              '— Noms:', JSON.stringify(USERS.map(u => ({name: u.name, username: u.username}))));
-            return;
-          }
-
-          // Clau de conversa (ordenada per ID, consistent amb convData)
-          const cid = convKey(currentUser.id, senderUser.id);
-          if (!CONVS[cid]) CONVS[cid] = [];
-
-          // Evitar duplicats
-          const msgId = msg.id || msg.message_id;
-          if (msgId && CONVS[cid].some(m => m.id === msgId)) {
-            console.log('⚠️ Duplicat ignorat:', msgId);
-            return;
-          }
-
-          const time = msg.timestamp
-            ? new Date(msg.timestamp).toLocaleTimeString('ca-ES', {hour:'2-digit', minute:'2-digit', hour12:false})
-            : nowTime();
-
-          CONVS[cid].push({
-            mine: false,
-            sender_id: senderUser.id,  // ID numèric fiable
-            userId: senderUser.id,
-            sender_username: senderName,
-            sender: senderName,
-            text: msg.text,
-            time: time,
-            date: msg.timestamp ? msg.timestamp.split('T')[0] : todayStr(),
-            read: activeConvId === senderUser.id,
-            attachments: msg.attachments || [],
-            id: msgId || `msg_${Date.now()}`
-          });
-
-          console.log('✅ Missatge afegit a CONVS[' + cid + ']. Total:', CONVS[cid].length,
-            '— activeConvId:', activeConvId, 'senderUser.id:', senderUser.id);
-
-          console.log('[RT] receive_message: activeConvId=' + activeConvId + ' senderUser.id=' + senderUser.id + ' match=' + (activeConvId === senderUser.id));
-          if (activeConvId === senderUser.id) {
-            renderMsgs(senderUser.id);
-            console.log('[RT] Missatge renderitzat al xat actiu');
-          } else {
-            // Conversa no activa: toast discret
-            showChatToast(senderName, msg.text || '');
-            console.log('[RT] Toast mostrat per conversa no activa');
-          }
-
-          saveMessagesToStorage();
-          updateBadge();
-          buildMsgList(document.getElementById("msg-search-inp")?.value || '');
-          if (document.getElementById('section-dashboard')?.classList.contains('active')) {
-          renderDashboard();
-        }
-        });
-        
-        // ✅ RECIBIR NOTIFICACIÓN DE MENSAJE PRIVADO
-        socket.on('message_notification', function(notif) {
-          console.log('🔔 [Socket] Notificación de mensaje:', notif);
-          showNotification('📨 Nou missatge', `De: ${notif.from}`);
-        });
-        
-        // ✅ RECIBIR MENSAJES DEL CHAT GENERAL
-        socket.on('receive_general_message', function(msg) {
-          console.log('💬 [GENERAL_CHAT] Mensaje recibido del servidor:', msg);
-          
-          // Validación básica
-          if (!msg || !msg.id) {
-            console.error('❌ [GENERAL_CHAT] Mensaje inválido:', msg);
-            return;
-          }
-          
-          // Evitar duplicados
-          if (GENERAL_CHAT.some(m => m.id === msg.id)) {
-            console.log('⚠️  [GENERAL_CHAT] Mensaje duplicado, ignorando:', msg.id);
-            return;
-          }
-          
-          // Convertir timestamp
-          let time = nowTime(), date = todayStr();
-          if (msg.timestamp) {
-            try {
-              const dateObj = new Date(msg.timestamp);
-              time = dateObj.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-              date = dateObj.toISOString().split('T')[0];
-            } catch(e) {
-              console.warn('⚠️  [GENERAL_CHAT] Error al parsear timestamp:', msg.timestamp);
-            }
-          }
-          
-          // Agregar a GENERAL_CHAT
-          const msgObj = {
-            id: msg.id,
-            mine: (msg.sender_username || '') === currentUser.name,
-            userId: msg.sender_id,
-            sender_username: msg.sender_username,
-            username: msg.sender_username,
-            text: msg.text,
-            time: time,
-            date: date,
-            read: (msg.sender_username || '') === currentUser.name ? true : (activeConvId === 'general-chat'),
-            attachments: msg.attachments || []
-          };
-          
-          GENERAL_CHAT.push(msgObj);
-          console.log('✅ [GENERAL_CHAT] Agregado. Total:', GENERAL_CHAT.length);
-          
-          // Renderizar si está activo
-          if (activeConvId === 'general-chat') {
-            renderGeneralChat();
-          } else {
-            // General chat no actiu: toast discret
-            showChatToast(msg.sender_username || 'Chat General', msg.text || '');
-          }
-          
-          saveMessagesToStorage();
-            updateBadge();
-            buildMsgList(document.getElementById("msg-search-inp")?.value || '');
-            if (document.getElementById('section-dashboard')?.classList.contains('active')) {
-              renderDashboard();
-            }
-          });
-        
-        // ✅ RECIBIR HISTÓRICO DE CHAT GENERAL AL CONECTAR
-        socket.on('load_general_history', function(data) {
-          console.log('📚 [HISTÓRICO GENERAL] Recibidos', data.messages.length, 'mensajes');
-          
-          if (!data.messages || !Array.isArray(data.messages)) {
-            console.warn('⚠️ [HISTÓRICO GENERAL] Datos inválidos');
-            return;
-          }
-          
-          // Agregar mensajes del histórico
-          data.messages.forEach(msg => {
-            // Evitar duplicados
-            if (GENERAL_CHAT.some(m => m.id === msg.id)) {
-              return;
-            }
-            
-            // Convertir timestamp
-            let time = nowTime(), date = todayStr();
-            if (msg.timestamp) {
-              try {
-                const dateObj = new Date(msg.timestamp);
-                time = dateObj.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-                date = dateObj.toISOString().split('T')[0];
-              } catch(e) {
-                console.warn('⚠️  Error al parsear timestamp');
-              }
-            }
-            
-            GENERAL_CHAT.push({
-              id: msg.id,
-              mine: (msg.sender_username || '') === currentUser.name,
-              userId: msg.sender_id,
-              sender_username: msg.sender_username,
-              username: msg.sender_username,
-              text: msg.text,
-              time: time,
-              date: date,
-            read: (msg.sender_username || '') === currentUser.name ? true : (activeConvId === 'general-chat'),
-            attachments: msg.attachments || []
-            });
-          });
-          
-          console.log('✅ [HISTÓRICO GENERAL] Total:', GENERAL_CHAT.length);
-          
-          // Renderizar si el chat general está abierto
-          if (activeConvId === 'general-chat') {
-            renderGeneralChat();
-          }
-          
-          saveMessagesToStorage();
-        });
-        
-        // ✅ RECIBIR HISTÓRICO DE CHAT DE SEDE AL CONECTAR
-        socket.on('load_sede_history', function(data) {
-          const sedeKey = data.sede_key;
-          const sedeConvId = `sede_${sedeKey}`;
-          console.log('📚 [HISTÓRICO SEDE] Recibidos', data.messages.length, 'mensajes para', sedeKey);
-          
-          if (!data.messages || !Array.isArray(data.messages)) {
-            console.warn('⚠️ [HISTÓRICO SEDE] Datos inválidos');
-            return;
-          }
-          
-          // Inicializar si no existe
-          if (!CONVS[sedeConvId]) {
-            CONVS[sedeConvId] = [];
-          }
-          
-          // Agregar mensajes del histórico
-          data.messages.forEach(msg => {
-            // Evitar duplicados
-            if (CONVS[sedeConvId].some(m => m.id === msg.id)) {
-              return;
-            }
-            
-            // Convertir timestamp
-            let time = nowTime(), date = todayStr();
-            if (msg.timestamp) {
-              try {
-                const dateObj = new Date(msg.timestamp);
-                time = dateObj.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-                date = dateObj.toISOString().split('T')[0];
-              } catch(e) {
-                console.warn('⚠️  Error al parsear timestamp');
-              }
-            }
-            
-            CONVS[sedeConvId].push({
-              id: msg.id,
-              mine: (msg.sender_username || '') === currentUser.name,
-              sender_username: msg.sender_username,
-              sender: msg.sender_username,
-              sender_id: msg.sender_id,
-              text: msg.text,
-              time: time,
-              date: date,
-              read: (msg.sender_username || '') === currentUser.name ? true : false,
-              attachments: msg.attachments || []
-            });
-          });
-          
-          console.log('✅ [HISTÓRICO SEDE] Total en', sedeKey, ':', CONVS[sedeConvId].length);
-          
-          // Renderizar si ese chat está abierto
-          if (activeSedeChat === sedeKey) {
-            renderMsgsFromArray(CONVS[sedeConvId]);
-          }
-          
-          saveMessagesToStorage();
-        });
-
-        // ✅ RECIBIR MENSAJES DE CHAT DE SEDE
-        socket.on('receive_sede_message', function(msg) {
-          console.log('🏢 [SEDE_CHAT] Mensaje de sede recibido:', msg);
-          
-          if (!msg || !msg.id) {
-            console.error('❌ [SEDE_CHAT] Mensaje inválido');
-            return;
-          }
-          
-          const sedeKey = msg.sede_key;
-          const sedeConvId = `sede_${sedeKey}`;
-          
-          // Inicializar si no existe
-          if (!CONVS[sedeConvId]) {
-            CONVS[sedeConvId] = [];
-          }
-          
-          // Evitar duplicados
-          if (CONVS[sedeConvId].some(m => m.id === msg.id)) {
-            console.log('⚠️  [SEDE_CHAT] Mensaje duplicado, ignorando:', msg.id);
-            return;
-          }
-          
-          // Convertir timestamp
-          let time = nowTime(), date = todayStr();
-          if (msg.timestamp) {
-            try {
-              const dateObj = new Date(msg.timestamp);
-              time = dateObj.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-              date = dateObj.toISOString().split('T')[0];
-            } catch(e) {
-              console.warn('⚠️  Error al parsear timestamp');
-            }
-          }
-          
-          // Agregar mensaje
-          const msgObj = {
-            id: msg.id,
-            mine: (msg.sender_username || '') === currentUser.name,
-            text: msg.text,
-            time: time,
-            date: date,
-            read: (msg.sender_username || '') === currentUser.name ? true : (activeSedeChat === sedeKey),
-            sender_username: msg.sender_username,
-            sender: msg.sender_username,
-            sender_id: msg.sender_id,
-            attachments: msg.attachments || []
-          };
-          
-          CONVS[sedeConvId].push(msgObj);
-          console.log('✅ [SEDE_CHAT] Agregado. Total en', sedeKey, ':', CONVS[sedeConvId].length);
-          
-          // Renderizar si está activo
-          if (activeSedeChat === sedeKey) {
-            CONVS[sedeConvId].forEach(m => { if (!m.mine) m.read = true; });
-            renderMsgsFromArray(CONVS[sedeConvId]);
-          } else {
-            // Sede chat no actiu: toast discret
-            showChatToast(msg.sender_username || msg.sede || 'Xat de seu', msg.text || '');
-          }
-          
-          saveMessagesToStorage();
-            updateBadge();
-            buildMsgList(document.getElementById("msg-search-inp")?.value || '');
-            if (document.getElementById('section-dashboard')?.classList.contains('active')) {
-              renderDashboard();
-            }
-          });
-        
-        socket.on('notification_received', function(notif) {
-          showNotification(notif.title || 'Notificació', notif.message);
-        });
-        
-        // Evento de usuarios online
-        socket.on('user_status_update', function(data) {
-          console.log(`👤 ${data.username} está ${data.status}`);
-        });
-        
-        // Evento de lista de usuarios online
-        socket.on('online_users_list', function(data) {
-          console.log('👥 Usuarios online:', data.count);
-        });
-      }
-      
       // ✅ MOSTRAR NOTIFICACIONES
       function showNotification(title, message) {
         console.log(`🔔 [NOTIFICACIÓN] ${title}: ${message}`);
@@ -5553,12 +5312,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         GENERAL_CHAT = [];
         CONVS = { sede_mataro: [], sede_vilassar: [] };
         
-        // Desconectar socket.io
-        if (socket && socket.connected) {
-          socket.disconnect();
-          socket = null;
-          currentSocketId = null;
-        }
+        // Aturar polling en temps real
+        stopPolling();
         
         document.getElementById("app").style.display = "none";
         document.getElementById("login-screen").style.display = "flex";
@@ -5752,10 +5507,10 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         setTimeout(() => { updateBadge(); buildMsgList(''); }, 1500);
         setTimeout(() => { updateBadge(); buildMsgList(''); }, 3000);
         
-        // Inicializar socket.io para mensajería en tiempo real
+        // Iniciar polling de missatgeria en temps real (substitueix SocketIO)
         setTimeout(() => {
-          initializeSocket();
-        }, 100);
+          startPolling();
+        }, 500);
 
         // Carregar clients des de la base de dades
         loadClientsFromDB();
@@ -9180,19 +8935,22 @@ document.getElementById("nu-user").addEventListener("input", function() {
         gchatRenderChips();
         renderGeneralChat();
         
-        // ✅ ENVIAR AL CHAT GENERAL VÍA SOCKET.IO
-        if (socket && socket.connected && currentUser) {
-          console.log('📤 [Socket] Enviando mensaje al chat general');
-          socket.emit('send_general_message', {
-            message: text,
+        // Enviar al servidor via HTTP polling
+        const _gchatConvId = 'general';
+        if (!_pollKnownIds[_gchatConvId]) _pollKnownIds[_gchatConvId] = new Set();
+        _pollKnownIds[_gchatConvId].add(msgObj.id);
+        fetch('/api/messages/' + encodeURIComponent(_gchatConvId), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: msgObj.id,
             sender_username: currentUser.name,
-            sender_user_id: currentUser.id,  // ✅ NUEVO: Enviar ID real del usuario
-            message_id: msgObj.id,
+            sender_id: currentUser.id,
+            text: text,
+            timestamp: new Date().toISOString(),
             attachments: attachments
-          });
-        } else {
-          console.warn('⚠️ Socket no conectado, mensaje solo guardado localmente');
-        }
+          })
+        }).catch(e => console.warn('[Polling] Error enviant gchat:', e));
       }
 
       /** Array temporal de adjuntos pendientes de enviar */
@@ -9941,17 +9699,22 @@ document.getElementById("nu-user").addEventListener("input", function() {
           // Guardar
           saveMessagesToStorage();
           
-          // Enviar al servidor (NO se recibirá de vuelta por skip_sid)
-          if (socket && socket.connected) {
-            socket.emit('send_general_message', {
-              message: text,
+          // Enviar al servidor via HTTP polling
+          const _pConvId = 'general';
+          if (!_pollKnownIds[_pConvId]) _pollKnownIds[_pConvId] = new Set();
+          _pollKnownIds[_pConvId].add(msgId); // evitar que el poll el processi com a nou
+          fetch('/api/messages/' + encodeURIComponent(_pConvId), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: msgId,
               sender_username: currentUser.name,
-              sender_user_id: currentUser.id,
-              message_id: msgId,
+              sender_id: currentUser.id,
+              text: text,
+              timestamp: new Date().toISOString(),
               attachments: attachments
-            });
-            console.log('✅ [sendMsg] Emitido a servidor');
-          }
+            })
+          }).catch(e => console.warn('[Polling] Error enviant general:', e));
         }
         // ═══════════════════════════════════════════════════════════════
         // CASO 2: CHAT DE SEDE
@@ -9989,19 +9752,24 @@ document.getElementById("nu-user").addEventListener("input", function() {
           // Guardar
           saveMessagesToStorage();
           
-          // Enviar al servidor
-          if (socket && socket.connected) {
-            socket.emit('send_sede_message', {
-              message: text,
+          // Enviar al servidor via HTTP polling
+          const _pConvIdSede = 'sede_' + activeSedeChat;
+          if (!_pollKnownIds[_pConvIdSede]) _pollKnownIds[_pConvIdSede] = new Set();
+          _pollKnownIds[_pConvIdSede].add(msgId);
+          fetch('/api/messages/' + encodeURIComponent(_pConvIdSede), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: msgId,
               sender_username: currentUser.name,
-              sender_user_id: currentUser.id,
-              sede: SEDE_CHATS[activeSedeChat].sede,
+              sender_id: currentUser.id,
+              sede: SEDE_CHATS[activeSedeChat] ? SEDE_CHATS[activeSedeChat].sede : activeSedeChat,
               sede_key: activeSedeChat,
-              message_id: msgId,
+              text: text,
+              timestamp: new Date().toISOString(),
               attachments: attachments
-            });
-            console.log('✅ [sendMsg] Emitido a servidor');
-          }
+            })
+          }).catch(e => console.warn('[Polling] Error enviant sede:', e));
         }
         // ═══════════════════════════════════════════════════════════════
         // CASO 3: CHAT PRIVADO
@@ -10030,29 +9798,26 @@ document.getElementById("nu-user").addEventListener("input", function() {
           // Guardar
           saveMessagesToStorage();
           
-          // Enviar al servidor
+          // Enviar al servidor via HTTP polling
           const recipientUser2 = USERS.find(u => u.id === activeConvId);
           const recipientName2 = recipientUser2 ? recipientUser2.name : String(activeConvId);
-          if (socket && currentUser) {
-            if (!socket.connected) {
-              // Reconnectar si no connectat
-              socket.connect();
-              console.warn('⚠️ Socket desconnectat, reconnectant...');
-            }
-            console.log('[RT] emit send_message →', recipientName2, '| id:', msgId);
-            socket.emit('send_message', {
-              message: text,
+          const _pConvIdPriv = 'private_' + currentUser.name + '_' + recipientName2;
+          if (!_pollKnownIds[_pConvIdPriv]) _pollKnownIds[_pConvIdPriv] = new Set();
+          _pollKnownIds[_pConvIdPriv].add(msgId); // evitar re-processar com a missatge nou
+          fetch('/api/messages/' + encodeURIComponent(_pConvIdPriv), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: msgId,
               sender_username: currentUser.name,
-              sender_user_id: currentUser.id,
+              sender_id: currentUser.id,
               recipient_username: recipientName2,
-              conv_id: `${currentUser.name}_${recipientName2}`,
-              message_id: msgId,
+              text: text,
+              timestamp: new Date().toISOString(),
               attachments: attachments
-            });
-            console.log('✅ [sendMsg] Emitido a servidor → ' + recipientName2);
-          } else {
-            console.warn('⚠️ Socket no disponible, missatge guardat localment');
-          }
+            })
+          }).catch(e => console.warn('[Polling] Error enviant missatge privat:', e));
+          console.log('[Polling] Missatge enviat a', recipientName2);
         }
         
         // Limpiar UI
@@ -10879,7 +10644,15 @@ ${dateStr} a les ${eventData.time}`,
         }
         saveMessagesToStorage();
         buildMsgList(document.getElementById("msg-search-inp")?.value || '');
-        console.log(`✅ [Histórico] ${allMsgs.length} msgs carregats (ambdues dirs) per ${other.name}`);
+        console.log('[Polling] Históric carregat per ' + other.name + ': ' + allMsgs.length + ' msgs');
+
+        // Registrar IDs carregats als sets de polling per evitar re-notificació
+        const _keyAB2 = 'private_' + currentUser.name + '_' + other.name;
+        const _keyBA2 = 'private_' + other.name + '_' + currentUser.name;
+        [_keyAB2, _keyBA2].forEach(key => {
+          if (!_pollKnownIds[key]) _pollKnownIds[key] = new Set();
+          allMsgs.forEach(m => { if (m.id) _pollKnownIds[key].add(m.id); });
+        });
       }
 
 
