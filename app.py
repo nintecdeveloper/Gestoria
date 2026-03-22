@@ -893,10 +893,10 @@ def send_message_api(conv_id):
 
         message_storage[conv_id].append(msg_obj)
         save_message_storage()
-        logger.info(f"✅ [Polling POST] {sender}: "{text[:40]}" → {conv_id}")
+        logger.info(f"[Polling POST] {sender}: \"{text[:40]}\" -> {conv_id}")
         return jsonify({'ok': True, 'message': msg_obj}), 201
     except Exception as e:
-        logger.error(f"❌ [Polling POST] Error: {str(e)}")
+        logger.error(f"[Polling POST] Error: {str(e)}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 @app.route('/api/messages/<conv_id>/read', methods=['POST'])
