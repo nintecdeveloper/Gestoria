@@ -2874,6 +2874,58 @@
           max-width: 95vw;
         }
       }
+
+      /* ── Toast notificació de missatge en temps real ────────────── */
+      #chat-toast-container {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        pointer-events: none;
+      }
+      .chat-toast {
+        background: #2a2a2a;
+        color: rgba(255,255,255,0.92);
+        font-family: "DM Sans", sans-serif;
+        font-size: 13px;
+        border-radius: 10px;
+        padding: 12px 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.40);
+        border: 1px solid rgba(255,255,255,0.08);
+        max-width: 300px;
+        min-width: 200px;
+        pointer-events: auto;
+        cursor: pointer;
+        animation: chatToastIn 0.3s cubic-bezier(.22,.68,0,1.2) both;
+      }
+      .chat-toast.out {
+        animation: chatToastOut 0.3s ease forwards;
+      }
+      .chat-toast-name {
+        font-weight: 600;
+        color: var(--accent2);
+        margin-bottom: 4px;
+        font-size: 12px;
+        letter-spacing: 0.3px;
+      }
+      .chat-toast-text {
+        color: rgba(255,255,255,0.75);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 268px;
+      }
+      @keyframes chatToastIn {
+        from { opacity:0; transform:translateY(16px) scale(0.97); }
+        to   { opacity:1; transform:translateY(0)    scale(1); }
+      }
+      @keyframes chatToastOut {
+        from { opacity:1; transform:translateY(0); }
+        to   { opacity:0; transform:translateY(10px); }
+      }
     </style>
     <!-- XLSX Library para importar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -4780,6 +4832,9 @@
 
           if (activeConvId === senderUser.id) {
             renderMsgs(senderUser.id);
+          } else {
+            // Conversa no activa: toast discret
+            showChatToast(senderName, msg.text || '');
           }
 
           saveMessagesToStorage();
@@ -4844,6 +4899,9 @@
           // Renderizar si está activo
           if (activeConvId === 'general-chat') {
             renderGeneralChat();
+          } else {
+            // General chat no actiu: toast discret
+            showChatToast(msg.sender_username || 'Chat General', msg.text || '');
           }
           
           saveMessagesToStorage();
@@ -5021,6 +5079,9 @@
           if (activeSedeChat === sedeKey) {
             CONVS[sedeConvId].forEach(m => { if (!m.mine) m.read = true; });
             renderMsgsFromArray(CONVS[sedeConvId]);
+          } else {
+            // Sede chat no actiu: toast discret
+            showChatToast(msg.sender_username || msg.sede || 'Xat de seu', msg.text || '');
           }
           
           saveMessagesToStorage();
@@ -5061,6 +5122,30 @@
         }
       }
       
+
+      /** Mostra un toast discret a la cantonada inferior dreta durant 4 s. */
+      function showChatToast(fromName, text) {
+        const container = document.getElementById('chat-toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = 'chat-toast';
+        const preview = text && text.length > 65 ? text.slice(0, 65) + '…' : (text || '📎 Fitxer adjunt');
+        toast.innerHTML =
+          '<div class="chat-toast-name">💬 ' + safeHtml(fromName) + '</div>' +
+          '<div class="chat-toast-text">' + safeHtml(preview) + '</div>';
+        // Clic per tancar
+        toast.addEventListener('click', function() {
+          toast.classList.add('out');
+          setTimeout(function() { toast.remove(); }, 300);
+        });
+        container.appendChild(toast);
+        // Auto-dismiss a 4 s
+        setTimeout(function() {
+          if (!toast.parentNode) return;
+          toast.classList.add('out');
+          setTimeout(function() { toast.remove(); }, 300);
+        }, 4000);
+      }
       // Solicitar permiso para notificaciones
       if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
@@ -10933,5 +11018,6 @@ ${dateStr} a les ${eventData.time}`,
       }, 1000);
       
     </script>
+    <div id="chat-toast-container"></div>
   </body>
 </html>
