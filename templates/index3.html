@@ -4734,7 +4734,15 @@
       }
       
       function connectSocket() {
-        socket = io();
+        // Transports explícits: WebSocket primer, polling com a fallback (Render)
+        socket = io({
+          transports: ['websocket', 'polling'],
+          reconnection: true,
+          reconnectionAttempts: 15,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          timeout: 20000
+        });
         
         socket.on('connect', function() {
           currentSocketId = socket.id;
@@ -4742,12 +4750,13 @@
           
           // Notificar al servidor que el usuario se conectó
           if (currentUser) {
+            console.log('[RT] emit user_login: username=' + currentUser.name + ' id=' + currentUser.id);
             socket.emit('user_login', {
-  username: currentUser.name,
-  userId: currentUser.id,
-  sede: currentUser.sede,
-  role: currentUser.role
-});
+              username: currentUser.name,
+              userId: currentUser.id,
+              sede: currentUser.sede,
+              role: currentUser.role
+            });
             // Precarregar historial privat — esperar 1.5s per assegurar que
             // el backend ha processat el user_login i entregat els pendents
             setTimeout(() => {
@@ -4761,9 +4770,31 @@
           }
         });
         
-        socket.on('disconnect', function() {
-          console.log('❌ Socket.io desconectado');
+        socket.on('disconnect', function(reason) {
+          console.log('❌ Socket.io desconnectat. Causa:', reason);
           currentSocketId = null;
+        });
+
+        // Re-enviar user_login en reconnexió per actualitzar username_to_sid al backend
+        socket.on('reconnect', function(attemptNumber) {
+          console.log('🔄 [RT] Socket.io reconnectat (intent ' + attemptNumber + ')');
+          if (currentUser) {
+            socket.emit('user_login', {
+              username: currentUser.name,
+              userId: currentUser.id,
+              sede: currentUser.sede,
+              role: currentUser.role
+            });
+            console.log('✅ [RT] user_login re-emès despres de reconnexió');
+          }
+        });
+
+        socket.on('reconnect_attempt', function(n) {
+          console.log('🔁 [RT] Reconnexió intent #' + n + '...');
+        });
+
+        socket.on('connect_error', function(err) {
+          console.warn('⚠️ [RT] connect_error:', err.message || err);
         });
         
         // RECIBIR MENSAJES PRIVADOS
@@ -4830,11 +4861,14 @@
           console.log('✅ Missatge afegit a CONVS[' + cid + ']. Total:', CONVS[cid].length,
             '— activeConvId:', activeConvId, 'senderUser.id:', senderUser.id);
 
+          console.log('[RT] receive_message: activeConvId=' + activeConvId + ' senderUser.id=' + senderUser.id + ' match=' + (activeConvId === senderUser.id));
           if (activeConvId === senderUser.id) {
             renderMsgs(senderUser.id);
+            console.log('[RT] Missatge renderitzat al xat actiu');
           } else {
             // Conversa no activa: toast discret
             showChatToast(senderName, msg.text || '');
+            console.log('[RT] Toast mostrat per conversa no activa');
           }
 
           saveMessagesToStorage();
@@ -10005,9 +10039,11 @@ document.getElementById("nu-user").addEventListener("input", function() {
               socket.connect();
               console.warn('⚠️ Socket desconnectat, reconnectant...');
             }
+            console.log('[RT] emit send_message →', recipientName2, '| id:', msgId);
             socket.emit('send_message', {
               message: text,
               sender_username: currentUser.name,
+              sender_user_id: currentUser.id,
               recipient_username: recipientName2,
               conv_id: `${currentUser.name}_${recipientName2}`,
               message_id: msgId,

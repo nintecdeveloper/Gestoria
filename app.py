@@ -611,10 +611,13 @@ def handle_private_message(data):
         logger.warning(f"⚠️ [Chat Privado] Mensaje vacío de {sender_username}")
         return
     
+    # Obtenir l'ID numèric de l'usuari (no el socket SID)
+    sender_user_id = data.get('sender_user_id') or data.get('userId') or sender_id
+
     # Crear objeto de mensaje
     message_obj = {
         'id': message_id,
-        'sender_id': sender_id,
+        'sender_id': sender_user_id,   # ID numèric de l'usuari, no el socket SID
         'sender_username': sender_username,
         'recipient_username': recipient_username,
         'text': message_text,
@@ -629,23 +632,29 @@ def handle_private_message(data):
     message_storage[private_key].append(message_obj)
     save_message_storage()
     
-    logger.info(f"💬 [Chat Privado] {sender_username} → {recipient_username}: {message_text[:50] if message_text else '(adjuntos)'}")
+    logger.info(f"💬 [RT] {sender_username} → {recipient_username}: {message_text[:50] if message_text else '(adjuntos)'}")
+    logger.info(f"🔍 [RT] username_to_sid keys: {list(username_to_sid.keys())}")
+    logger.info(f"🔍 [RT] connected_users: {[v.get('username') for v in connected_users.values()]}")
     
     # Buscar receptor: primer per username_to_sid, després per connected_users (per si el SID ha canviat)
     recipient_sid = username_to_sid.get(recipient_username)
+    logger.info(f"🔍 [RT] recipient_sid from username_to_sid: {recipient_sid}")
     
     # Si el SID guardat ja no és a connected_users, buscar per nom dins connected_users
     if not recipient_sid or recipient_sid not in connected_users:
+        logger.info(f"🔍 [RT] SID obsolet o no trobat, cercant per nom...")
         for sid, info in connected_users.items():
             if info.get('username') == recipient_username:
                 recipient_sid = sid
                 username_to_sid[recipient_username] = sid  # Actualitzar
+                logger.info(f"🔍 [RT] Trobat per fallback: {recipient_username} → {sid}")
                 break
     
     if recipient_sid and recipient_sid in connected_users:
         # Receptor connectat: entregar immediatament
         socketio.emit('receive_message', message_obj, room=recipient_sid)
-        logger.info(f"✅ [Mensaje Entregado] A {recipient_username} (SID: {recipient_sid})")
+        logger.info(f"✅ [RT] Missatge entregat a {recipient_username} (SID: {recipient_sid})")
+        print(f"[RT] SocketIO emit receive_message → sala {recipient_sid} ({recipient_username})")
         socketio.emit('message_notification', {
             'from': sender_username,
             'message': "📎 Archivo adjunto" if attachments else (message_text[:50] + '...' if len(message_text) > 50 else message_text),
@@ -653,8 +662,8 @@ def handle_private_message(data):
         }, room=recipient_sid)
     else:
         # Receptor offline: el missatge ja està guardat a message_storage
-        # S'entregarà quan es connecti via la lògica de pendents
-        logger.info(f"📬 [Mensaje Guardado] {recipient_username} offline — guardat a {private_key}")
+        logger.warning(f"⚠️ [RT] {recipient_username} no connectat — guardat a {private_key}")
+        print(f"[RT] {recipient_username} OFFLINE — missatge guardat, no entregat en temps real")
     
     # Confirmar envío al remitente
     socketio.emit('message_sent', {
