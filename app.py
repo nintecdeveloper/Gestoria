@@ -320,6 +320,14 @@ class Message(db.Model):
 import uuid
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def private_conv_id(name_a: str, name_b: str) -> str:
+    """Retorna un conv_id normalitzat per ordre alfabètic per a xats privats.
+    Garanteix que private_A_B i private_B_A sempre produeixen el mateix ID.
+    """
+    a, b = (name_a or '').strip(), (name_b or '').strip()
+    first, second = (a, b) if a.lower() <= b.lower() else (b, a)
+    return f"private_{first}_{second}"
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
@@ -657,8 +665,8 @@ def handle_private_message(data):
         'attachments': attachments
     }
     
-    # Almacenar en servidor con clave privada normalizada
-    private_key = f'private_{sender_username}_{recipient_username}'
+    # Almacenar en servidor con clave privada normalizada (ordre alfabètic)
+    private_key = private_conv_id(sender_username, recipient_username)
     if private_key not in message_storage:
         message_storage[private_key] = []
     message_storage[private_key].append(message_obj)
@@ -871,24 +879,28 @@ def get_messages(conv_id):
     if not conv_id:
         return jsonify({'ok': False, 'error': 'conv_id requerit', 'messages': []}), 400
     try:
-        msgs = (Message.query
-                .filter_by(conv_id=conv_id)
-                .order_by(Message.msg_timestamp.asc(), Message.created_at.asc())
-                .all())
-        resolved_id = conv_id
-
-        # Cerca bidireccional per xats privats (private_A_B ↔ private_B_A)
-        if not msgs and conv_id.startswith('private_'):
+        # Normalitzar conv_id privat per ordre alfabètic
+        norm_id = conv_id
+        if conv_id.startswith('private_'):
             parts = conv_id.replace('private_', '', 1).split('_', 1)
             if len(parts) == 2:
-                alt_id = f"private_{parts[1]}_{parts[0]}"
-                msgs = (Message.query
-                        .filter_by(conv_id=alt_id)
-                        .order_by(Message.msg_timestamp.asc(), Message.created_at.asc())
-                        .all())
-                resolved_id = alt_id if msgs else conv_id
+                norm_id = private_conv_id(parts[0], parts[1])
 
-        return jsonify({'ok': True, 'conv_id': resolved_id, 'messages': [m.to_dict() for m in msgs]})
+        msgs = (Message.query
+                .filter_by(conv_id=norm_id)
+                .order_by(Message.msg_timestamp.asc(), Message.created_at.asc())
+                .all())
+
+        # Safety net: si no hi ha missatges al conv_id normalitzat,
+        # provar l'ordre invers per compatibilitat amb missatges antics
+        if not msgs and norm_id != conv_id:
+            msgs = (Message.query
+                    .filter_by(conv_id=conv_id)
+                    .order_by(Message.msg_timestamp.asc(), Message.created_at.asc())
+                    .all())
+            norm_id = conv_id if msgs else norm_id
+
+        return jsonify({'ok': True, 'conv_id': norm_id, 'messages': [m.to_dict() for m in msgs]})
     except Exception as e:
         logger.error(f"[Messages GET] Error: {str(e)}")
         return jsonify({'ok': False, 'error': str(e), 'messages': []}), 500
@@ -906,17 +918,24 @@ def send_message_api(conv_id):
         if not text and not attachments:
             return jsonify({'ok': False, 'error': 'Missatge buit'}), 400
 
+        # Normalitzar conv_id privat per ordre alfabètic
+        norm_conv_id = conv_id
+        if conv_id.startswith('private_'):
+            parts = conv_id.replace('private_', '', 1).split('_', 1)
+            if len(parts) == 2:
+                norm_conv_id = private_conv_id(parts[0], parts[1])
+
         # Deduplicacio: comprova si el msg_id ja existeix a la BD
         existing = Message.query.filter_by(msg_id=msg_id).first()
         if existing:
             return jsonify({'ok': True, 'message': existing.to_dict(), 'duplicate': True})
 
-        sede_key = conv_id.replace('sede_', '') if conv_id.startswith('sede_') else None
-        sede     = data.get('sede', '') if conv_id.startswith('sede_') else None
+        sede_key = norm_conv_id.replace('sede_', '') if norm_conv_id.startswith('sede_') else None
+        sede     = data.get('sede', '') if norm_conv_id.startswith('sede_') else None
 
         msg = Message(
             msg_id             = msg_id,
-            conv_id            = conv_id,
+            conv_id            = norm_conv_id,
             sender_id          = data.get('sender_id'),
             sender_username    = sender,
             recipient_username = data.get('recipient_username', ''),
@@ -929,7 +948,7 @@ def send_message_api(conv_id):
         db.session.add(msg)
         db.session.commit()
 
-        logger.info(f"[Polling POST] {sender}: \"{text[:40]}\" -> {conv_id}")
+        logger.info(f"[Polling POST] {sender}: \"{text[:40]}\" -> {norm_conv_id}")
         return jsonify({'ok': True, 'message': msg.to_dict()}), 201
     except Exception as e:
         db.session.rollback()

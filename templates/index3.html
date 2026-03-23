@@ -4726,6 +4726,17 @@
       let _pollingTimer  = null;
       let _pollKnownIds  = {}; // convId → Set<msgId> — IDs ja vistos
 
+      /**
+       * Retorna el conv_id normalitzat per ordre alfabètic per a xats privats.
+       * Garanteix que privConvId("Antonio","Myriam") === privConvId("Myriam","Antonio")
+       */
+      function privConvId(nameA, nameB) {
+        const a = (nameA || '').trim();
+        const b = (nameB || '').trim();
+        const [first, second] = a.toLowerCase() <= b.toLowerCase() ? [a, b] : [b, a];
+        return 'private_' + first + '_' + second;
+      }
+
       /** Retorna la llista de conv_ids a consultar per l'usuari actual. */
       function _getPollConvIds() {
         if (!currentUser) return [];
@@ -4737,11 +4748,10 @@
         } else if (currentUser.sede === 'Vilassar') {
           ids.push('sede_vilassar');
         }
-        // Xats privats: totes les direccions amb cada company actiu
+        // Xats privats: un únic conv_id normalitzat per parella
         const others = USERS.filter(u => u.id !== currentUser.id && u.active);
         others.forEach(u => {
-          ids.push('private_' + currentUser.name + '_' + u.name);
-          ids.push('private_' + u.name + '_' + currentUser.name);
+          ids.push(privConvId(currentUser.name, u.name));
         });
         return ids;
       }
@@ -9801,7 +9811,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
           // Enviar al servidor via HTTP polling
           const recipientUser2 = USERS.find(u => u.id === activeConvId);
           const recipientName2 = recipientUser2 ? recipientUser2.name : String(activeConvId);
-          const _pConvIdPriv = 'private_' + currentUser.name + '_' + recipientName2;
+          const _pConvIdPriv = privConvId(currentUser.name, recipientName2);
           if (!_pollKnownIds[_pConvIdPriv]) _pollKnownIds[_pConvIdPriv] = new Set();
           _pollKnownIds[_pConvIdPriv].add(msgId); // evitar re-processar com a missatge nou
           fetch('/api/messages/' + encodeURIComponent(_pConvIdPriv), {
@@ -10585,21 +10595,19 @@ ${dateStr} a les ${eventData.time}`,
         const other = USERS.find(u => u.id === otherId);
         if (!other) return;
 
-        // Carregar AMBDUES direccions i fusionar (A→B i B→A)
-        const keyAB = `private_${currentUser.name}_${other.name}`;
-        const keyBA = `private_${other.name}_${currentUser.name}`;
+        // Carregar missatges amb el conv_id normalitzat (ordre alfabètic)
+        const normKey = privConvId(currentUser.name, other.name);
         let allMsgs = [];
 
-        for (const key of [keyAB, keyBA]) {
-          try {
-            const res = await fetch(`/api/messages/${encodeURIComponent(key)}`);
-            if (!res.ok) continue;
+        try {
+          const res = await fetch(`/api/messages/${encodeURIComponent(normKey)}`);
+          if (res.ok) {
             const data = await res.json();
             if (data.ok && Array.isArray(data.messages)) {
-              allMsgs = allMsgs.concat(data.messages);
+              allMsgs = data.messages;
             }
-          } catch(e) {}
-        }
+          }
+        } catch(e) {}
 
         if (!allMsgs.length) return;
 
@@ -10646,13 +10654,10 @@ ${dateStr} a les ${eventData.time}`,
         buildMsgList(document.getElementById("msg-search-inp")?.value || '');
         console.log('[Polling] Históric carregat per ' + other.name + ': ' + allMsgs.length + ' msgs');
 
-        // Registrar IDs carregats als sets de polling per evitar re-notificació
-        const _keyAB2 = 'private_' + currentUser.name + '_' + other.name;
-        const _keyBA2 = 'private_' + other.name + '_' + currentUser.name;
-        [_keyAB2, _keyBA2].forEach(key => {
-          if (!_pollKnownIds[key]) _pollKnownIds[key] = new Set();
-          allMsgs.forEach(m => { if (m.id) _pollKnownIds[key].add(m.id); });
-        });
+        // Registrar IDs carregats al set de polling per evitar re-notificació
+        const _normKey2 = privConvId(currentUser.name, other.name);
+        if (!_pollKnownIds[_normKey2]) _pollKnownIds[_normKey2] = new Set();
+        allMsgs.forEach(m => { if (m.id) _pollKnownIds[_normKey2].add(m.id); });
       }
 
 
