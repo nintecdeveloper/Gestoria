@@ -285,6 +285,38 @@ class PersonalReminder(db.Model):
             'createdAt': self.created_at.isoformat() if self.created_at else None,
         }
 
+class Message(db.Model):
+    """Missatges de xat persistits a PostgreSQL.
+    Substitueix message_storage (dict en memòria) per funcionar correctament
+    amb múltiples workers de Gunicorn a Render.
+    """
+    __tablename__ = 'messages'
+    pk                 = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    msg_id             = db.Column(db.String(200), nullable=False, index=True)
+    conv_id            = db.Column(db.String(300), nullable=False, index=True)
+    sender_id          = db.Column(db.Integer,     nullable=True)
+    sender_username    = db.Column(db.String(200), nullable=True)
+    recipient_username = db.Column(db.String(200), nullable=True)
+    text               = db.Column(db.Text,        nullable=True)
+    msg_timestamp      = db.Column(db.String(50),  nullable=True)   # ISO string
+    attachments_json   = db.Column(db.Text,        nullable=True)   # JSON
+    sede_key           = db.Column(db.String(50),  nullable=True)
+    sede               = db.Column(db.String(100), nullable=True)
+    created_at         = db.Column(db.DateTime,    default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id':                 self.msg_id,
+            'sender_id':          self.sender_id,
+            'sender_username':    self.sender_username,
+            'recipient_username': self.recipient_username or '',
+            'text':               self.text or '',
+            'timestamp':          self.msg_timestamp,
+            'attachments':        json.loads(self.attachments_json) if self.attachments_json else [],
+            'sede_key':           self.sede_key,
+            'sede':               self.sede,
+        }
+
 import uuid
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -835,67 +867,72 @@ def serve_upload(filename):
     return send_file(os.path.join(UPLOAD_FOLDER, filename), as_attachment=True)
 @app.route('/api/messages/<conv_id>', methods=['GET'])
 def get_messages(conv_id):
-    """Recupera el histórico de mensajes de una conversación"""
+    """Recupera missatges d'una conversa des de PostgreSQL."""
     if not conv_id:
-        return jsonify({'ok': False, 'error': 'conv_id requerido', 'messages': []}), 400
-    
-    # Búsqueda bidireccional para privados
-    messages = message_storage.get(conv_id)
-    resolved_id = conv_id
-    
-    if messages is None and conv_id.startswith('private_'):
-        parts = conv_id.replace('private_', '').split('_', 1)
-        if len(parts) == 2:
-            alt_id = f"private_{parts[1]}_{parts[0]}"
-            messages = message_storage.get(alt_id)
-            resolved_id = alt_id if messages is not None else conv_id
-    
-    if messages is None:
-        return jsonify({'ok': True, 'conv_id': conv_id, 'messages': []})
-    
-    logger.info(f"📥 [Mensajes] Recuperando {len(messages)} mensajes de {resolved_id}")
-    # Ordenar per timestamp ascending
-    messages_sorted = sorted(messages, key=lambda m: m.get('timestamp', ''))
-    return jsonify({'ok': True, 'conv_id': resolved_id, 'messages': messages_sorted})
+        return jsonify({'ok': False, 'error': 'conv_id requerit', 'messages': []}), 400
+    try:
+        msgs = (Message.query
+                .filter_by(conv_id=conv_id)
+                .order_by(Message.msg_timestamp.asc(), Message.created_at.asc())
+                .all())
+        resolved_id = conv_id
+
+        # Cerca bidireccional per xats privats (private_A_B ↔ private_B_A)
+        if not msgs and conv_id.startswith('private_'):
+            parts = conv_id.replace('private_', '', 1).split('_', 1)
+            if len(parts) == 2:
+                alt_id = f"private_{parts[1]}_{parts[0]}"
+                msgs = (Message.query
+                        .filter_by(conv_id=alt_id)
+                        .order_by(Message.msg_timestamp.asc(), Message.created_at.asc())
+                        .all())
+                resolved_id = alt_id if msgs else conv_id
+
+        return jsonify({'ok': True, 'conv_id': resolved_id, 'messages': [m.to_dict() for m in msgs]})
+    except Exception as e:
+        logger.error(f"[Messages GET] Error: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e), 'messages': []}), 500
 
 @app.route('/api/messages/<conv_id>', methods=['POST'])
 def send_message_api(conv_id):
-    """Guarda un missatge via HTTP polling. Usat pel frontend en lloc de SocketIO."""
+    """Guarda un missatge a PostgreSQL via HTTP polling. Usat pel frontend en lloc de SocketIO."""
     try:
         data = request.get_json(force=True) or {}
-        msg_id    = data.get('id') or f'msg_{int(datetime.now().timestamp() * 1000)}'
-        sender    = data.get('sender_username', '')
-        text      = data.get('text', '').strip()
+        msg_id      = data.get('id') or f'msg_{int(datetime.now().timestamp() * 1000)}'
+        sender      = data.get('sender_username', '')
+        text        = data.get('text', '').strip()
         attachments = data.get('attachments', [])
 
         if not text and not attachments:
             return jsonify({'ok': False, 'error': 'Missatge buit'}), 400
 
-        msg_obj = {
-            'id':               msg_id,
-            'sender_id':        data.get('sender_id'),
-            'sender_username':  sender,
-            'recipient_username': data.get('recipient_username', ''),
-            'text':             text,
-            'timestamp':        data.get('timestamp', datetime.utcnow().isoformat()),
-            'attachments':      attachments,
-        }
-        if conv_id.startswith('sede_'):
-            msg_obj['sede_key'] = conv_id.replace('sede_', '')
-            msg_obj['sede']     = data.get('sede', '')
+        # Deduplicacio: comprova si el msg_id ja existeix a la BD
+        existing = Message.query.filter_by(msg_id=msg_id).first()
+        if existing:
+            return jsonify({'ok': True, 'message': existing.to_dict(), 'duplicate': True})
 
-        if conv_id not in message_storage:
-            message_storage[conv_id] = []
+        sede_key = conv_id.replace('sede_', '') if conv_id.startswith('sede_') else None
+        sede     = data.get('sede', '') if conv_id.startswith('sede_') else None
 
-        # Deduplicació
-        if any(m.get('id') == msg_id for m in message_storage[conv_id]):
-            return jsonify({'ok': True, 'message': msg_obj, 'duplicate': True})
+        msg = Message(
+            msg_id             = msg_id,
+            conv_id            = conv_id,
+            sender_id          = data.get('sender_id'),
+            sender_username    = sender,
+            recipient_username = data.get('recipient_username', ''),
+            text               = text,
+            msg_timestamp      = data.get('timestamp', datetime.utcnow().isoformat()),
+            attachments_json   = json.dumps(attachments) if attachments else None,
+            sede_key           = sede_key,
+            sede               = sede,
+        )
+        db.session.add(msg)
+        db.session.commit()
 
-        message_storage[conv_id].append(msg_obj)
-        save_message_storage()
         logger.info(f"[Polling POST] {sender}: \"{text[:40]}\" -> {conv_id}")
-        return jsonify({'ok': True, 'message': msg_obj}), 201
+        return jsonify({'ok': True, 'message': msg.to_dict()}), 201
     except Exception as e:
+        db.session.rollback()
         logger.error(f"[Polling POST] Error: {str(e)}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
