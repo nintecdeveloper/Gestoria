@@ -4723,8 +4723,10 @@
       //  (substitueix SocketIO — compatible amb Render Starter)
       // ══════════════════════════════════════════
 
-      let _pollingTimer  = null;
-      let _pollKnownIds  = {}; // convId → Set<msgId> — IDs ja vistos
+      let _pollingTimer    = null;
+      let _pollKnownIds    = {}; // convId → Set<msgId> — IDs ja vistos
+      let _calPollingTimer = null;
+      let _calLastSig      = ''; // fingerprint de l'últim EVENTS per detectar canvis
 
       /**
        * Retorna el conv_id normalitzat per ordre alfabètic per a xats privats.
@@ -4908,7 +4910,62 @@
         // Compatibilitat: ara usa polling HTTP en lloc de SocketIO
         startPolling();
       }
-      
+
+      // ══════════════════════════════════════════
+      // POLLING DE CALENDARIS — actualització en temps real
+      // ══════════════════════════════════════════
+
+      /**
+       * Genera una signatura lleugera dels events actuals.
+       * Detecta creacions, esborrats i edicions (data, hora, títol, privacitat).
+       */
+      function _calSig(evs) {
+        if (!Array.isArray(evs) || evs.length === 0) return '';
+        return evs
+          .map(e => `${e.id}|${e.date||''}|${e.time||''}|${(e.title||'').slice(0,30)}|${e.private?1:0}`)
+          .sort()
+          .join(';');
+      }
+
+      /** Un cicle de polling: fetch /api/events → compara → re-renderitza si hi ha canvis. */
+      async function _doCalPoll() {
+        if (!currentUser) return;
+        try {
+          const res = await fetch('/api/events');
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data.ok || !Array.isArray(data.events)) return;
+          const newSig = _calSig(data.events);
+          if (newSig !== _calLastSig) {
+            _calLastSig = newSig;
+            EVENTS = data.events;
+            // Re-renderitzar sense tocar la navegació ni fer scroll
+            refreshCals();
+            renderDashboard();
+            console.log('[CalPolling] Canvis detectats — calendaris actualitzats');
+          }
+        } catch(e) {
+          // Errors de xarxa transitoris: silenci, el proper cicle ho reintentarà
+        }
+      }
+
+      /** Inicia el polling de calendaris cada 5 s. */
+      function startCalendarPolling() {
+        stopCalendarPolling();
+        _calLastSig = _calSig(EVENTS); // inicialitzar amb l'estat actual
+        console.log('[CalPolling] Iniciant polling cada 5 s...');
+        _calPollingTimer = setInterval(_doCalPoll, 5000);
+      }
+
+      /** Atura el polling de calendaris (logout). */
+      function stopCalendarPolling() {
+        if (_calPollingTimer) {
+          clearInterval(_calPollingTimer);
+          _calPollingTimer = null;
+          console.log('[CalPolling] Aturat');
+        }
+      }
+
 
       // ✅ MOSTRAR NOTIFICACIONES
       function showNotification(title, message) {
@@ -5324,6 +5381,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         
         // Aturar polling en temps real
         stopPolling();
+        stopCalendarPolling();
+        _calLastSig = '';
         
         document.getElementById("app").style.display = "none";
         document.getElementById("login-screen").style.display = "flex";
@@ -5422,6 +5481,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           const data = await res.json();
           if (data.ok) {
             EVENTS = data.events || [];
+            _calLastSig = _calSig(EVENTS); // sincronitzar fingerprint inicial
             refreshCals();
             renderDashboard();
           } else {
@@ -5525,8 +5585,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         // Carregar clients des de la base de dades
         loadClientsFromDB();
 
-        // Carregar events des de la base de dades
+        // Carregar events des de la base de dades i iniciar polling en temps real
         loadEvents();
+        setTimeout(() => { startCalendarPolling(); }, 1000);
 
         // Mostrar badge de recordatoris d'avui
         loadTodayReminderBadge();
