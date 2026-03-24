@@ -3955,17 +3955,19 @@
           </div>
         </div>
         <div class="form-group">
-          <label for="ev-client">Client *</label>
+          <label for="ev-client">Client</label>
           <div class="client-autocomplete-wrap">
-            <input type="text" id="ev-client" placeholder="Escriu per cercar client..." autocomplete="off"
+            <input type="text" id="ev-client" placeholder="Cerca o escriu el nom del client" autocomplete="off"
               oninput="clientSuggest('ev-client','ev-client-suggestions','ev-client-phone')"
               onkeydown="clientSuggestKey(event,'ev-client-suggestions','ev-client','ev-client-phone')"
               onfocus="clientSuggest('ev-client','ev-client-suggestions','ev-client-phone')"
             />
             <div class="client-suggestions" id="ev-client-suggestions"></div>
           </div>
+          <input type="hidden" id="ev-client-id" value="" />
           <input type="hidden" id="ev-client-phone" value="" />
           <div id="ev-client-phone-display"></div>
+          <small style="color:var(--text-muted);font-size:11px">Si el client no existeix a la llista, escriu el nom directament</small>
         </div>
         <div class="form-group">
           <label>Tipus de servei</label>
@@ -4375,17 +4377,19 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Client / Motiu *</label>
+          <label>Client / Motiu</label>
           <div class="client-autocomplete-wrap">
-            <input type="text" id="aev-client" placeholder="Escriu per cercar client..." autocomplete="off"
+            <input type="text" id="aev-client" placeholder="Cerca o escriu el nom del client" autocomplete="off"
               oninput="clientSuggest('aev-client','aev-client-suggestions','aev-client-phone')"
               onkeydown="clientSuggestKey(event,'aev-client-suggestions','aev-client','aev-client-phone')"
               onfocus="clientSuggest('aev-client','aev-client-suggestions','aev-client-phone')"
             />
             <div class="client-suggestions" id="aev-client-suggestions"></div>
           </div>
+          <input type="hidden" id="aev-client-id" value="" />
           <input type="hidden" id="aev-client-phone" value="" />
           <div id="aev-client-phone-display"></div>
+          <small style="color:var(--text-muted);font-size:11px">Si el client no existeix a la llista, escriu el nom directament</small>
         </div>
         <div class="form-group">
           <label>Tipus de servei</label>
@@ -6963,9 +6967,11 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         document.getElementById("ev-client").value = "";
         document.getElementById("ev-notes").value = "";
         document.getElementById("ev-err").style.display = "none";
-        // Reset client phone fields
+        // Reset client fields (phone, id, suggestions)
         const evClientPhoneEl = document.getElementById("ev-client-phone");
         if (evClientPhoneEl) evClientPhoneEl.value = "";
+        const evClientIdEl = document.getElementById("ev-client-id");
+        if (evClientIdEl) evClientIdEl.value = "";
         const evClientPhoneDisp = document.getElementById("ev-client-phone-display");
         if (evClientPhoneDisp) evClientPhoneDisp.innerHTML = "";
         const evClientSugg = document.getElementById("ev-client-suggestions");
@@ -7232,6 +7238,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
                 time:         eventObj.time,
                 timeEnd:      eventObj.timeEnd || null,
                 client:       eventObj.client || null,
+                // client_id és null si l'usuari ha escrit un nom lliure (no seleccionat de la BD)
+                client_id:    parseInt(document.getElementById('ev-client-id')?.value || '') || null,
                 service:      eventObj.service || null,
                 notes:        eventObj.notes || null,
                 private:      eventObj.private,
@@ -7804,9 +7812,11 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         document.getElementById("aev-notes").value = "";
         document.getElementById("aev-err").style.display = "none";
         document.getElementById("aev-blocked-warning").style.display = "none";
-        // Reset client phone fields
+        // Reset client fields (phone, id, suggestions)
         const aevClientPhoneEl = document.getElementById("aev-client-phone");
         if (aevClientPhoneEl) aevClientPhoneEl.value = "";
+        const aevClientIdEl = document.getElementById("aev-client-id");
+        if (aevClientIdEl) aevClientIdEl.value = "";
         const aevClientPhoneDisp = document.getElementById("aev-client-phone-display");
         if (aevClientPhoneDisp) aevClientPhoneDisp.innerHTML = "";
         const aevClientSugg = document.getElementById("aev-client-suggestions");
@@ -7948,6 +7958,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               time:        eventObj.time,
               timeEnd:     eventObj.timeEnd || null,
               client:      eventObj.client || null,
+              // client_id és null si l'usuari ha escrit un nom lliure (no seleccionat de la BD)
+              client_id:   parseInt(document.getElementById('aev-client-id')?.value || '') || null,
               service:     eventObj.service || null,
               notes:       eventObj.notes || null,
               private:     eventObj.private,
@@ -10793,6 +10805,11 @@ ${dateStr} a les ${eventData.time}`,
         const displayId = phoneInputId.replace('-phone', '-phone-display');
         const waInfoId = inputId === 'ev-client' ? 'ev-wa-phone-info' : null;
 
+        // Cada vegada que el text canvia, esborrar el client_id seleccionat prèviament
+        // (l'usuari pot estar escrivint un nom lliure, no necessàriament de la BD)
+        const clientIdField = document.getElementById(inputId + '-id');
+        if (clientIdField) clientIdField.value = "";
+
         // Si el campo fue limpiado manualmente, quitar el teléfono
         if (!query) {
           if (phoneInput) phoneInput.value = "";
@@ -10844,6 +10861,9 @@ ${dateStr} a les ${eventData.time}`,
         if (input) input.value = c.name;
         if (phoneInput) phoneInput.value = c.phone || "";
         if (list) { list.classList.remove("open"); list.innerHTML = ""; }
+        // Guardar l'id del client seleccionat de la BD al camp ocult
+        const clientIdField = document.getElementById(inputId + '-id');
+        if (clientIdField) clientIdField.value = String(clientId);
         const displayId = phoneInputId.replace('-phone', '-phone-display');
         const waInfoId = inputId === 'ev-client' ? 'ev-wa-phone-info' : null;
         updateClientPhoneDisplay(phoneInputId, displayId, waInfoId);

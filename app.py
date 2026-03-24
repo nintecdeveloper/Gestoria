@@ -1432,6 +1432,9 @@ def create_event():
     """Crea un nou event i el retorna amb l'id assignat per la BD."""
     try:
         data = request.get_json(force=True) or {}
+        # client_id és informatiu (prové del frontend si el client existeix a la BD)
+        # però NO es persiste a Event — el nom s'emmagatzema sempre com a text a client_name
+        # data.get('client_id') s'ignora intencionadament
         ev = Event(
             date          = data.get('date', ''),
             start_time    = data.get('time', ''),
