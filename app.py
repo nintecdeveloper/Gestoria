@@ -1414,6 +1414,47 @@ def api_health():
     }), 200
 
 # ═══════════════════════════════════════════════════════════════
+# API ADMIN — Eines d'administració (només rol admin)
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/admin/reset-data', methods=['POST'])
+def admin_reset_data():
+    """Esborra tots els events, missatges i recordatoris personals de la BD.
+    Només accessible per usuaris amb rol 'admin'.
+    NO esborra: usuaris, clients ni serveis.
+    """
+    user_role = request.headers.get('X-User-Role', '')
+    if user_role != 'admin':
+        return jsonify({'ok': False, 'error': 'Accés denegat. Nomes administradors.'}), 403
+
+    try:
+        deleted_events    = Event.query.delete()
+        deleted_messages  = Message.query.delete()
+        deleted_reminders = PersonalReminder.query.delete()
+        db.session.commit()
+
+        result = {
+            'ok': True,
+            'deleted': {
+                'events':    deleted_events,
+                'messages':  deleted_messages,
+                'reminders': deleted_reminders,
+            },
+            'timestamp': datetime.utcnow().isoformat(),
+        }
+        logger.info(
+            f"[RESET] BD neta per admin: "
+            f"{deleted_events} events, "
+            f"{deleted_messages} missatges, "
+            f"{deleted_reminders} recordatoris"
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"[RESET] Error: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
 # API EVENTS — Persistència d'events de calendari a PostgreSQL
 # ═══════════════════════════════════════════════════════════════
 
