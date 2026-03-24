@@ -1419,8 +1419,7 @@ def api_health():
 
 @app.route('/api/admin/reset-data', methods=['POST'])
 def admin_reset_data():
-    """Esborra tots els events, missatges i recordatoris personals de la BD
-    i també buida el fitxer JSON de missatges legacy (messages_data.json).
+    """Esborra tots els events, missatges i recordatoris personals de la BD.
     Només accessible per usuaris amb rol 'admin'.
     NO esborra: usuaris, clients ni serveis.
     """
@@ -1429,42 +1428,25 @@ def admin_reset_data():
         return jsonify({'ok': False, 'error': 'Accés denegat. Nomes administradors.'}), 403
 
     try:
-        # 1. Esborrar taules de BD
         deleted_events    = Event.query.delete()
         deleted_messages  = Message.query.delete()
         deleted_reminders = PersonalReminder.query.delete()
         db.session.commit()
 
-        # 2. Buidar el dict en memòria dels missatges legacy
-        global message_storage
-        message_storage = {'general': [], 'sede_mataro': [], 'sede_vilassar': []}
-
-        # 3. Sobreescriure el fitxer JSON de missatges legacy amb estructura buida
-        json_cleared = False
-        try:
-            with _storage_lock:
-                with open(STORAGE_FILE, 'w', encoding='utf-8') as f:
-                    json.dump(message_storage, f, ensure_ascii=False, indent=2)
-            json_cleared = True
-        except Exception as je:
-            logger.warning(f"[RESET] No s'ha pogut buidar {STORAGE_FILE}: {je}")
-
         result = {
             'ok': True,
             'deleted': {
-                'events':       deleted_events,
-                'messages':     deleted_messages,
-                'reminders':    deleted_reminders,
+                'events':    deleted_events,
+                'messages':  deleted_messages,
+                'reminders': deleted_reminders,
             },
-            'json_file_cleared': json_cleared,
             'timestamp': datetime.utcnow().isoformat(),
         }
         logger.info(
             f"[RESET] BD neta per admin: "
             f"{deleted_events} events, "
             f"{deleted_messages} missatges, "
-            f"{deleted_reminders} recordatoris. "
-            f"JSON: {'ok' if json_cleared else 'error'}"
+            f"{deleted_reminders} recordatoris"
         )
         return jsonify(result), 200
     except Exception as e:
