@@ -3022,12 +3022,20 @@
             <div class="nav-subitem" id="nav-cal-mataro-cap" onclick="openUserCalendar(1, 'Antonio')" style="display:none">
               👤 Cal. Antonio
             </div>
+            <!-- Cal. Pau — visible per a Antonio (cap de Mataró veu el cap de Vilassar) -->
+            <div class="nav-subitem" id="nav-cal-pau-for-antonio" onclick="openUserCalendar(3, 'Pau')" style="display:none">
+              👤 Cal. Pau
+            </div>
             <div class="nav-subitem admin-only" id="nav-vilassar-calendar" onclick="showSection('vilassar-calendar')">
               📍 Calendario Vilassar
             </div>
             <!-- Cal. Pau — visible només per a no-admins de Vilassar -->
             <div class="nav-subitem" id="nav-cal-vilassar-cap" onclick="openUserCalendar(3, 'Pau')" style="display:none">
               👤 Cal. Pau
+            </div>
+            <!-- Cal. Antonio — visible per a Pau (cap de Vilassar veu el cap de Mataró) -->
+            <div class="nav-subitem" id="nav-cal-antonio-for-pau" onclick="openUserCalendar(1, 'Antonio')" style="display:none">
+              👤 Cal. Antonio
             </div>
             <!-- Cal. Administradores (amagat per a no-admins, substituït per les entrades de cap de seu) -->
             <div class="nav-subitem" id="nav-admin-view-calendar" onclick="showSection('admin-view-calendar')">
@@ -5725,6 +5733,17 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const calVilassarCap = document.getElementById('nav-cal-vilassar-cap');
         if (calVilassarCap) {
           calVilassarCap.style.display = (!isAdmin && userSede === 'Vilassar') ? '' : 'none';
+        }
+
+        // ✅ Caps de seu: es veuen mútuament el calendari
+        // Antonio (id=1) veu Cal. Pau; Pau (id=3) veu Cal. Antonio
+        const calPauForAntonio = document.getElementById('nav-cal-pau-for-antonio');
+        if (calPauForAntonio) {
+          calPauForAntonio.style.display = (currentUser.id === 1) ? '' : 'none';
+        }
+        const calAntonioForPau = document.getElementById('nav-cal-antonio-for-pau');
+        if (calAntonioForPau) {
+          calAntonioForPau.style.display = (currentUser.id === 3) ? '' : 'none';
         }
 
         // ✅ Calendaris Departamentals: estructura diferent per admins i no-admins
