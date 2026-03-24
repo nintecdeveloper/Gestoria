@@ -317,6 +317,19 @@ class Message(db.Model):
             'sede':               self.sede,
         }
 
+class LastRead(db.Model):
+    """Guarda l'últim missatge llegit per cada usuari i conversa.
+    Permet calcular unread counts persistents entre sessions i workers.
+    """
+    __tablename__ = 'last_read'
+    id       = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(200), nullable=False)
+    conv_id  = db.Column(db.String(300), nullable=False)
+    last_pk  = db.Column(db.Integer,     nullable=False, default=0)
+    __table_args__ = (
+        db.UniqueConstraint('username', 'conv_id', name='uq_lastread_user_conv'),
+    )
+
 import uuid
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -957,11 +970,73 @@ def send_message_api(conv_id):
 
 @app.route('/api/messages/<conv_id>/read', methods=['POST'])
 def mark_messages_read(conv_id):
-    """Marca todos los mensajes de una conversación como leídos"""
-    messages = message_storage.get(conv_id, [])
-    for m in messages:
-        m['read'] = True
-    return jsonify({'ok': True})
+    """Marca una conversa com a llegida per l'usuari indicat.
+    Guarda a PostgreSQL l'últim pk de missatge llegit (persistent entre sessions i workers).
+    """
+    data = request.get_json(force=True) or {}
+    username = (data.get('username') or '').strip()
+    if not username:
+        return jsonify({'ok': True})  # ignorar si no hi ha username
+
+    # Normalitzar conv_id privat
+    norm_id = conv_id
+    if conv_id.startswith('private_'):
+        parts = conv_id.replace('private_', '', 1).split('_', 1)
+        if len(parts) == 2:
+            norm_id = private_conv_id(parts[0], parts[1])
+
+    try:
+        from sqlalchemy import func as sqlfunc
+        max_pk = db.session.query(sqlfunc.max(Message.pk)).filter_by(conv_id=norm_id).scalar() or 0
+
+        lr = LastRead.query.filter_by(username=username, conv_id=norm_id).first()
+        if lr:
+            if max_pk > lr.last_pk:
+                lr.last_pk = max_pk
+        else:
+            lr = LastRead(username=username, conv_id=norm_id, last_pk=max_pk)
+            db.session.add(lr)
+        db.session.commit()
+        return jsonify({'ok': True, 'last_pk': max_pk})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"[LastRead] Error: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/unread-counts', methods=['GET'])
+def get_unread_counts():
+    """Retorna el recompte de missatges no llegits per conv_id per a l'usuari indicat.
+    Compara els pks de Message amb l'últim pk llegit (LastRead) per cada conversa.
+    """
+    username = (request.args.get('username') or '').strip()
+    if not username:
+        return jsonify({'ok': False, 'counts': {}}), 400
+    try:
+        from sqlalchemy import func as sqlfunc
+        # Mapa d'últims pks llegits per aquest usuari
+        last_reads = {
+            lr.conv_id: lr.last_pk
+            for lr in LastRead.query.filter_by(username=username).all()
+        }
+        # Totes les converses amb missatges
+        conv_ids = [
+            row[0] for row in
+            db.session.query(Message.conv_id).distinct().all()
+        ]
+        counts = {}
+        for cid in conv_ids:
+            last_pk = last_reads.get(cid, 0)
+            unread = Message.query.filter(
+                Message.conv_id == cid,
+                Message.pk > last_pk,
+                Message.sender_username != username
+            ).count()
+            if unread > 0:
+                counts[cid] = unread
+        return jsonify({'ok': True, 'counts': counts})
+    except Exception as e:
+        logger.error(f"[UnreadCounts] Error: {str(e)}")
+        return jsonify({'ok': False, 'counts': {}}), 500
 
 @app.route('/api/messages/attachment/<msg_id>/<filename>', methods=['GET'])
 def get_message_attachment(msg_id, filename):
