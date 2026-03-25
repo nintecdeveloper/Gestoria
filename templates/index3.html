@@ -4891,6 +4891,8 @@
                 GENERAL_CHAT.push(norm);
                 hasChanges = true;
                 if (activeConvId === 'general-chat') {
+                  // Usuari té el xat obert: marcar com a llegit al servidor
+                  markConvRead('general');
                   renderGeneralChat();
                 } else if (!norm.mine) {
                   showChatToast(msg.sender_username || 'Chat General', msg.text || '');
@@ -4907,6 +4909,8 @@
                 CONVS[convId].push(norm);
                 hasChanges = true;
                 if (activeSedeChat === sedeKey) {
+                  // Usuari té el xat obert: marcar com a llegit al servidor
+                  markConvRead(convId);
                   CONVS[convId].forEach(m => { if (!m.mine) m.read = true; });
                   renderMsgsFromArray(CONVS[convId]);
                 } else if (!norm.mine) {
@@ -4933,6 +4937,7 @@
                 CONVS[cid].push(norm);
                 hasChanges = true;
                 if (activeConvId === senderUser.id) {
+                  markConvRead(convId);
                   renderMsgs(senderUser.id);
                 } else {
                   showChatToast(senderName, msg.text || '');
@@ -9253,7 +9258,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         // ✅ FIX CRÍTICO: Leer de GENERAL_CHAT, no de CONVS['general-chat']
         const generalMsgs = GENERAL_CHAT || [];
         const generalLast = generalMsgs.length ? generalMsgs[generalMsgs.length - 1] : null;
-        const generalUnread = generalMsgs.filter(m => !m.mine && !m.read).length;
+        const generalUnread = _serverUnreadCounts['general'] || 0;
         const isGeneralActive = activeConvId === 'general-chat' ? 'active' : '';
         
         generalChatHtml = `<div class="msg-conv ${isGeneralActive}" onclick="openGeneralChat()">
