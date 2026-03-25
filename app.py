@@ -1006,19 +1006,21 @@ def mark_messages_read(conv_id):
 @app.route('/api/unread-counts', methods=['GET'])
 def get_unread_counts():
     """Retorna el recompte de missatges no llegits per conv_id per a l'usuari indicat.
-    Compara els pks de Message amb l'últim pk llegit (LastRead) per cada conversa.
+    Si l'usuari no té cap registre LastRead (primera sessió amb el sistema),
+    retorna needs_init=True i counts={} en lloc de comptar tots com a no llegits.
     """
     username = (request.args.get('username') or '').strip()
     if not username:
         return jsonify({'ok': False, 'counts': {}}), 400
     try:
         from sqlalchemy import func as sqlfunc
-        # Mapa d'últims pks llegits per aquest usuari
-        last_reads = {
-            lr.conv_id: lr.last_pk
-            for lr in LastRead.query.filter_by(username=username).all()
-        }
-        # Totes les converses amb missatges
+        last_reads_rows = LastRead.query.filter_by(username=username).all()
+
+        # Primera sessió: cap registre LastRead → inicialitzar al frontend
+        if not last_reads_rows:
+            return jsonify({'ok': True, 'counts': {}, 'needs_init': True})
+
+        last_reads = {lr.conv_id: lr.last_pk for lr in last_reads_rows}
         conv_ids = [
             row[0] for row in
             db.session.query(Message.conv_id).distinct().all()
@@ -1033,10 +1035,47 @@ def get_unread_counts():
             ).count()
             if unread > 0:
                 counts[cid] = unread
-        return jsonify({'ok': True, 'counts': counts})
+        return jsonify({'ok': True, 'counts': counts, 'needs_init': False})
     except Exception as e:
         logger.error(f"[UnreadCounts] Error: {str(e)}")
         return jsonify({'ok': False, 'counts': {}}), 500
+
+@app.route('/api/messages/init-session', methods=['POST'])
+def init_session_read():
+    """Inicialitza LastRead per a l'usuari: marca tots els missatges existents
+    com a llegits. S'usa la primera vegada que l'usuari entra amb el sistema nou
+    per evitar que tots els missatges antics apareguin com a no llegits.
+    """
+    data = request.get_json(force=True) or {}
+    username = (data.get('username') or '').strip()
+    if not username:
+        return jsonify({'ok': False, 'error': 'username requerit'}), 400
+    try:
+        from sqlalchemy import func as sqlfunc
+        # Per cada conv_id existent, crear LastRead al max pk actual
+        conv_max_pks = db.session.query(
+            Message.conv_id,
+            sqlfunc.max(Message.pk)
+        ).group_by(Message.conv_id).all()
+
+        initialized = 0
+        for conv_id, max_pk in conv_max_pks:
+            if max_pk is None:
+                continue
+            lr = LastRead.query.filter_by(username=username, conv_id=conv_id).first()
+            if lr:
+                lr.last_pk = max(lr.last_pk, max_pk)
+            else:
+                lr = LastRead(username=username, conv_id=conv_id, last_pk=max_pk)
+                db.session.add(lr)
+            initialized += 1
+        db.session.commit()
+        logger.info(f"[InitSession] {username}: {initialized} converses inicialitzades")
+        return jsonify({'ok': True, 'initialized': initialized})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"[InitSession] Error: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 @app.route('/api/messages/attachment/<msg_id>/<filename>', methods=['GET'])
 def get_message_attachment(msg_id, filename):

@@ -4750,12 +4750,35 @@
           if (!res.ok) return;
           const data = await res.json();
           if (!data.ok) return;
-          _serverUnreadCounts = data.counts || {};
+
+          if (data.needs_init) {
+            // Primera sessió amb el sistema last_read:
+            // marcar tots els missatges existents com a llegits → 0 no llegits
+            console.log('[Unread] Primera sessió — inicialitzant last_read al servidor...');
+            await initSessionRead();
+            _serverUnreadCounts = {};
+          } else {
+            _serverUnreadCounts = data.counts || {};
+          }
           updateBadge();
           buildMsgList(document.getElementById('msg-search-inp')?.value || '');
           if (document.getElementById('section-dashboard')?.classList.contains('active')) {
             renderDashboard();
           }
+        } catch(e) {}
+      }
+
+      /** Marca tots els missatges existents com a llegits per a l'usuari actual.
+       *  S'usa la primera vegada amb el sistema last_read per evitar falsos no llegits.
+       */
+      async function initSessionRead() {
+        if (!currentUser) return;
+        try {
+          await fetch('/api/messages/init-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: currentUser.name })
+          });
         } catch(e) {}
       }
 
