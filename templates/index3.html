@@ -4882,6 +4882,9 @@
 
           let hasChanges = false;
 
+          // true si la secció de missatgeria és visible ara mateix
+          const inMsgsSection = !!document.getElementById('section-messages')?.classList.contains('active');
+
           newMsgs.forEach(msg => {
             const norm = _normMsg(msg);
 
@@ -4890,7 +4893,7 @@
               if (!GENERAL_CHAT.some(m => m.id === msg.id)) {
                 GENERAL_CHAT.push(norm);
                 hasChanges = true;
-                if (activeConvId === 'general-chat') {
+                if (inMsgsSection && activeConvId === 'general-chat') {
                   // Usuari té el xat obert: marcar com a llegit al servidor
                   markConvRead('general');
                   renderGeneralChat();
@@ -4908,7 +4911,7 @@
               if (!CONVS[convId].some(m => m.id === msg.id)) {
                 CONVS[convId].push(norm);
                 hasChanges = true;
-                if (activeSedeChat === sedeKey) {
+                if (inMsgsSection && activeSedeChat === sedeKey) {
                   // Usuari té el xat obert: marcar com a llegit al servidor
                   markConvRead(convId);
                   CONVS[convId].forEach(m => { if (!m.mine) m.read = true; });
@@ -4933,10 +4936,10 @@
               const cid = convKey(currentUser.id, senderUser.id);
               if (!CONVS[cid]) CONVS[cid] = [];
               if (!CONVS[cid].some(m => m.id === msg.id)) {
-                norm.read = (activeConvId === senderUser.id);
+                norm.read = (inMsgsSection && activeConvId === senderUser.id);
                 CONVS[cid].push(norm);
                 hasChanges = true;
-                if (activeConvId === senderUser.id) {
+                if (inMsgsSection && activeConvId === senderUser.id) {
                   markConvRead(convId);
                   renderMsgs(senderUser.id);
                 } else {
