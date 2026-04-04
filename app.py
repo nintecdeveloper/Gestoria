@@ -1,5 +1,6 @@
 import os
 import json
+import threading
 from flask import Flask, render_template, jsonify, request, send_file
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy
@@ -242,6 +243,7 @@ class Event(db.Model):
     is_private    = db.Column(db.Boolean,     default=False)
     wa_reminder   = db.Column(db.String(500), nullable=True)   # JSON string
     pr_reminder   = db.Column(db.String(1000),nullable=True)   # JSON string
+    google_calendar_event_id = db.Column(db.String(255), nullable=True)  # Google Calendar sync
     created_at    = db.Column(db.DateTime,    default=datetime.utcnow)
 
     def to_dict(self):
@@ -1609,6 +1611,17 @@ def create_event():
         )
         db.session.add(ev)
         db.session.commit()
+
+        # Sync asíncron a Google Calendar
+        ev_id = ev.id
+        def _sync_new():
+            from calendar_sync import sync_event_to_calendar
+            with app.app_context():
+                event = Event.query.get(ev_id)
+                if event:
+                    sync_event_to_calendar(event, db.session)
+        threading.Thread(target=_sync_new, daemon=True).start()
+
         return jsonify({'ok': True, 'event': ev.to_dict()}), 201
     except Exception as e:
         db.session.rollback()
@@ -1635,6 +1648,16 @@ def update_event(ev_id):
         ev.wa_reminder   = json.dumps(data['waReminder']) if data.get('waReminder') else (None if 'waReminder' in data else ev.wa_reminder)
         ev.pr_reminder   = json.dumps(data['prReminders']) if data.get('prReminders') else (None if 'prReminders' in data else ev.pr_reminder)
         db.session.commit()
+
+        # Sync asíncron a Google Calendar
+        def _sync_update():
+            from calendar_sync import sync_event_to_calendar
+            with app.app_context():
+                event = Event.query.get(ev_id)
+                if event:
+                    sync_event_to_calendar(event, db.session)
+        threading.Thread(target=_sync_update, daemon=True).start()
+
         return jsonify({'ok': True, 'event': ev.to_dict()})
     except Exception as e:
         db.session.rollback()
@@ -1648,12 +1671,41 @@ def delete_event(ev_id):
         ev = Event.query.get(ev_id)
         if not ev:
             return jsonify({'ok': False, 'error': 'Event no trobat'}), 404
+
+        # Eliminar del Google Calendar abans d'esborrar de la BD
+        gcal_id = ev.google_calendar_event_id
         db.session.delete(ev)
         db.session.commit()
+
+        if gcal_id:
+            def _sync_delete():
+                from calendar_sync import delete_event_from_calendar
+                from types import SimpleNamespace
+                dummy = SimpleNamespace(google_calendar_event_id=gcal_id)
+                delete_event_from_calendar(dummy)
+            threading.Thread(target=_sync_delete, daemon=True).start()
+
         return jsonify({'ok': True, 'deleted': ev_id})
     except Exception as e:
         db.session.rollback()
         logger.error(f"❌ [Events DELETE {ev_id}] {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
+# GOOGLE CALENDAR — Sincronització massiva (one-time)
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/calendar/sync-all', methods=['POST'])
+def calendar_sync_all():
+    """Sincronitza tots els events futurs pendents al Google Calendar."""
+    try:
+        from calendar_sync import sync_all_future_events
+        def _run():
+            sync_all_future_events(app)
+        threading.Thread(target=_run, daemon=True).start()
+        return jsonify({'ok': True, 'message': 'Sincronització iniciada en segon pla'})
+    except Exception as e:
+        logger.error(f"❌ [Calendar Sync All] {str(e)}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 # ═══════════════════════════════════════════════════════════════
@@ -1740,6 +1792,14 @@ with app.app_context():
     try:
         db.create_all()
         logger.info("✅ Taules de BD creades/verificades correctament")
+        # Migració: afegir google_calendar_event_id si no existeix
+        from sqlalchemy import inspect as sa_inspect, text
+        insp = sa_inspect(db.engine)
+        cols = [c['name'] for c in insp.get_columns('events')]
+        if 'google_calendar_event_id' not in cols:
+            db.session.execute(text('ALTER TABLE events ADD COLUMN google_calendar_event_id VARCHAR(255)'))
+            db.session.commit()
+            logger.info("✅ Migració: afegit camp google_calendar_event_id a events")
     except Exception as _e:
         logger.error(f"❌ Error creant taules: {_e}")
 
