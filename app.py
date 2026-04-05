@@ -1,7 +1,7 @@
 import os
 import json
 import threading
-from flask import Flask, render_template, jsonify, request, send_file
+from flask import Flask, render_template, jsonify, request, send_file, redirect, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -1690,6 +1690,191 @@ def delete_event(ev_id):
         db.session.rollback()
         logger.error(f"❌ [Events DELETE {ev_id}] {str(e)}")
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
+# GOOGLE CALENDAR — OAuth Web Flow (autorització externa)
+# ═══════════════════════════════════════════════════════════════
+
+GOOGLE_AUTH_TOKEN = os.environ.get('GOOGLE_AUTH_TOKEN')
+RENDER_API_KEY = os.environ.get('RENDER_API_KEY')
+RENDER_SERVICE_ID = os.environ.get('RENDER_SERVICE_ID')
+GOOGLE_OAUTH_REDIRECT_URI = 'https://gestoriarodonverges.com/auth/google/callback'
+
+@app.route('/auth/google')
+def google_auth_start():
+    """
+    Redirigeix l'usuari a Google per autoritzar el Calendar.
+    Protegit amb token secret a la URL: /auth/google?token=XXXX
+    """
+    # Validar token secret
+    token = request.args.get('token')
+    if not GOOGLE_AUTH_TOKEN or token != GOOGLE_AUTH_TOKEN:
+        return jsonify({'error': 'Accés denegat'}), 403
+
+    client_id = os.environ.get('GOOGLE_CLIENT_ID')
+    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+    if not client_id or not client_secret:
+        return jsonify({'error': 'Credencials Google no configurades al servidor'}), 500
+
+    from google_auth_oauthlib.flow import Flow
+    flow = Flow.from_client_config(
+        {
+            "web": {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [GOOGLE_OAUTH_REDIRECT_URI],
+            }
+        },
+        scopes=['https://www.googleapis.com/auth/calendar'],
+        redirect_uri=GOOGLE_OAUTH_REDIRECT_URI,
+    )
+
+    authorization_url, state = flow.authorization_url(
+        access_type='offline',
+        prompt='consent',
+        login_hint='pau@rodonverges.com',
+    )
+
+    # Guardar state a la sessió per validar al callback
+    from flask import session
+    session['google_oauth_state'] = state
+    session['google_auth_token'] = token  # per re-validar al callback
+
+    return redirect(authorization_url)
+
+@app.route('/auth/google/callback')
+def google_auth_callback():
+    """
+    Callback de Google OAuth. Rep el codi d'autorització,
+    obté el refresh_token i el guarda a Render via API.
+    """
+    from flask import session
+
+    # Validar que ve d'un flow legítim
+    stored_token = session.get('google_auth_token')
+    if not GOOGLE_AUTH_TOKEN or stored_token != GOOGLE_AUTH_TOKEN:
+        return jsonify({'error': 'Accés denegat'}), 403
+
+    error = request.args.get('error')
+    if error:
+        return f"""
+        <html><body style="font-family:sans-serif;text-align:center;margin-top:80px;">
+        <h2 style="color:#e74c3c;">Autorització cancel·lada</h2>
+        <p>Google ha retornat un error: <strong>{error}</strong></p>
+        </body></html>
+        """, 400
+
+    client_id = os.environ.get('GOOGLE_CLIENT_ID')
+    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+
+    from google_auth_oauthlib.flow import Flow
+    flow = Flow.from_client_config(
+        {
+            "web": {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [GOOGLE_OAUTH_REDIRECT_URI],
+            }
+        },
+        scopes=['https://www.googleapis.com/auth/calendar'],
+        redirect_uri=GOOGLE_OAUTH_REDIRECT_URI,
+        state=session.get('google_oauth_state'),
+    )
+
+    # Obtenir tokens amb el codi d'autorització
+    flow.fetch_token(authorization_response=request.url)
+    creds = flow.credentials
+
+    if not creds.refresh_token:
+        return f"""
+        <html><body style="font-family:sans-serif;text-align:center;margin-top:80px;">
+        <h2 style="color:#e74c3c;">Error</h2>
+        <p>No s'ha obtingut el refresh_token. Prova a revocar l'accés a
+        <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>
+        i torna a autoritzar.</p>
+        </body></html>
+        """, 400
+
+    # Guardar el refresh_token a Render via API
+    render_ok = _save_refresh_token_to_render(creds.refresh_token)
+
+    # Actualitzar la variable en memòria per ús immediat
+    os.environ['GOOGLE_REFRESH_TOKEN'] = creds.refresh_token
+
+    if render_ok:
+        status_msg = "El token s'ha guardat correctament a Render."
+        color = "#2ecc71"
+    else:
+        status_msg = (
+            "El token s'ha activat en memòria però <strong>no s'ha pogut guardar a Render</strong>. "
+            "Afegeix-lo manualment: <br><code>GOOGLE_REFRESH_TOKEN=" + creds.refresh_token + "</code>"
+        )
+        color = "#f39c12"
+
+    return f"""
+    <html>
+    <body style="font-family:sans-serif;text-align:center;margin-top:80px;max-width:600px;margin-left:auto;margin-right:auto;">
+        <div style="background:#f8f9fa;border-radius:12px;padding:40px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+            <h1 style="color:{color};">Autorització completada correctament</h1>
+            <p style="font-size:18px;">El Google Calendar de <strong>pau@rodonverges.com</strong>
+            ja està connectat amb la Gestoria.</p>
+            <p style="color:#666;">{status_msg}</p>
+            <hr style="margin:20px 0;border:none;border-top:1px solid #ddd;">
+            <p style="color:#999;font-size:14px;">Pots tancar aquesta finestra.</p>
+        </div>
+    </body>
+    </html>
+    """
+
+def _save_refresh_token_to_render(refresh_token):
+    """
+    Guarda el GOOGLE_REFRESH_TOKEN a Render via la seva API.
+    Retorna True si ha anat bé, False si ha fallat.
+    """
+    if not RENDER_API_KEY or not RENDER_SERVICE_ID:
+        logger.warning("⚠️  [Google Auth] RENDER_API_KEY o RENDER_SERVICE_ID no configurats")
+        return False
+
+    try:
+        url = f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/env-vars"
+
+        # Primer, obtenir les env vars actuals per fer PUT
+        headers = {
+            'Authorization': f'Bearer {RENDER_API_KEY}',
+            'Content-Type': 'application/json',
+        }
+
+        # Render API: PUT per actualitzar una env var específica
+        put_url = f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/env-vars/GOOGLE_REFRESH_TOKEN"
+        resp = requests.put(
+            put_url,
+            headers=headers,
+            json={'value': refresh_token},
+        )
+
+        if resp.status_code in (200, 201):
+            logger.info("✅ [Google Auth] GOOGLE_REFRESH_TOKEN guardat a Render")
+            return True
+        else:
+            # Si no existeix, crear-la
+            resp2 = requests.post(
+                url,
+                headers=headers,
+                json=[{'key': 'GOOGLE_REFRESH_TOKEN', 'value': refresh_token}],
+            )
+            if resp2.status_code in (200, 201):
+                logger.info("✅ [Google Auth] GOOGLE_REFRESH_TOKEN creat a Render")
+                return True
+            logger.error(f"❌ [Google Auth] Error guardant a Render: {resp.status_code} {resp.text} / {resp2.status_code} {resp2.text}")
+            return False
+
+    except Exception as e:
+        logger.error(f"❌ [Google Auth] Error cridant Render API: {e}")
+        return False
 
 # ═══════════════════════════════════════════════════════════════
 # GOOGLE CALENDAR — Sincronització massiva (one-time)
