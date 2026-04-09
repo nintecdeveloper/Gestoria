@@ -89,7 +89,19 @@ def generar_password_username(username: str) -> str:
 # WHATSAPP — FUNCIONES DE ENVÍO
 # ═══════════════════════════════════════════════════════════════
 
-def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
+CATALAN_DAYS = {
+    0: 'Dilluns', 1: 'Dimarts', 2: 'Dimecres', 3: 'Dijous',
+    4: 'Divendres', 5: 'Dissabte', 6: 'Diumenge'
+}
+
+def format_date_catalan(date_str: str) -> str:
+    """Formata una data YYYY-MM-DD en català: 'Dijous 05/03/2026'."""
+    dt = datetime.strptime(date_str, '%Y-%m-%d')
+    day_name = CATALAN_DAYS[dt.weekday()]
+    return f"{day_name} {dt.strftime('%d/%m/%Y')}"
+
+def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text",
+                       template_params: list = None):
     """Envía un mensaje de WhatsApp via Meta Cloud API."""
     if not META_PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
         return {
@@ -97,11 +109,11 @@ def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
             'error': 'Credenciales Meta no configuradas en variables de entorno.',
             'configured': False
         }
-    
+
     phone = to_phone.strip()
     if not phone.startswith('+'):
         phone = '+34' + phone.lstrip('0')
-    
+
     if message_type == "text":
         payload = {
             "messaging_product": "whatsapp",
@@ -113,32 +125,38 @@ def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
             }
         }
     else:
+        template_data = {
+            "name": message_type,
+            "language": {
+                "code": "ca"
+            }
+        }
+        if template_params:
+            template_data["components"] = [{
+                "type": "body",
+                "parameters": [{"type": "text", "text": p} for p in template_params]
+            }]
         payload = {
             "messaging_product": "whatsapp",
             "to": phone.replace('+', ''),
             "type": "template",
-            "template": {
-                "name": message_type,
-                "language": {
-                    "code": "es_ES"
-                }
-            }
+            "template": template_data
         }
-    
+
     headers = {
         "Authorization": f"Bearer {META_ACCESS_TOKEN}",
         "Content-Type": "application/json"
     }
-    
+
     url = META_API_URL.format(phone_id=META_PHONE_NUMBER_ID)
-    
+
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         response.raise_for_status()
-        
+
         result = response.json()
         logger.info(f"✅ [Meta API] Mensaje enviado a {phone} · ID: {result.get('messages', [{}])[0].get('id')}")
-        
+
         return {
             'ok': True,
             'message_id': result.get('messages', [{}])[0].get('id'),
@@ -155,9 +173,11 @@ def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
 # SCHEDULER — FUNCIONES
 # ═══════════════════════════════════════════════════════════════
 
-def send_whatsapp_job(to_phone: str, message: str):
+def send_whatsapp_job(to_phone: str, message: str, message_type: str = "text",
+                      template_params: list = None):
     """Trabajo del scheduler para enviar WhatsApp"""
-    result = send_whatsapp_meta(to_phone, message)
+    result = send_whatsapp_meta(to_phone, message, message_type=message_type,
+                                template_params=template_params)
     if result['ok']:
         logger.info(f"✅ [Scheduler/Meta] Recordatorio enviado a {to_phone}")
     else:
@@ -1341,17 +1361,32 @@ def import_clients_db():
     })
 @app.route('/api/whatsapp/send', methods=['POST'])
 def send_whatsapp():
-    """Envía un mensaje de WhatsApp"""
+    """Envía un mensaje de WhatsApp (texto o plantilla recordatori)"""
     data = request.get_json(silent=True) or {}
     to_phone = data.get('to', '').strip()
-    message = data.get('message', '').strip()
-    
+    use_template = data.get('use_template', False)
+
     if not to_phone:
         return jsonify({'ok': False, 'error': 'Falta el campo "to"'}), 400
-    if not message:
-        return jsonify({'ok': False, 'error': 'Falta el campo "message"'}), 400
-    
-    result = send_whatsapp_meta(to_phone, message)
+
+    if use_template:
+        client_name = data.get('client', '').strip()
+        event_date = data.get('date', '').strip()
+        event_time = data.get('time', '').strip()
+        event_sede = data.get('sede', '').strip()
+        if not all([client_name, event_date, event_time, event_sede]):
+            return jsonify({'ok': False, 'error': 'Falten camps: client, date, time, sede'}), 400
+        date_formatted = format_date_catalan(event_date)
+        time_formatted = event_time if event_time.endswith('h') else event_time + 'h'
+        template_params = [client_name, date_formatted, time_formatted, event_sede]
+        result = send_whatsapp_meta(to_phone, '', message_type='nom_recordatori_cita',
+                                    template_params=template_params)
+    else:
+        message = data.get('message', '').strip()
+        if not message:
+            return jsonify({'ok': False, 'error': 'Falta el campo "message"'}), 400
+        result = send_whatsapp_meta(to_phone, message)
+
     return jsonify(result)
 
 @app.route('/api/whatsapp/schedule', methods=['POST'])
@@ -1369,9 +1404,20 @@ def schedule_whatsapp():
     message = data.get('message', '').strip()
     send_at = data.get('send_at', '').strip()
     job_id = data.get('job_id', '').strip()
+    use_template = data.get('use_template', False)
 
-    if not to_phone or not message or not send_at or not job_id:
-        return jsonify({'ok': False, 'error': 'Faltan campos: to, message, send_at, job_id'}), 400
+    if not to_phone or not send_at or not job_id:
+        return jsonify({'ok': False, 'error': 'Faltan campos: to, send_at, job_id'}), 400
+
+    if use_template:
+        client_name = data.get('client', '').strip()
+        event_date = data.get('date', '').strip()
+        event_time = data.get('time', '').strip()
+        event_sede = data.get('sede', '').strip()
+        if not all([client_name, event_date, event_time, event_sede]):
+            return jsonify({'ok': False, 'error': 'Falten camps: client, date, time, sede'}), 400
+    elif not message:
+        return jsonify({'ok': False, 'error': 'Falta el campo "message"'}), 400
 
     # Parsear la fecha de envío
     try:
@@ -1394,12 +1440,21 @@ def schedule_whatsapp():
     except Exception:
         pass
 
+    # Preparar argumentos del job
+    if use_template:
+        date_formatted = format_date_catalan(event_date)
+        time_formatted = event_time if event_time.endswith('h') else event_time + 'h'
+        template_params = [client_name, date_formatted, time_formatted, event_sede]
+        job_args = [to_phone, '', 'nom_recordatori_cita', template_params]
+    else:
+        job_args = [to_phone, message]
+
     # Programar el trabajo
     try:
         scheduler.add_job(
             func=send_whatsapp_job,
             trigger=DateTrigger(run_date=send_dt),
-            args=[to_phone, message],
+            args=job_args,
             id=job_id,
             replace_existing=True
         )
