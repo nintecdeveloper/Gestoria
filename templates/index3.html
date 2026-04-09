@@ -10523,13 +10523,20 @@ ${dateStr} a les ${eventData.time}`,
         const phoneFormatted = formatPhoneForWa(clientPhone);
         const message = buildWaMessage(eventData);
 
-        // ── Modo automático: envío via servidor Twilio ──────
+        // ── Modo automático: envío via servidor Meta (plantilla) ──────
         if (WA_CONFIG.twilioReady && phoneFormatted) {
           try {
             const res = await fetch('/api/whatsapp/send', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ to: phoneFormatted, message })
+              body: JSON.stringify({
+                to: phoneFormatted,
+                use_template: true,
+                client: eventData.client,
+                date: eventData.date,
+                time: eventData.time,
+                sede: eventData.sede || 'Mataró'
+              })
             });
             const data = await res.json();
             if (data.ok) {
@@ -10643,8 +10650,12 @@ ${dateStr} a les ${eventData.time}`,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               to:      phoneClean,
-              message: message,
-              send_at: sendAtISO,  // ✅ Ahora es la hora correcta en la zona horaria local
+              use_template: true,
+              client:  eventData.client,
+              date:    eventData.date,
+              time:    eventData.time,
+              sede:    eventData.sede || 'Mataró',
+              send_at: sendAtISO,
               job_id:  jobId
             })
           })
