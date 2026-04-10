@@ -1261,6 +1261,68 @@ def get_clients():
         logger.error(f"❌ [Clients] Error: {str(e)}")
         return jsonify({'ok': False, 'error': str(e), 'clients': []}), 500
 
+@app.route('/api/clients', methods=['POST'])
+def create_client():
+    """Crea o actualitza un client individual a PostgreSQL."""
+    if not PSYCOPG2_AVAILABLE:
+        return jsonify({'ok': False, 'error': 'psycopg2 no disponible'}), 500
+    if not DATABASE_URL:
+        return jsonify({'ok': False, 'error': 'DATABASE_URL no configurada'}), 500
+
+    data = request.get_json(silent=True) or {}
+    nombre = (data.get('name') or '').strip()
+    telefono = (data.get('phone') or '').strip()
+    email = (data.get('email') or '').strip()
+    direccion = (data.get('address') or '').strip()
+    ciudad = (data.get('city') or '').strip()
+    cif = (data.get('cif') or '').strip()
+    notas = (data.get('notes') or '').strip()
+    client_id = data.get('id')  # Si ve un ID, és una actualització
+
+    if not nombre or not telefono:
+        return jsonify({'ok': False, 'error': 'Nom i telèfon són obligatoris'}), 400
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        if client_id:
+            # Actualització d'un client existent
+            cur.execute("""
+                UPDATE clients SET nombre=%s, telefono=%s, email=%s, direccion=%s,
+                       ciudad=%s, cif=%s, notas=%s
+                WHERE id=%s
+                RETURNING id
+            """, (nombre, telefono, email, direccion, ciudad, cif, notas, client_id))
+            row = cur.fetchone()
+            if not row:
+                cur.close()
+                conn.close()
+                return jsonify({'ok': False, 'error': 'Client no trobat'}), 404
+            result_id = row[0]
+        else:
+            # Nou client
+            cur.execute("""
+                INSERT INTO clients (nombre, telefono, email, direccion, ciudad, cif, notas, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (telefono) DO UPDATE SET nombre=EXCLUDED.nombre,
+                    email=EXCLUDED.email, direccion=EXCLUDED.direccion,
+                    ciudad=EXCLUDED.ciudad, cif=EXCLUDED.cif, notas=EXCLUDED.notas
+                RETURNING id
+            """, (nombre, telefono, email, direccion, ciudad, cif, notas))
+            result_id = cur.fetchone()[0]
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        logger.info(f"✅ [Clients] Client guardat: {nombre} (id={result_id})")
+        return jsonify({'ok': True, 'id': result_id})
+
+    except Exception as e:
+        logger.error(f"❌ [Clients] Error creant client: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
 @app.route('/api/clients/import', methods=['POST'])
 def import_clients_db():
     """Importa clients des d'Excel o CSV a PostgreSQL. Només admins."""

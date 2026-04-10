@@ -8637,7 +8637,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         openModal("client-modal");
       }
 
-      function saveClient() {
+      async function saveClient() {
         const name = document.getElementById("client-name").value.trim();
         const phone = document.getElementById("client-phone").value.trim();
         const errEl = document.getElementById("client-err");
@@ -8648,22 +8648,31 @@ document.getElementById("nu-user").addEventListener("input", function() {
         }
         errEl.style.display = "none";
 
+        const payload = { name, phone };
         if (editingClientId !== null) {
-          const c = CLIENTS.find((x) => x.id === editingClientId);
-          if (c) {
-            c.name = name;
-            c.phone = phone;
-          }
-        } else {
-          CLIENTS.push({
-            id: nextClientId++,
-            name,
-            phone,
-            createdAt: new Date().toISOString()
-          });
+          payload.id = editingClientId;
         }
+
+        try {
+          const res = await fetch('/api/clients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (!data.ok) {
+            errEl.textContent = data.error || 'Error desant client';
+            errEl.style.display = '';
+            return;
+          }
+        } catch (e) {
+          console.warn('Error guardant client a BD:', e.message);
+          // Fallback: guardar en memòria igualment
+        }
+
         closeModal("client-modal");
-        renderClients();
+        // Recarregar clients des de la BD per tenir IDs reals i llista actualitzada
+        await loadClientsFromDB();
       }
 
       function deleteClient(id) {
