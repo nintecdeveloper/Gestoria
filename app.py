@@ -1221,6 +1221,41 @@ def get_db_connection():
     """Connecta a PostgreSQL via DATABASE_URL"""
     return psycopg2.connect(DATABASE_URL)
 
+def ensure_clients_table():
+    """Crea la taula clients si no existeix."""
+    if not PSYCOPG2_AVAILABLE or not DATABASE_URL:
+        return
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS clients (
+                id SERIAL PRIMARY KEY,
+                nombre VARCHAR(255) NOT NULL,
+                telefono VARCHAR(50),
+                email VARCHAR(255),
+                direccion TEXT,
+                ciudad VARCHAR(100),
+                cif VARCHAR(20),
+                notas TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        # Assegurar índex UNIQUE en telefono (necessari per ON CONFLICT)
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_telefono
+            ON clients (telefono) WHERE telefono IS NOT NULL AND telefono != ''
+        """)
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info("✅ [DB] Taula 'clients' verificada/creada correctament")
+    except Exception as e:
+        logger.error(f"❌ [DB] Error creant taula clients: {str(e)}")
+
+# Crear taula al arrancar
+ensure_clients_table()
+
 def clean_phone(phone):
     """Neteja telèfons: elimina parèntesis, espais, guions"""
     if not phone:
@@ -1262,6 +1297,72 @@ def get_clients():
     except Exception as e:
         logger.error(f"❌ [Clients] Error: {str(e)}")
         return jsonify({'ok': False, 'error': str(e), 'clients': []}), 500
+
+@app.route('/api/clients', methods=['POST'])
+def create_client():
+    """Crea o actualitza un client individual a PostgreSQL."""
+    logger.info(f"📥 [Clients POST] Petició rebuda")
+    if not PSYCOPG2_AVAILABLE:
+        logger.error("❌ [Clients POST] psycopg2 no disponible")
+        return jsonify({'ok': False, 'error': 'psycopg2 no disponible'}), 500
+    if not DATABASE_URL:
+        logger.error("❌ [Clients POST] DATABASE_URL no configurada")
+        return jsonify({'ok': False, 'error': 'DATABASE_URL no configurada'}), 500
+
+    data = request.get_json(silent=True) or {}
+    logger.info(f"📥 [Clients POST] Dades: name={data.get('name')}, phone={data.get('phone')}, id={data.get('id')}")
+    nombre = (data.get('name') or '').strip()
+    telefono = (data.get('phone') or '').strip()
+    email = (data.get('email') or '').strip()
+    direccion = (data.get('address') or '').strip()
+    ciudad = (data.get('city') or '').strip()
+    cif = (data.get('cif') or '').strip()
+    notas = (data.get('notes') or '').strip()
+    client_id = data.get('id')  # Si ve un ID, és una actualització
+
+    if not nombre or not telefono:
+        return jsonify({'ok': False, 'error': 'Nom i telèfon són obligatoris'}), 400
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        if client_id:
+            # Actualització d'un client existent
+            cur.execute("""
+                UPDATE clients SET nombre=%s, telefono=%s, email=%s, direccion=%s,
+                       ciudad=%s, cif=%s, notas=%s
+                WHERE id=%s
+                RETURNING id
+            """, (nombre, telefono, email, direccion, ciudad, cif, notas, client_id))
+            row = cur.fetchone()
+            if not row:
+                cur.close()
+                conn.close()
+                return jsonify({'ok': False, 'error': 'Client no trobat'}), 404
+            result_id = row[0]
+        else:
+            # Nou client
+            cur.execute("""
+                INSERT INTO clients (nombre, telefono, email, direccion, ciudad, cif, notas, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (telefono) DO UPDATE SET nombre=EXCLUDED.nombre,
+                    email=EXCLUDED.email, direccion=EXCLUDED.direccion,
+                    ciudad=EXCLUDED.ciudad, cif=EXCLUDED.cif, notas=EXCLUDED.notas
+                RETURNING id
+            """, (nombre, telefono, email, direccion, ciudad, cif, notas))
+            result_id = cur.fetchone()[0]
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        logger.info(f"✅ [Clients] Client guardat: {nombre} (id={result_id})")
+        return jsonify({'ok': True, 'id': result_id})
+
+    except Exception as e:
+        logger.error(f"❌ [Clients] Error creant client: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 @app.route('/api/clients/import', methods=['POST'])
 def import_clients_db():
@@ -1498,12 +1599,14 @@ def whatsapp_status():
     elif not scheduler_ok:
         reasons.append("Scheduler no inicializado")
 
-    return jsonify({
+    status = {
         'meta_ready': meta_ok,
         'scheduler_ready': scheduler_ok,
         'fully_ready': meta_ok and scheduler_ok,
         'reason': ' · '.join(reasons) if reasons else 'Todo configurado correctamente'
-    })
+    }
+    logger.info(f"📱 [WA Status] meta_ready={meta_ok} scheduler_ready={scheduler_ok} fully_ready={meta_ok and scheduler_ok}")
+    return jsonify(status)
 
 @app.route('/api/whatsapp/webhook', methods=['GET'])
 def whatsapp_webhook_verify():

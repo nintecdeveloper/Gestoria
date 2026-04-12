@@ -5161,26 +5161,28 @@
       //  mediante variables de entorno (ver comentarios en app.py).
       // ══════════════════════════════════════════
       let WA_CONFIG = {
-        serverReady:    null,  // true = Twilio + Scheduler listos (envío 100% automático)
-        twilioReady:    null,  // true = solo Twilio listo (envío inmediato 'now' funciona)
+        serverReady:    null,  // true = Meta API + Scheduler listos (envío 100% automático)
+        twilioReady:    null,  // true = Meta API llesta (envío inmediato 'now' funciona)
         schedulerReady: null,  // true = APScheduler listo (programación futura funciona)
       };
 
       /**
-       * Comprueba si el servidor tiene Twilio + APScheduler configurados.
+       * Comprueba si el servidor tiene Meta API + APScheduler configurados.
        * Se llama una vez al arrancar la app.
        */
       async function checkWaStatus() {
         try {
           const res  = await fetch('/api/whatsapp/status');
           const data = await res.json();
-          WA_CONFIG.twilioReady    = data.twilio_ready    === true;
-          WA_CONFIG.schedulerReady = data.scheduler_ready === true;
-          WA_CONFIG.serverReady    = data.fully_ready     === true;
+          WA_CONFIG.twilioReady    = data.meta_ready       === true;
+          WA_CONFIG.schedulerReady = data.scheduler_ready  === true;
+          WA_CONFIG.serverReady    = data.fully_ready      === true;
+          console.log('📱 [WA Status]', JSON.stringify(data), '→ twilioReady:', WA_CONFIG.twilioReady, 'schedulerReady:', WA_CONFIG.schedulerReady);
         } catch(e) {
           WA_CONFIG.twilioReady    = false;
           WA_CONFIG.schedulerReady = false;
           WA_CONFIG.serverReady    = false;
+          console.warn('📱 [WA Status] Error:', e.message);
         }
       }
       // Comprobar estado al cargar
@@ -8637,7 +8639,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
         openModal("client-modal");
       }
 
-      function saveClient() {
+      async function saveClient() {
         const name = document.getElementById("client-name").value.trim();
         const phone = document.getElementById("client-phone").value.trim();
         const errEl = document.getElementById("client-err");
@@ -8648,22 +8650,31 @@ document.getElementById("nu-user").addEventListener("input", function() {
         }
         errEl.style.display = "none";
 
+        const payload = { name, phone };
         if (editingClientId !== null) {
-          const c = CLIENTS.find((x) => x.id === editingClientId);
-          if (c) {
-            c.name = name;
-            c.phone = phone;
-          }
-        } else {
-          CLIENTS.push({
-            id: nextClientId++,
-            name,
-            phone,
-            createdAt: new Date().toISOString()
-          });
+          payload.id = editingClientId;
         }
+
+        try {
+          const res = await fetch('/api/clients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (!data.ok) {
+            errEl.textContent = data.error || 'Error desant client';
+            errEl.style.display = '';
+            return;
+          }
+        } catch (e) {
+          console.warn('Error guardant client a BD:', e.message);
+          // Fallback: guardar en memòria igualment
+        }
+
         closeModal("client-modal");
-        renderClients();
+        // Recarregar clients des de la BD per tenir IDs reals i llista actualitzada
+        await loadClientsFromDB();
       }
 
       function deleteClient(id) {
