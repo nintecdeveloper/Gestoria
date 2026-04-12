@@ -5177,7 +5177,10 @@
           WA_CONFIG.twilioReady    = data.meta_ready       === true;
           WA_CONFIG.schedulerReady = data.scheduler_ready  === true;
           WA_CONFIG.serverReady    = data.fully_ready      === true;
-          console.log('📱 [WA Status]', JSON.stringify(data), '→ twilioReady:', WA_CONFIG.twilioReady, 'schedulerReady:', WA_CONFIG.schedulerReady);
+          console.log('📱 [WA Status]', JSON.stringify(data),
+            '→ metaReady:', WA_CONFIG.twilioReady,
+            'schedulerReady:', WA_CONFIG.schedulerReady,
+            'serverReady:', WA_CONFIG.serverReady);
         } catch(e) {
           WA_CONFIG.twilioReady    = false;
           WA_CONFIG.schedulerReady = false;
@@ -5185,7 +5188,7 @@
           console.warn('📱 [WA Status] Error:', e.message);
         }
       }
-      // Comprobar estado al cargar
+      // Comprobar estado al cargar (primera vegada)
       checkWaStatus();
 
       // ══════════════════════════════════════════
@@ -5666,6 +5669,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         setTimeout(() => {
           startPolling();
         }, 500);
+
+        // Re-comprovar estat WhatsApp (per si la primera crida va fallar)
+        checkWaStatus();
 
         // Carregar clients des de la base de dades
         loadClientsFromDB();
@@ -10534,6 +10540,14 @@ ${dateStr} a les ${eventData.time}`,
         const phoneFormatted = formatPhoneForWa(clientPhone);
         const message = buildWaMessage(eventData);
 
+        console.log('📱 [fireWaReminder]',
+          'client:', eventData.client,
+          'clientPhone:', clientPhone,
+          'phoneFormatted:', phoneFormatted,
+          'metaReady:', WA_CONFIG.twilioReady,
+          'schedulerReady:', WA_CONFIG.schedulerReady,
+          'serverReady:', WA_CONFIG.serverReady);
+
         // ── Modo automático: envío via servidor Meta (plantilla) ──────
         if (WA_CONFIG.twilioReady && phoneFormatted) {
           try {
@@ -10566,8 +10580,9 @@ ${dateStr} a les ${eventData.time}`,
         }
 
         // ── Modo manual: abrir wa.me (fallback) ─────────────
-        // Se usa cuando: Twilio no está configurado aún,
-        // el cliente no tiene teléfono, o hay un error del servidor.
+        // Se usa cuando: Meta API no configurada, sin teléfono, o error del servidor.
+        console.warn('📱 [fireWaReminder] Caient a mode manual wa.me.',
+          'Raó:', !WA_CONFIG.twilioReady ? 'Meta API no ready' : !phoneFormatted ? 'Sense telèfon' : 'Error del servidor');
         if (phoneFormatted) {
           window.open(`https://wa.me/${phoneFormatted}?text=${encodeURIComponent(message)}`, '_blank');
         } else {
