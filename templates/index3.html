@@ -7119,10 +7119,23 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         }
         
         // Cargar recordatorio WhatsApp si existe
+        // Primer netejar seleccions anteriors del dropdown
+        const waDropdown = document.getElementById('ev-wa-dropdown');
+        if (waDropdown) {
+          waDropdown.querySelectorAll('.wa-dropdown-opt').forEach(opt => opt.classList.remove('selected'));
+        }
         if (ev.waReminder) {
           _waReminders['ev'] = {
             [ev.waReminder.timing]: ev.waReminder.label
           };
+          // Marcar l'opció corresponent com a seleccionada al dropdown
+          if (waDropdown) {
+            waDropdown.querySelectorAll('.wa-dropdown-opt').forEach(opt => {
+              if (opt.getAttribute('onclick') && opt.getAttribute('onclick').includes("'" + ev.waReminder.timing + "'")) {
+                opt.classList.add('selected');
+              }
+            });
+          }
           _renderWaBadges('ev');
         } else {
           _waReminders['ev'] = {};
@@ -10540,12 +10553,23 @@ ${dateStr} a les ${eventData.time}`,
         const phoneFormatted = formatPhoneForWa(clientPhone);
         const message = buildWaMessage(eventData);
 
+        // Deduir sede del calendari o de l'usuari assignat
+        const sede = eventData.sede
+          || (USERS.find(u => u.id === eventData.assignedTo) || {}).sede
+          || (currentUser && currentUser.sede)
+          || 'Mataró';
+
+        // Si WA_CONFIG encara no s'ha carregat, reintentar ara
+        if (WA_CONFIG.twilioReady === null || WA_CONFIG.twilioReady === false) {
+          await checkWaStatus();
+        }
+
         console.log('📱 [fireWaReminder]',
           'client:', eventData.client,
           'clientPhone:', clientPhone,
           'phoneFormatted:', phoneFormatted,
+          'sede:', sede,
           'metaReady:', WA_CONFIG.twilioReady,
-          'schedulerReady:', WA_CONFIG.schedulerReady,
           'serverReady:', WA_CONFIG.serverReady);
 
         // ── Modo automático: envío via servidor Meta (plantilla) ──────
@@ -10560,27 +10584,23 @@ ${dateStr} a les ${eventData.time}`,
                 client: eventData.client,
                 date: eventData.date,
                 time: eventData.time,
-                sede: eventData.sede || 'Mataró'
+                sede: sede
               })
             });
             const data = await res.json();
             if (data.ok) {
-              console.log(`✅ WhatsApp enviado automáticamente a ${phoneFormatted}`);
-              // Notificación visual discreta (no intrusiva)
-              _showWaToast(`✅ WhatsApp enviado a ${eventData.client}`);
+              console.log(`✅ WhatsApp enviat automàticament a ${phoneFormatted}`);
+              _showWaToast(`✅ WhatsApp enviat a ${eventData.client}`);
               return;
             } else {
-              console.warn('⚠️ Twilio respondió con error:', data.error);
-              // Si falla Twilio, caer al modo manual
+              console.warn('⚠️ Meta API error:', data.error);
             }
           } catch(e) {
-            console.warn('⚠️ Error llamando al servidor WhatsApp:', e);
-            // Si falla la llamada, caer al modo manual
+            console.warn('⚠️ Error cridant /api/whatsapp/send:', e);
           }
         }
 
         // ── Modo manual: abrir wa.me (fallback) ─────────────
-        // Se usa cuando: Meta API no configurada, sin teléfono, o error del servidor.
         console.warn('📱 [fireWaReminder] Caient a mode manual wa.me.',
           'Raó:', !WA_CONFIG.twilioReady ? 'Meta API no ready' : !phoneFormatted ? 'Sense telèfon' : 'Error del servidor');
         if (phoneFormatted) {
@@ -10632,6 +10652,8 @@ ${dateStr} a les ${eventData.time}`,
             function scheduleWaReminder(eventData, reminderTiming) {
         if (!reminderTiming) return;
 
+        console.log('📱 [scheduleWaReminder] timing:', reminderTiming, 'client:', eventData.client);
+
         const timingMap = {
           'now': 0,
           '1h':  60 * 60 * 1000,
@@ -10651,6 +10673,7 @@ ${dateStr} a les ${eventData.time}`,
 
         // ── Timing 'now': envío inmediato ────────────────────
         if (reminderTiming === 'now' || timeUntil <= 0) {
+          console.log('📱 [scheduleWaReminder] Enviament immediat (now)');
           fireWaReminder(eventData);
           return;
         }
