@@ -1466,6 +1466,7 @@ def send_whatsapp():
     data = request.get_json(silent=True) or {}
     to_phone = data.get('to', '').strip()
     use_template = data.get('use_template', False)
+    logger.info(f"📤 [WA Send] Petició rebuda: to={to_phone}, use_template={use_template}, data={data}")
 
     if not to_phone:
         return jsonify({'ok': False, 'error': 'Falta el campo "to"'}), 400
