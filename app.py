@@ -423,6 +423,15 @@ message_storage = load_message_storage()
 # RUTAS PRINCIPALES
 # ═══════════════════════════════════════════════════════════════
 
+@app.after_request
+def add_no_cache_headers(response):
+    """Evitar cache del navegador per assegurar que sempre carrega la versió més recent."""
+    if response.content_type and 'text/html' in response.content_type:
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
+
 @app.route('/')
 def home():
     """Ruta principal"""
