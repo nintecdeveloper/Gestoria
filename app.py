@@ -120,7 +120,7 @@ def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text",
     if message_type == "text":
         payload = {
             "messaging_product": "whatsapp",
-            "to": phone.replace('+', ''),
+            "to": phone,
             "type": "text",
             "text": {
                 "preview_url": False,
@@ -141,7 +141,7 @@ def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text",
             }]
         payload = {
             "messaging_product": "whatsapp",
-            "to": phone.replace('+', ''),
+            "to": phone,
             "type": "template",
             "template": template_data
         }
