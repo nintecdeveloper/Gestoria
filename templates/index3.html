@@ -10430,7 +10430,9 @@ ${dateStr} a les ${eventData.time}`,
        */
       function formatPhoneForWa(phone) {
         if (!phone) return null;
-        return phone.replace(/[\s\-().]/g, '');
+        let clean = phone.replace(/[\s\-().]/g, '');
+        if (!clean.startsWith('+')) clean = '+34' + clean.replace(/^0+/, '');
+        return clean;
       }
 
       /**
