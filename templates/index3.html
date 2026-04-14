@@ -5302,15 +5302,24 @@
       //  Compara rangos: newStart < existingEnd AND newEnd > existingStart
       // ══════════════════════════════════════════
       function hasOverlappingEvent(assignedTo, date, timeStart, timeEnd, excludeEvId) {
-        const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+        const toMin = t => { if (!t) return null; const [h,m] = t.split(":").map(Number); return h*60+m; };
         const newS = toMin(timeStart);
-        const newE = toMin(timeEnd);
+        if (newS === null) return null; // Sense hora d'inici, no es pot comprovar
+        const newE = toMin(timeEnd);    // pot ser null si no hi ha hora fi
         return EVENTS.find(ev => {
           if (ev.assignedTo !== assignedTo) return false;
           if (ev.date !== date) return false;
           if (excludeEvId !== null && ev.id === excludeEvId) return false;
           const evS = toMin(ev.time);
-          const evE = ev.timeEnd ? toMin(ev.timeEnd) : evS + 60; // fallback 60min si no tiene fin
+          if (evS === null) return false;
+          const evE = toMin(ev.timeEnd);
+          // Si cap de les dues cites té hora fi, només solapem si és exactament la mateixa hora
+          if (newE === null && evE === null) return newS === evS;
+          // Si la nova cita no té hora fi, només solapa si l'hora d'inici cau dins la cita existent
+          if (newE === null) return newS >= evS && newS < evE;
+          // Si la cita existent no té hora fi, només solapa si la seva hora d'inici cau dins la nova
+          if (evE === null) return evS >= newS && evS < newE;
+          // Ambdues tenen rang complet: comparació estàndard
           return newS < evE && newE > evS;
         }) || null;
       }
@@ -10523,7 +10532,7 @@ ${dateStr} a les ${eventData.time}`,
       }
 
       /**
-       * Formatea un número de teléfono para wa.me (elimina espacios y +).
+       * Formatea un número de teléfon (elimina espais, guions, parèntesis).
        */
       function formatPhoneForWa(phone) {
         if (!phone) return null;
@@ -10545,8 +10554,8 @@ ${dateStr} a les ${eventData.time}`,
       }
 
       /**
-       * Envía el WhatsApp llamando al servidor (Twilio).
-       * Si Twilio no está listo, cae al modo manual (wa.me).
+       * Envia el WhatsApp via Meta API (plantilla nom_recordatori_cita).
+       * Si l'API no respon, mostra toast d'error. Mai obre finestres externes.
        */
       async function fireWaReminder(eventData) {
         const clientPhone = eventData.clientPhone || lookupClientPhone(eventData.client);
@@ -10600,16 +10609,15 @@ ${dateStr} a les ${eventData.time}`,
           }
         }
 
-        // ── Modo manual: abrir wa.me (fallback) ─────────────
-        console.warn('📱 [fireWaReminder] Caient a mode manual wa.me.',
-          'Raó:', !WA_CONFIG.twilioReady ? 'Meta API no ready' : !phoneFormatted ? 'Sense telèfon' : 'Error del servidor');
-        if (phoneFormatted) {
-          window.open(`https://wa.me/${phoneFormatted}?text=${encodeURIComponent(message)}`, '_blank');
+        // ── Error: notificar amb toast ─────────────
+        const reason = !WA_CONFIG.twilioReady ? 'Meta API no configurada'
+          : !phoneFormatted ? 'Client sense telèfon'
+          : 'Error del servidor';
+        console.error('📱 [fireWaReminder] No s\'ha pogut enviar.', 'Raó:', reason);
+        if (!phoneFormatted) {
+          _showWaToast(`⚠️ ${eventData.client}: no té telèfon registrat`);
         } else {
-          // Sin teléfono: ofrecer copiar el mensaje
-          if (confirm(`📱 Recordatori WhatsApp per a "${eventData.client}"\n\nNo hi ha telèfon registrat.\n\nCopiar el missatge al porta-retalls?\n\n"${message}"`)) {
-            try { navigator.clipboard.writeText(message); } catch(e) {}
-          }
+          _showWaToast(`⚠️ Error enviant WhatsApp a ${eventData.client}`);
         }
       }
 
@@ -10641,15 +10649,13 @@ ${dateStr} a les ${eventData.time}`,
        *
        * LÓGICA DE DECISIÓN:
        *
-       * Timing 'now'  → envío inmediato via /api/whatsapp/send (Twilio directo)
-       * Timing futuro → programación en el servidor via /api/whatsapp/schedule
-       *                 (APScheduler lo ejecuta aunque el navegador esté cerrado)
+       * Timing 'now'  → enviament immediat via /api/whatsapp/send (Meta API)
+       * Timing futuro → programació al servidor via /api/whatsapp/schedule
+       *                 (APScheduler l'executa encara que el navegador estigui tancat)
        *
-       * Fallback automático:
-       *   Si el servidor no está listo (Twilio o Scheduler sin configurar),
-       *   cae al modo manual (wa.me) para no perder el recordatorio.
+       * Si el servidor no respon, mostra toast d'error. Mai obre finestres externes.
        */
-            function scheduleWaReminder(eventData, reminderTiming) {
+            async function scheduleWaReminder(eventData, reminderTiming) {
         if (!reminderTiming) return;
 
         console.log('📱 [scheduleWaReminder] timing:', reminderTiming, 'client:', eventData.client);
@@ -10678,6 +10684,11 @@ ${dateStr} a les ${eventData.time}`,
           return;
         }
 
+        // Si WA_CONFIG encara no s'ha carregat, reintentar
+        if (WA_CONFIG.twilioReady === null || WA_CONFIG.twilioReady === false) {
+          await checkWaStatus();
+        }
+
         // ── Timing futuro: programar en el servidor ──────────
         if (WA_CONFIG.schedulerReady && WA_CONFIG.twilioReady && phoneClean) {
           const jobId = `wa_ev${eventData.id || Date.now()}_${reminderTiming}`;
@@ -10703,7 +10714,10 @@ ${dateStr} a les ${eventData.time}`,
               client:  eventData.client,
               date:    eventData.date,
               time:    eventData.time,
-              sede:    eventData.sede || 'Mataró',
+              sede:    eventData.sede
+                       || (USERS.find(u => u.id === eventData.assignedTo) || {}).sede
+                       || (currentUser && currentUser.sede)
+                       || 'Mataró',
               send_at: sendAtISO,
               job_id:  jobId
             })
@@ -10733,14 +10747,8 @@ ${dateStr} a les ${eventData.time}`,
 
 
       /**
-       * Fallback: programa el envío con setTimeout en el navegador.
-       * Solo se usa si el servidor no está configurado.
-       * AVISO: se pierde si se cierra la pestaña.
-       */
-            /**
-       * Fallback: programa el envío con setTimeout en el navegador.
-       * Solo se usa si el servidor no está configurado.
-       * AVISO: se pierde si se cierra la pestaña.
+       * Fallback: programa l'enviament amb setTimeout al navegador.
+       * Es perd si es tanca la pestanya. Només s'usa si el servidor no respon.
        */
       function _scheduleWaFallback(eventData, timeUntil) {
         const mins = Math.round(timeUntil / 60000);
