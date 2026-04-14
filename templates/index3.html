@@ -5296,38 +5296,7 @@
           g.style.display = nGeneral > 0 ? "" : "none";
         }
       }
-      // ══════════════════════════════════════════
-      //  NUEVO UTIL: Verificar solapamiento de citas para una persona
-      //  Retorna el evento que se solapa, o null si no hay conflicto.
-      //  Compara rangos: newStart < existingEnd AND newEnd > existingStart
-      // ══════════════════════════════════════════
-      function hasOverlappingEvent(assignedTo, date, timeStart, timeEnd, excludeEvId) {
-        const toMin = t => {
-          if (!t) return null;
-          const [h,m] = t.split(":").map(Number);
-          return h*60+m;
-        };
-        const newS = toMin(timeStart);
-        const newE = toMin(timeEnd);
-
-        return EVENTS.find(ev => {
-          if (ev.assignedTo !== assignedTo) return false;
-          if (ev.date !== date) return false;
-          if (excludeEvId !== null && ev.id === excludeEvId) return false;
-
-          const evS = toMin(ev.time);
-          const evE = toMin(ev.timeEnd);
-
-          // Si cap dels dos té hora fi, només solapa si és exactament la mateixa hora
-          if (!newE && !evE) return newS === evS;
-          // Si només l'existent té hora fi
-          if (!newE && evE) return newS >= evS && newS < evE;
-          // Si només la nova té hora fi
-          if (newE && !evE) return evS >= newS && evS < newE;
-          // Les dues tenen hora fi: comparació estàndard de rangs
-          return newS < evE && newE > evS;
-        }) || null;
-      }
+      // Validació de solapament eliminada — l'usuari pot crear cites lliurement
 
       /**
        * Actualiza el hint de duración en el modal de cita del admin (aev-duration-hint).
@@ -7206,16 +7175,6 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const notes = document.getElementById("ev-notes").value;
         const isPrivate = isAdmin ? (document.getElementById("ev-private")?.checked || false) : false;
 
-        // Verificar solapament amb altres cites de la mateixa persona (només si hi ha hora)
-        if (time) {
-          const overlap = hasOverlappingEvent(assignedTo, date, time, timeEnd, editingEvId !== null ? editingEvId : null);
-          if (overlap) {
-            errEl.textContent = `⚠ ${overlap.client} ja té una cita de ${overlap.time} a ${overlap.timeEnd} en aquesta franja. Tria un altre horari.`;
-            errEl.style.display = "";
-            return;
-          }
-        }
-
         // Obtener estado de recordatorios
         const prReminders = _prReminders['ev'] || []; // ✅ Ahora es un array
         const waState = _waReminders['ev'] || {};
@@ -7993,19 +7952,6 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           return;
         }
 
-        // Verificar solapamiento
-        const overlap = hasOverlappingEvent(targetAdmin.id, date, time, timeEnd, null);
-        if (overlap) {
-          const warningEl = document.getElementById("aev-blocked-warning");
-          if (warningEl) {
-            warningEl.innerHTML = `⚠️ <strong>Horari no disponible:</strong> Ja existeix una cita de ${overlap.time} a ${overlap.timeEnd} en aquesta franja. Si us plau, trieu un altre horari.`;
-            warningEl.style.display = "";
-          }
-          return;
-        }
-
-        document.getElementById("aev-blocked-warning").style.display = "none";
-
         // Obtener estado de recordatorios
         const prReminders = _prReminders['aev'] || []; // ✅ Ahora es un array
         const waState = _waReminders['aev'] || {};
@@ -8094,64 +8040,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         renderDashboard();
       }
 
-      // Validación en tiempo real del horario al cambiar fecha/hora en el modal del admin
-      document.addEventListener("DOMContentLoaded", function() {
-        const aevDate = document.getElementById("aev-date");
-        const aevTime = document.getElementById("aev-time");
-        const aevTimeEnd = document.getElementById("aev-time-end");
-        function checkAdminSlot() {
-          if (!currentUser) return;
-          const date = aevDate ? aevDate.value : "";
-          const time = aevTime ? aevTime.value : "";
-          const timeEnd = aevTimeEnd ? aevTimeEnd.value : "";
-          const warningEl = document.getElementById("aev-blocked-warning");
-          if (!warningEl || !date || !time || !timeEnd) { if (warningEl) warningEl.style.display = "none"; return; }
-          const aevAdminSel2 = document.getElementById("aev-admin-id");
-          const chkAdminId = aevAdminSel2 && aevAdminSel2.value ? parseInt(aevAdminSel2.value) : null;
-          const adminForCheck = chkAdminId ? USERS.find(u => u.id === chkAdminId) : getAdminUser();
-          const overlap = adminForCheck ? hasOverlappingEvent(adminForCheck.id, date, time, timeEnd, null) : null;
-          if (overlap) {
-            warningEl.innerHTML = `⚠️ <strong>Horari no disponible:</strong> Ja existeix una cita de ${overlap.time} a ${overlap.timeEnd || '?'} en aquesta franja.`;
-            warningEl.style.display = "";
-          } else {
-            warningEl.style.display = "none";
-          }
-        }
-        if (aevDate) aevDate.addEventListener("change", checkAdminSlot);
-        if (aevTime) aevTime.addEventListener("change", checkAdminSlot);
-        if (aevTimeEnd) aevTimeEnd.addEventListener("change", checkAdminSlot);
-        const aevAdminId = document.getElementById("aev-admin-id");
-        if (aevAdminId) aevAdminId.addEventListener("change", checkAdminSlot);
-
-        // Validación en tiempo real para el modal principal de cita
-        const evTime = document.getElementById("ev-time");
-        const evTimeEnd = document.getElementById("ev-time-end");
-        function checkMainSlot() {
-          if (!currentUser) return;
-          const dateEl = document.getElementById("ev-date");
-          const date = dateEl ? dateEl.value : "";
-          const time = evTime ? evTime.value : "";
-          const timeEnd = evTimeEnd ? evTimeEnd.value : "";
-          const errEl = document.getElementById("ev-err");
-          if (!date || !time || !timeEnd || !errEl) return;
-          const assignedTo = (currentUser.role === "admin" && pendingIsGlobal)
-            ? parseInt((document.getElementById("ev-employee") || {}).value || currentUser.id)
-            : currentUser.id;
-          const overlap = hasOverlappingEvent(assignedTo, date, time, timeEnd, editingEvId);
-          if (overlap && timeEnd > time) {
-            errEl.textContent = `⚠ ${overlap.client} ya tiene cita de ${overlap.time} a ${overlap.timeEnd} en esa franja.`;
-            errEl.style.display = "";
-          } else if (errEl.textContent.startsWith("⚠")) {
-            errEl.style.display = "none";
-          }
-        }
-        if (evTime) evTime.addEventListener("change", checkMainSlot);
-        if (evTimeEnd) evTimeEnd.addEventListener("change", checkMainSlot);
-        const evDate = document.getElementById("ev-date");
-        if (evDate) evDate.addEventListener("change", checkMainSlot);
-        const evEmployee = document.getElementById("ev-employee");
-        if (evEmployee) evEmployee.addEventListener("change", checkMainSlot);
-      });
+      // Validació de solapament eliminada — l'usuari pot crear cites lliurement
 
       // ══════════════════════════════════════════
       //  PANEL DE PERMISOS (sin cambios)
