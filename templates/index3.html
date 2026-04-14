@@ -5302,24 +5302,29 @@
       //  Compara rangos: newStart < existingEnd AND newEnd > existingStart
       // ══════════════════════════════════════════
       function hasOverlappingEvent(assignedTo, date, timeStart, timeEnd, excludeEvId) {
-        const toMin = t => { if (!t) return null; const [h,m] = t.split(":").map(Number); return h*60+m; };
+        const toMin = t => {
+          if (!t) return null;
+          const [h,m] = t.split(":").map(Number);
+          return h*60+m;
+        };
         const newS = toMin(timeStart);
-        if (newS === null) return null; // Sense hora d'inici, no es pot comprovar
-        const newE = toMin(timeEnd);    // pot ser null si no hi ha hora fi
+        const newE = toMin(timeEnd);
+
         return EVENTS.find(ev => {
           if (ev.assignedTo !== assignedTo) return false;
           if (ev.date !== date) return false;
           if (excludeEvId !== null && ev.id === excludeEvId) return false;
+
           const evS = toMin(ev.time);
-          if (evS === null) return false;
           const evE = toMin(ev.timeEnd);
-          // Si cap de les dues cites té hora fi, només solapem si és exactament la mateixa hora
-          if (newE === null && evE === null) return newS === evS;
-          // Si la nova cita no té hora fi, només solapa si l'hora d'inici cau dins la cita existent
-          if (newE === null) return newS >= evS && newS < evE;
-          // Si la cita existent no té hora fi, només solapa si la seva hora d'inici cau dins la nova
-          if (evE === null) return evS >= newS && evS < newE;
-          // Ambdues tenen rang complet: comparació estàndard
+
+          // Si cap dels dos té hora fi, només solapa si és exactament la mateixa hora
+          if (!newE && !evE) return newS === evS;
+          // Si només l'existent té hora fi
+          if (!newE && evE) return newS >= evS && newS < evE;
+          // Si només la nova té hora fi
+          if (newE && !evE) return evS >= newS && evS < newE;
+          // Les dues tenen hora fi: comparació estàndard de rangs
           return newS < evE && newE > evS;
         }) || null;
       }
