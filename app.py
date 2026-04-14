@@ -2177,7 +2177,9 @@ def delete_reminder(rem_id):
 
 @app.errorhandler(404)
 def not_found(error):
-    """Manejar errores 404 - Servir la app"""
+    """Manejar errores 404 - API retorna JSON, la resta serveix la app"""
+    if request.path.startswith('/api/'):
+        return jsonify({'ok': False, 'error': f'Ruta no trobada: {request.path}'}), 404
     return render_template('index3.html'), 200
 
 @app.errorhandler(500)
