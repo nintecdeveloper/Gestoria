@@ -103,7 +103,10 @@ def format_date_catalan(date_str: str) -> str:
 def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text",
                        template_params: list = None):
     """Envía un mensaje de WhatsApp via Meta Cloud API."""
+    logger.info(f"📞 [Meta API] Iniciant enviament: to_phone={to_phone}, type={message_type}, params={template_params}")
+
     if not META_PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
+        logger.error(f"❌ [Meta API] Credencials no configurades: PHONE_ID={'SET' if META_PHONE_NUMBER_ID else 'MISSING'}, TOKEN={'SET' if META_ACCESS_TOKEN else 'MISSING'}")
         return {
             'ok': False,
             'error': 'Credenciales Meta no configuradas en variables de entorno.',
@@ -150,17 +153,30 @@ def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text",
 
     url = META_API_URL.format(phone_id=META_PHONE_NUMBER_ID)
 
+    logger.info(f"📞 [Meta API] URL: {url}")
+    logger.info(f"📞 [Meta API] Payload: {json.dumps(payload, ensure_ascii=False)}")
+    logger.info(f"📞 [Meta API] Phone formatted: {phone} → API to: {phone.replace('+', '')}")
+
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
+        logger.info(f"📞 [Meta API] Response status: {response.status_code}")
+        logger.info(f"📞 [Meta API] Response body: {response.text}")
         response.raise_for_status()
 
         result = response.json()
-        logger.info(f"✅ [Meta API] Mensaje enviado a {phone} · ID: {result.get('messages', [{}])[0].get('id')}")
+        msg_id = result.get('messages', [{}])[0].get('id')
+        logger.info(f"✅ [Meta API] Missatge enviat a {phone} · ID: {msg_id}")
 
         return {
             'ok': True,
-            'message_id': result.get('messages', [{}])[0].get('id'),
+            'message_id': msg_id,
             'phone': phone
+        }
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"❌ [Meta API] HTTP Error {response.status_code}: {response.text}")
+        return {
+            'ok': False,
+            'error': f"HTTP {response.status_code}: {response.text}"
         }
     except Exception as e:
         logger.error(f"❌ [Meta API] Error: {str(e)}")
@@ -1594,6 +1610,39 @@ def cancel_whatsapp(job_id):
             return jsonify({'ok': False, 'error': 'Job no encontrado'}), 404
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/whatsapp/test', methods=['GET'])
+def whatsapp_test():
+    """Endpoint de diagnòstic: envia un missatge de prova via Meta API.
+    Ús: GET /api/whatsapp/test?to=34612345678
+    Retorna tots els detalls de la crida per diagnosticar errors."""
+    to_phone = request.args.get('to', '').strip()
+    if not to_phone:
+        return jsonify({
+            'ok': False,
+            'error': 'Afegeix ?to=34XXXXXXXXX al URL',
+            'config': {
+                'META_PHONE_NUMBER_ID': 'SET' if META_PHONE_NUMBER_ID else 'MISSING',
+                'META_ACCESS_TOKEN': f"SET ({len(META_ACCESS_TOKEN)} chars)" if META_ACCESS_TOKEN else 'MISSING',
+                'META_BUSINESS_ACCOUNT_ID': 'SET' if META_BUSINESS_ACCOUNT_ID else 'MISSING',
+                'META_API_URL': META_API_URL.format(phone_id=META_PHONE_NUMBER_ID or 'MISSING'),
+            }
+        })
+    # Enviar plantilla de prova
+    result = send_whatsapp_meta(
+        to_phone=to_phone,
+        message='',
+        message_type='nom_recordatori_cita',
+        template_params=['Client Prova', 'Dimarts 15/04/2026', '10:00h', 'Mataró']
+    )
+    return jsonify({
+        'result': result,
+        'config': {
+            'META_PHONE_NUMBER_ID': META_PHONE_NUMBER_ID[:4] + '...' if META_PHONE_NUMBER_ID else 'MISSING',
+            'META_ACCESS_TOKEN': f"{META_ACCESS_TOKEN[:10]}...({len(META_ACCESS_TOKEN)} chars)" if META_ACCESS_TOKEN else 'MISSING',
+            'META_API_URL': META_API_URL.format(phone_id=META_PHONE_NUMBER_ID or 'MISSING'),
+        }
+    })
 
 @app.route('/api/whatsapp/status', methods=['GET'])
 def whatsapp_status():
