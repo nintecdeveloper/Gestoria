@@ -5177,14 +5177,21 @@
           WA_CONFIG.twilioReady    = data.meta_ready       === true;
           WA_CONFIG.schedulerReady = data.scheduler_ready  === true;
           WA_CONFIG.serverReady    = data.fully_ready      === true;
+          WA_CONFIG.tokenExpired   = data.token_expired    === true;
           console.log('📱 [WA Status]', JSON.stringify(data),
             '→ metaReady:', WA_CONFIG.twilioReady,
             'schedulerReady:', WA_CONFIG.schedulerReady,
             'serverReady:', WA_CONFIG.serverReady);
+          // Avís visible si el token ha caducat
+          if (data.token_expired) {
+            console.error('⚠️ [WA Status] TOKEN META CADUCAT — Els recordatoris WhatsApp NO funcionaran fins que es renovi el token.');
+            showToast('⚠️ Token de WhatsApp caducat. Renova el META_ACCESS_TOKEN a Render.', 'error', 10000);
+          }
         } catch(e) {
           WA_CONFIG.twilioReady    = false;
           WA_CONFIG.schedulerReady = false;
           WA_CONFIG.serverReady    = false;
+          WA_CONFIG.tokenExpired   = false;
           console.warn('📱 [WA Status] Error:', e.message);
         }
       }

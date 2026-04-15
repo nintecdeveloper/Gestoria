@@ -1646,13 +1646,56 @@ def whatsapp_test():
 
 @app.route('/api/whatsapp/status', methods=['GET'])
 def whatsapp_status():
-    """Comprueba si Meta API y el Scheduler están listos"""
-    meta_ok = bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN)
+    """Comprueba si Meta API y el Scheduler están listos, incluyendo validación del token."""
+    meta_configured = bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN)
     scheduler_ok = SCHEDULER_AVAILABLE and scheduler is not None
+    token_expired = False
+    token_error = None
+
+    # Si les credencials estan configurades, verificar que el token és vàlid
+    # fent una crida GET lleugera a la Meta Graph API
+    if meta_configured:
+        try:
+            import requests as req
+            verify_url = f"https://graph.facebook.com/{META_API_VERSION}/{META_PHONE_NUMBER_ID}"
+            verify_resp = req.get(verify_url, headers={
+                "Authorization": f"Bearer {META_ACCESS_TOKEN}"
+            }, params={"fields": "id"}, timeout=5)
+            if verify_resp.status_code == 190 or (
+                verify_resp.status_code == 401
+            ):
+                token_expired = True
+                token_error = "Token Meta caducat o invàlid (HTTP 401)"
+                logger.warning(f"⚠️ [WA Status] TOKEN CADUCAT — La crida a Meta API ha retornat HTTP {verify_resp.status_code}")
+            elif verify_resp.status_code != 200:
+                # Meta retorna 400 amb suberror 463/190 quan el token caduca
+                resp_body = verify_resp.json() if verify_resp.headers.get('content-type', '').startswith('application/json') else {}
+                error_data = resp_body.get('error', {})
+                error_code = error_data.get('code', 0)
+                error_subcode = error_data.get('error_subcode', 0)
+                error_msg = error_data.get('message', '')
+                if error_code == 190 or error_subcode in (463, 467):
+                    token_expired = True
+                    token_error = f"Token Meta caducat: {error_msg}"
+                    logger.warning(f"⚠️ [WA Status] TOKEN CADUCAT — code={error_code} subcode={error_subcode} msg={error_msg}")
+                else:
+                    token_error = f"Meta API error (HTTP {verify_resp.status_code}): {error_msg or verify_resp.text[:200]}"
+                    logger.warning(f"⚠️ [WA Status] Error verificant token: HTTP {verify_resp.status_code} — {error_msg or verify_resp.text[:200]}")
+            else:
+                logger.info(f"✅ [WA Status] Token Meta vàlid — phone_id verificat")
+        except Exception as e:
+            token_error = f"Error connectant amb Meta API: {str(e)}"
+            logger.warning(f"⚠️ [WA Status] No s'ha pogut verificar el token: {str(e)}")
+
+    meta_ok = meta_configured and not token_expired
 
     reasons = []
-    if not meta_ok:
+    if not meta_configured:
         reasons.append("Variables de entorno Meta no configuradas (META_PHONE_NUMBER_ID, META_ACCESS_TOKEN)")
+    if token_expired:
+        reasons.append(f"⚠️ TOKEN CADUCAT: {token_error}")
+    elif token_error:
+        reasons.append(f"Avís token: {token_error}")
     if not SCHEDULER_AVAILABLE:
         reasons.append("APScheduler no instalado (pip install apscheduler)")
     elif not scheduler_ok:
@@ -1660,11 +1703,14 @@ def whatsapp_status():
 
     status = {
         'meta_ready': meta_ok,
+        'token_expired': token_expired,
         'scheduler_ready': scheduler_ok,
         'fully_ready': meta_ok and scheduler_ok,
-        'reason': ' · '.join(reasons) if reasons else 'Todo configurado correctamente'
+        'reason': ' · '.join(reasons) if reasons else 'Tot configurat correctament'
     }
-    logger.info(f"📱 [WA Status] meta_ready={meta_ok} scheduler_ready={scheduler_ok} fully_ready={meta_ok and scheduler_ok}")
+    if token_error:
+        status['token_error'] = token_error
+    logger.info(f"📱 [WA Status] meta_ready={meta_ok} token_expired={token_expired} scheduler_ready={scheduler_ok} fully_ready={meta_ok and scheduler_ok}")
     return jsonify(status)
 
 @app.route('/api/whatsapp/webhook', methods=['GET'])
