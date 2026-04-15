@@ -7042,7 +7042,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         // Limpiar recordatorios al abrir el modal para nueva cita
         _prReminders['ev'] = []; // ✅ Array vacío
         _renderPrBadges('ev');
-        _waReminders['ev'] = {};
+        _waReminders['ev'] = [];
         _renderWaBadges('ev');
         
         openModal("event-modal");
@@ -7101,30 +7101,30 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           _renderPrBadges('ev');
         }
         
-        // Cargar recordatorio WhatsApp si existe
-        console.log('📅 [openEditEvent] ev.waReminder:', JSON.stringify(ev.waReminder), 'ev.prReminders:', JSON.stringify(ev.prReminders));
-        // Primer netejar seleccions anteriors del dropdown
+        // Cargar recordatoris WhatsApp si existeixen
+        // Suporta format nou (array) i antic (objecte únic)
         const waDropdown = document.getElementById('ev-wa-dropdown');
         if (waDropdown) {
           waDropdown.querySelectorAll('.wa-dropdown-opt').forEach(opt => opt.classList.remove('selected'));
         }
-        if (ev.waReminder) {
-          _waReminders['ev'] = {
-            [ev.waReminder.timing]: ev.waReminder.label
-          };
-          // Marcar l'opció corresponent com a seleccionada al dropdown
-          if (waDropdown) {
+        let waArr = [];
+        if (Array.isArray(ev.waReminders) && ev.waReminders.length > 0) {
+          waArr = ev.waReminders;
+        } else if (ev.waReminder && ev.waReminder.timing) {
+          waArr = [{ timing: ev.waReminder.timing, label: ev.waReminder.label }];
+        }
+        console.log('📅 [openEditEvent] waReminders:', JSON.stringify(waArr), 'prReminders:', JSON.stringify(ev.prReminders));
+        _waReminders['ev'] = waArr.map(r => ({timing: r.timing, label: r.label}));
+        if (waDropdown) {
+          waArr.forEach(r => {
             waDropdown.querySelectorAll('.wa-dropdown-opt').forEach(opt => {
-              if (opt.getAttribute('onclick') && opt.getAttribute('onclick').includes("'" + ev.waReminder.timing + "'")) {
+              if (opt.getAttribute('onclick') && opt.getAttribute('onclick').includes("'" + r.timing + "'")) {
                 opt.classList.add('selected');
               }
             });
-          }
-          _renderWaBadges('ev');
-        } else {
-          _waReminders['ev'] = {};
-          _renderWaBadges('ev');
+          });
         }
+        _renderWaBadges('ev');
         
         openModal("event-modal");
       }
@@ -7177,15 +7177,10 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const isPrivate = isAdmin ? (document.getElementById("ev-private")?.checked || false) : false;
 
         // Obtener estado de recordatorios
-        const prReminders = _prReminders['ev'] || []; // ✅ Ahora es un array
-        const waState = _waReminders['ev'] || {};
-        // Extraer primer timing WA seleccionado (estructura: { timing: label, ... })
-        const waTimings = Object.keys(waState);
-        const waFirstTiming = waTimings.length ? waTimings[0] : null;
-        const waFirstLabel = waFirstTiming ? waState[waFirstTiming] : null;
+        const prReminders = _prReminders['ev'] || [];
+        const waReminders = (_waReminders['ev'] || []).filter(r => r.timing !== 'none');
 
-        console.log('📅 [saveEvent] waState:', JSON.stringify(waState),
-          'waFirstTiming:', waFirstTiming, 'waFirstLabel:', waFirstLabel,
+        console.log('📅 [saveEvent] waReminders:', JSON.stringify(waReminders),
           'prReminders:', JSON.stringify(prReminders));
 
         // Obtener teléfono del cliente (desde hidden field o búsqueda en CLIENTS)
@@ -7213,12 +7208,12 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               delete ev.prReminders;
             }
 
-            // Recordatori WhatsApp
-            if (waFirstTiming) {
-              ev.waReminder = { timing: waFirstTiming, label: waFirstLabel };
-              scheduleWaReminder(ev, waFirstTiming);
+            // Recordatoris WhatsApp (array)
+            if (waReminders.length > 0) {
+              ev.waReminders = waReminders;
+              waReminders.forEach(r => scheduleWaReminder(ev, r.timing));
             } else {
-              delete ev.waReminder;
+              ev.waReminders = [];
             }
 
             // Persistir edició a la BD
@@ -7236,7 +7231,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
                   private:      ev.private,
                   assignedTo:   ev.assignedTo,
                   clientPhone:  ev.clientPhone || null,
-                  waReminder:   ev.waReminder || null,
+                  waReminders:  ev.waReminders || [],
                   prReminders:  ev.prReminders || [],
                 }),
               });
@@ -7283,10 +7278,12 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
             prReminders.forEach(reminder => scheduleReminder(eventObj, reminder.timing));
           }
 
-          // Recordatori WhatsApp
-          if (waFirstTiming) {
-            eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
-            scheduleWaReminder(eventObj, waFirstTiming);
+          // Recordatoris WhatsApp (array)
+          if (waReminders.length > 0) {
+            eventObj.waReminders = waReminders;
+            waReminders.forEach(r => scheduleWaReminder(eventObj, r.timing));
+          } else {
+            eventObj.waReminders = [];
           }
 
           // Persistir nou event a la BD
@@ -7308,7 +7305,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
                 private:      eventObj.private,
                 clientPhone:  eventObj.clientPhone || null,
                 calendarType: eventObj.calendarType || null,
-                waReminder:   eventObj.waReminder || null,
+                waReminders:  eventObj.waReminders || [],
                 prReminders:  eventObj.prReminders || [],
               }),
             });
@@ -7888,7 +7885,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         // Limpiar recordatorios al abrir el modal para nueva cita
         _prReminders['aev'] = []; // ✅ Array vacío
         _renderPrBadges('aev');
-        _waReminders['aev'] = {};
+        _waReminders['aev'] = [];
         _renderWaBadges('aev');
 
         // NUEVO: si hay múltiples admins, llenar select de admin objetivo
@@ -7959,11 +7956,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
 
         // Obtener estado de recordatorios
         const prReminders = _prReminders['aev'] || []; // ✅ Ahora es un array
-        const waState = _waReminders['aev'] || {};
-        // Extraer primer timing WA seleccionado (estructura: { timing: label, ... })
-        const waTimings = Object.keys(waState);
-        const waFirstTiming = waTimings.length ? waTimings[0] : null;
-        const waFirstLabel = waFirstTiming ? waState[waFirstTiming] : null;
+        const waReminders = (_waReminders['aev'] || []).filter(r => r.timing !== 'none');
 
         // Obtener teléfono del cliente
         const aevClientPhone = (document.getElementById("aev-client-phone") || {}).value || "";
@@ -7990,10 +7983,12 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           prReminders.forEach(reminder => scheduleReminder(eventObj, reminder.timing));
         }
 
-        // Recordatori WhatsApp
-        if (waFirstTiming) {
-          eventObj.waReminder = { timing: waFirstTiming, label: waFirstLabel };
-          scheduleWaReminder(eventObj, waFirstTiming);
+        // Recordatoris WhatsApp (array)
+        if (waReminders.length > 0) {
+          eventObj.waReminders = waReminders;
+          waReminders.forEach(r => scheduleWaReminder(eventObj, r.timing));
+        } else {
+          eventObj.waReminders = [];
         }
 
         // Persistir a la BD
@@ -8014,7 +8009,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               notes:       eventObj.notes || null,
               private:     eventObj.private,
               clientPhone: eventObj.clientPhone || null,
-              waReminder:  eventObj.waReminder || null,
+              waReminders: eventObj.waReminders || [],
               prReminders: eventObj.prReminders || [],
             }),
           });
@@ -9947,7 +9942,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
       //  WHATSAPP REMINDER (UI only, no real sending)
       // ══════════════════════════════════════════
 
-      const _waReminders = {}; // prefix -> Set of selected values
+      const _waReminders = {}; // prefix -> [{timing, label}, ...]
 
       function toggleWaDropdown(dropdownId) {
         document.querySelectorAll('.wa-dropdown.open').forEach(d => {
@@ -9972,15 +9967,15 @@ document.getElementById("nu-user").addEventListener("input", function() {
       }
 
       function selectWaReminder(prefix, value, label, optEl) {
-        if (!_waReminders[prefix]) _waReminders[prefix] = {};
+        if (!Array.isArray(_waReminders[prefix])) _waReminders[prefix] = [];
         // Treure l'estat "none" si existia
-        delete _waReminders[prefix]['none'];
-        const already = _waReminders[prefix][value];
-        if (already) {
-          delete _waReminders[prefix][value];
+        _waReminders[prefix] = _waReminders[prefix].filter(r => r.timing !== 'none');
+        const idx = _waReminders[prefix].findIndex(r => r.timing === value);
+        if (idx >= 0) {
+          _waReminders[prefix].splice(idx, 1);
           optEl.classList.remove('selected');
         } else {
-          _waReminders[prefix][value] = label;
+          _waReminders[prefix].push({ timing: value, label: label });
           optEl.classList.add('selected');
         }
         _renderWaBadges(prefix);
@@ -9990,33 +9985,32 @@ document.getElementById("nu-user").addEventListener("input", function() {
         const container = document.getElementById(prefix + '-wa-badges');
         if (!container) return;
         container.innerHTML = '';
-        const map = _waReminders[prefix] || {};
-        Object.entries(map).forEach(([value, label]) => {
+        const arr = _waReminders[prefix] || [];
+        arr.forEach(item => {
           const badge = document.createElement('span');
-          if (value === 'none') {
-            badge.className = 'wa-reminder-badge';
+          badge.className = 'wa-reminder-badge';
+          if (item.timing === 'none') {
             badge.style.cssText = 'background:var(--bg2);color:var(--text-muted);border-color:var(--border)';
-            const txt = document.createTextNode('🚫 ' + label + ' ');
+            const txt = document.createTextNode('🚫 ' + item.label + ' ');
             badge.appendChild(txt);
             const btn = document.createElement('button');
             btn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:0 0 0 4px;line-height:1';
             btn.title = 'Treure';
             btn.textContent = '×';
             btn.addEventListener('click', function() {
-              _waReminders[prefix] = {};
+              _waReminders[prefix] = [];
               _renderWaBadges(prefix);
             });
             badge.appendChild(btn);
           } else {
-            badge.className = 'wa-reminder-badge';
-            const txt = document.createTextNode('💬 ' + label + ' ');
+            const txt = document.createTextNode('💬 ' + item.label + ' ');
             badge.appendChild(txt);
             const btn = document.createElement('button');
             btn.style.cssText = 'background:none;border:none;cursor:pointer;color:#128C7E;font-size:14px;padding:0 0 0 4px;line-height:1';
             btn.title = 'Quitar';
             btn.textContent = '×';
             btn.dataset.prefix = prefix;
-            btn.dataset.value = value;
+            btn.dataset.value = item.timing;
             btn.addEventListener('click', function() {
               removeWaReminder(this.dataset.prefix, this.dataset.value);
             });
@@ -10027,7 +10021,9 @@ document.getElementById("nu-user").addEventListener("input", function() {
       }
 
       function removeWaReminder(prefix, value) {
-        if (_waReminders[prefix]) delete _waReminders[prefix][value];
+        if (Array.isArray(_waReminders[prefix])) {
+          _waReminders[prefix] = _waReminders[prefix].filter(r => r.timing !== value);
+        }
         // Uncheck in dropdown
         const dropdown = document.getElementById(prefix + '-wa-dropdown');
         if (dropdown) {
@@ -10041,7 +10037,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
       }
 
       function clearWaReminder(prefix) {
-        _waReminders[prefix] = { 'none': 'No recordar' };
+        _waReminders[prefix] = [{ timing: 'none', label: 'No recordar' }];
         _renderWaBadges(prefix);
         const dropdown = document.getElementById(prefix + '-wa-dropdown');
         if (dropdown) dropdown.querySelectorAll('.wa-dropdown-opt').forEach(o => o.classList.remove('selected'));

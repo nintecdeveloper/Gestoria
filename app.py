@@ -298,7 +298,7 @@ class Event(db.Model):
             'calendarType': self.calendar_type,
             'sede':         self.sede,
             'department':   self.department,
-            'waReminder':   json.loads(self.wa_reminder) if self.wa_reminder else None,
+            'waReminders':  json.loads(self.wa_reminder) if self.wa_reminder else [],
             'prReminders':  json.loads(self.pr_reminder) if self.pr_reminder else [],
         }
 
@@ -1806,7 +1806,7 @@ def create_event():
     """Crea un nou event i el retorna amb l'id assignat per la BD."""
     try:
         data = request.get_json(force=True) or {}
-        logger.info(f"📅 [Events POST] waReminder={data.get('waReminder')}, prReminders={data.get('prReminders')}")
+        logger.info(f"📅 [Events POST] waReminders={data.get('waReminders')}, prReminders={data.get('prReminders')}")
         ev = Event(
             date          = data.get('date', ''),
             start_time    = data.get('time', ''),
@@ -1821,7 +1821,7 @@ def create_event():
             service_type  = data.get('service') or None,
             notes         = data.get('notes') or None,
             is_private    = bool(data.get('private', False)),
-            wa_reminder   = json.dumps(data['waReminder']) if data.get('waReminder') else None,
+            wa_reminder   = json.dumps(data['waReminders']) if data.get('waReminders') else None,
             pr_reminder   = json.dumps(data['prReminders']) if data.get('prReminders') else None,
         )
         db.session.add(ev)
@@ -1851,7 +1851,7 @@ def update_event(ev_id):
         if not ev:
             return jsonify({'ok': False, 'error': 'Event no trobat'}), 404
         data = request.get_json(force=True) or {}
-        logger.info(f"📅 [Events PUT {ev_id}] waReminder={data.get('waReminder')}, prReminders={data.get('prReminders')}")
+        logger.info(f"📅 [Events PUT {ev_id}] waReminders={data.get('waReminders')}, prReminders={data.get('prReminders')}")
         ev.date          = data.get('date', ev.date)
         ev.start_time    = data.get('time', ev.start_time)
         ev.end_time      = data.get('timeEnd') if 'timeEnd' in data else ev.end_time
@@ -1861,7 +1861,7 @@ def update_event(ev_id):
         ev.service_type  = data.get('service') if 'service' in data else ev.service_type
         ev.notes         = data.get('notes') if 'notes' in data else ev.notes
         ev.is_private    = bool(data['private']) if 'private' in data else ev.is_private
-        ev.wa_reminder   = json.dumps(data['waReminder']) if data.get('waReminder') else (None if 'waReminder' in data else ev.wa_reminder)
+        ev.wa_reminder   = json.dumps(data['waReminders']) if data.get('waReminders') else (None if 'waReminders' in data else ev.wa_reminder)
         ev.pr_reminder   = json.dumps(data['prReminders']) if data.get('prReminders') else (None if 'prReminders' in data else ev.pr_reminder)
         db.session.commit()
 
