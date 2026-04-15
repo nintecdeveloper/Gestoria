@@ -7102,6 +7102,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         }
         
         // Cargar recordatorio WhatsApp si existe
+        console.log('📅 [openEditEvent] ev.waReminder:', JSON.stringify(ev.waReminder), 'ev.prReminders:', JSON.stringify(ev.prReminders));
         // Primer netejar seleccions anteriors del dropdown
         const waDropdown = document.getElementById('ev-wa-dropdown');
         if (waDropdown) {
@@ -7182,6 +7183,10 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         const waTimings = Object.keys(waState);
         const waFirstTiming = waTimings.length ? waTimings[0] : null;
         const waFirstLabel = waFirstTiming ? waState[waFirstTiming] : null;
+
+        console.log('📅 [saveEvent] waState:', JSON.stringify(waState),
+          'waFirstTiming:', waFirstTiming, 'waFirstLabel:', waFirstLabel,
+          'prReminders:', JSON.stringify(prReminders));
 
         // Obtener teléfono del cliente (desde hidden field o búsqueda en CLIENTS)
         const evClientPhone = (document.getElementById("ev-client-phone") || {}).value || "";
