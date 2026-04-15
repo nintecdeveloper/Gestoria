@@ -1806,9 +1806,7 @@ def create_event():
     """Crea un nou event i el retorna amb l'id assignat per la BD."""
     try:
         data = request.get_json(force=True) or {}
-        # client_id és informatiu (prové del frontend si el client existeix a la BD)
-        # però NO es persiste a Event — el nom s'emmagatzema sempre com a text a client_name
-        # data.get('client_id') s'ignora intencionadament
+        logger.info(f"📅 [Events POST] waReminder={data.get('waReminder')}, prReminders={data.get('prReminders')}")
         ev = Event(
             date          = data.get('date', ''),
             start_time    = data.get('time', ''),
@@ -1853,6 +1851,7 @@ def update_event(ev_id):
         if not ev:
             return jsonify({'ok': False, 'error': 'Event no trobat'}), 404
         data = request.get_json(force=True) or {}
+        logger.info(f"📅 [Events PUT {ev_id}] waReminder={data.get('waReminder')}, prReminders={data.get('prReminders')}")
         ev.date          = data.get('date', ev.date)
         ev.start_time    = data.get('time', ev.start_time)
         ev.end_time      = data.get('timeEnd') if 'timeEnd' in data else ev.end_time
@@ -2196,14 +2195,36 @@ with app.app_context():
     try:
         db.create_all()
         logger.info("✅ Taules de BD creades/verificades correctament")
-        # Migració: afegir google_calendar_event_id si no existeix
+        # Migracions: afegir columnes noves a taules existents
+        # (db.create_all no afegeix columnes noves a taules ja existents)
         from sqlalchemy import inspect as sa_inspect, text
         insp = sa_inspect(db.engine)
-        cols = [c['name'] for c in insp.get_columns('events')]
-        if 'google_calendar_event_id' not in cols:
-            db.session.execute(text('ALTER TABLE events ADD COLUMN google_calendar_event_id VARCHAR(255)'))
-            db.session.commit()
-            logger.info("✅ Migració: afegit camp google_calendar_event_id a events")
+
+        # Migració taula events: google_calendar_event_id
+        if 'events' in insp.get_table_names():
+            cols = [c['name'] for c in insp.get_columns('events')]
+            if 'google_calendar_event_id' not in cols:
+                db.session.execute(text('ALTER TABLE events ADD COLUMN google_calendar_event_id VARCHAR(255)'))
+                db.session.commit()
+                logger.info("✅ Migració: afegit camp google_calendar_event_id a events")
+
+        # Migració taula event: wa_reminder, pr_reminder, client_phone
+        if 'event' in insp.get_table_names():
+            existing_cols = [c['name'] for c in insp.get_columns('event')]
+            with db.engine.connect() as conn:
+                if 'wa_reminder' not in existing_cols:
+                    conn.execute(text('ALTER TABLE event ADD COLUMN wa_reminder VARCHAR(500)'))
+                    conn.commit()
+                    logger.info("✅ [DB] Columna wa_reminder afegida a event")
+                if 'pr_reminder' not in existing_cols:
+                    conn.execute(text('ALTER TABLE event ADD COLUMN pr_reminder VARCHAR(1000)'))
+                    conn.commit()
+                    logger.info("✅ [DB] Columna pr_reminder afegida a event")
+                if 'client_phone' not in existing_cols:
+                    conn.execute(text('ALTER TABLE event ADD COLUMN client_phone VARCHAR(50)'))
+                    conn.commit()
+                    logger.info("✅ [DB] Columna client_phone afegida a event")
+            logger.info(f"✅ [DB] Columnes event verificades: {existing_cols}")
     except Exception as _e:
         logger.error(f"❌ Error creant taules: {_e}")
 
