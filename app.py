@@ -1646,13 +1646,56 @@ def whatsapp_test():
 
 @app.route('/api/whatsapp/status', methods=['GET'])
 def whatsapp_status():
-    """Comprueba si Meta API y el Scheduler están listos"""
-    meta_ok = bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN)
+    """Comprueba si Meta API y el Scheduler están listos, incluyendo validación del token."""
+    meta_configured = bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN)
     scheduler_ok = SCHEDULER_AVAILABLE and scheduler is not None
+    token_expired = False
+    token_error = None
+
+    # Si les credencials estan configurades, verificar que el token és vàlid
+    # fent una crida GET lleugera a la Meta Graph API
+    if meta_configured:
+        try:
+            import requests as req
+            verify_url = f"https://graph.facebook.com/{META_API_VERSION}/{META_PHONE_NUMBER_ID}"
+            verify_resp = req.get(verify_url, headers={
+                "Authorization": f"Bearer {META_ACCESS_TOKEN}"
+            }, params={"fields": "id"}, timeout=5)
+            if verify_resp.status_code == 190 or (
+                verify_resp.status_code == 401
+            ):
+                token_expired = True
+                token_error = "Token Meta caducat o invàlid (HTTP 401)"
+                logger.warning(f"⚠️ [WA Status] TOKEN CADUCAT — La crida a Meta API ha retornat HTTP {verify_resp.status_code}")
+            elif verify_resp.status_code != 200:
+                # Meta retorna 400 amb suberror 463/190 quan el token caduca
+                resp_body = verify_resp.json() if verify_resp.headers.get('content-type', '').startswith('application/json') else {}
+                error_data = resp_body.get('error', {})
+                error_code = error_data.get('code', 0)
+                error_subcode = error_data.get('error_subcode', 0)
+                error_msg = error_data.get('message', '')
+                if error_code == 190 or error_subcode in (463, 467):
+                    token_expired = True
+                    token_error = f"Token Meta caducat: {error_msg}"
+                    logger.warning(f"⚠️ [WA Status] TOKEN CADUCAT — code={error_code} subcode={error_subcode} msg={error_msg}")
+                else:
+                    token_error = f"Meta API error (HTTP {verify_resp.status_code}): {error_msg or verify_resp.text[:200]}"
+                    logger.warning(f"⚠️ [WA Status] Error verificant token: HTTP {verify_resp.status_code} — {error_msg or verify_resp.text[:200]}")
+            else:
+                logger.info(f"✅ [WA Status] Token Meta vàlid — phone_id verificat")
+        except Exception as e:
+            token_error = f"Error connectant amb Meta API: {str(e)}"
+            logger.warning(f"⚠️ [WA Status] No s'ha pogut verificar el token: {str(e)}")
+
+    meta_ok = meta_configured and not token_expired
 
     reasons = []
-    if not meta_ok:
+    if not meta_configured:
         reasons.append("Variables de entorno Meta no configuradas (META_PHONE_NUMBER_ID, META_ACCESS_TOKEN)")
+    if token_expired:
+        reasons.append(f"⚠️ TOKEN CADUCAT: {token_error}")
+    elif token_error:
+        reasons.append(f"Avís token: {token_error}")
     if not SCHEDULER_AVAILABLE:
         reasons.append("APScheduler no instalado (pip install apscheduler)")
     elif not scheduler_ok:
@@ -1660,11 +1703,14 @@ def whatsapp_status():
 
     status = {
         'meta_ready': meta_ok,
+        'token_expired': token_expired,
         'scheduler_ready': scheduler_ok,
         'fully_ready': meta_ok and scheduler_ok,
-        'reason': ' · '.join(reasons) if reasons else 'Todo configurado correctamente'
+        'reason': ' · '.join(reasons) if reasons else 'Tot configurat correctament'
     }
-    logger.info(f"📱 [WA Status] meta_ready={meta_ok} scheduler_ready={scheduler_ok} fully_ready={meta_ok and scheduler_ok}")
+    if token_error:
+        status['token_error'] = token_error
+    logger.info(f"📱 [WA Status] meta_ready={meta_ok} token_expired={token_expired} scheduler_ready={scheduler_ok} fully_ready={meta_ok and scheduler_ok}")
     return jsonify(status)
 
 @app.route('/api/whatsapp/webhook', methods=['GET'])
@@ -1922,43 +1968,66 @@ def google_auth_start():
     Redirigeix l'usuari a Google per autoritzar el Calendar.
     Protegit amb token secret a la URL: /auth/google?token=XXXX
     """
-    # Validar token secret
-    token = request.args.get('token')
-    if not GOOGLE_AUTH_TOKEN or token != GOOGLE_AUTH_TOKEN:
-        return jsonify({'error': 'Accés denegat'}), 403
+    logger.info(f"🔑 [Google Auth] Inici del flow OAuth")
+    try:
+        # Validar token secret
+        token = request.args.get('token')
+        logger.info(f"🔑 [Google Auth] GOOGLE_AUTH_TOKEN configurat: {'SÍ' if GOOGLE_AUTH_TOKEN else 'NO'}")
+        logger.info(f"🔑 [Google Auth] Token URL present: {'SÍ' if token else 'NO'}")
+        if not GOOGLE_AUTH_TOKEN or token != GOOGLE_AUTH_TOKEN:
+            logger.warning(f"🔑 [Google Auth] Token invàlid o no configurat")
+            return jsonify({'error': 'Accés denegat'}), 403
 
-    client_id = os.environ.get('GOOGLE_CLIENT_ID')
-    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
-    if not client_id or not client_secret:
-        return jsonify({'error': 'Credencials Google no configurades al servidor'}), 500
+        client_id = os.environ.get('GOOGLE_CLIENT_ID')
+        client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+        logger.info(f"🔑 [Google Auth] GOOGLE_CLIENT_ID: {'SET (' + client_id[:8] + '...)' if client_id else 'MISSING'}")
+        logger.info(f"🔑 [Google Auth] GOOGLE_CLIENT_SECRET: {'SET (' + str(len(client_secret)) + ' chars)' if client_secret else 'MISSING'}")
+        if not client_id or not client_secret:
+            logger.error(f"❌ [Google Auth] Credencials Google NO configurades")
+            return jsonify({'error': 'Credencials Google no configurades al servidor'}), 500
 
-    from google_auth_oauthlib.flow import Flow
-    flow = Flow.from_client_config(
-        {
-            "web": {
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [GOOGLE_OAUTH_REDIRECT_URI],
-            }
-        },
-        scopes=['https://www.googleapis.com/auth/calendar'],
-        redirect_uri=GOOGLE_OAUTH_REDIRECT_URI,
-    )
+        logger.info(f"🔑 [Google Auth] Redirect URI: {GOOGLE_OAUTH_REDIRECT_URI}")
 
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        prompt='consent',
-        login_hint='pau@rodonverges.com',
-    )
+        try:
+            from google_auth_oauthlib.flow import Flow
+            logger.info(f"🔑 [Google Auth] google_auth_oauthlib importat correctament")
+        except ImportError as ie:
+            logger.error(f"❌ [Google Auth] No s'ha pogut importar google_auth_oauthlib: {ie}")
+            return jsonify({'error': f'Mòdul google-auth-oauthlib no instal·lat: {ie}'}), 500
 
-    # Guardar state a la sessió per validar al callback
-    from flask import session
-    session['google_oauth_state'] = state
-    session['google_auth_token'] = token  # per re-validar al callback
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [GOOGLE_OAUTH_REDIRECT_URI],
+                }
+            },
+            scopes=['https://www.googleapis.com/auth/calendar'],
+            redirect_uri=GOOGLE_OAUTH_REDIRECT_URI,
+        )
+        logger.info(f"🔑 [Google Auth] Flow creat correctament")
 
-    return redirect(authorization_url)
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            prompt='consent',
+            login_hint='pau@rodonverges.com',
+        )
+        logger.info(f"🔑 [Google Auth] URL d'autorització generada, state={state[:20]}...")
+
+        # Guardar state a la sessió per validar al callback
+        from flask import session
+        session['google_oauth_state'] = state
+        session['google_auth_token'] = token  # per re-validar al callback
+        logger.info(f"🔑 [Google Auth] State guardat a la sessió. Redirigint a Google...")
+
+        return redirect(authorization_url)
+
+    except Exception as e:
+        logger.error(f"❌ [Google Auth] Error inesperat: {type(e).__name__}: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Error intern: {type(e).__name__}: {str(e)}'}), 500
 
 @app.route('/auth/google/callback')
 def google_auth_callback():
@@ -1966,85 +2035,116 @@ def google_auth_callback():
     Callback de Google OAuth. Rep el codi d'autorització,
     obté el refresh_token i el guarda a Render via API.
     """
-    from flask import session
+    logger.info(f"🔑 [Google Callback] Callback rebut — URL: {request.url[:100]}...")
+    try:
+        from flask import session
 
-    # Validar que ve d'un flow legítim
-    stored_token = session.get('google_auth_token')
-    if not GOOGLE_AUTH_TOKEN or stored_token != GOOGLE_AUTH_TOKEN:
-        return jsonify({'error': 'Accés denegat'}), 403
+        # Validar que ve d'un flow legítim
+        stored_token = session.get('google_auth_token')
+        logger.info(f"🔑 [Google Callback] Session token present: {'SÍ' if stored_token else 'NO'}")
+        logger.info(f"🔑 [Google Callback] GOOGLE_AUTH_TOKEN configurat: {'SÍ' if GOOGLE_AUTH_TOKEN else 'NO'}")
+        if not GOOGLE_AUTH_TOKEN or stored_token != GOOGLE_AUTH_TOKEN:
+            logger.warning(f"🔑 [Google Callback] Token sessió invàlid — potser la sessió ha caducat")
+            return jsonify({'error': 'Accés denegat — sessió caducada, torna a iniciar el flow'}), 403
 
-    error = request.args.get('error')
-    if error:
-        return f"""
-        <html><body style="font-family:sans-serif;text-align:center;margin-top:80px;">
-        <h2 style="color:#e74c3c;">Autorització cancel·lada</h2>
-        <p>Google ha retornat un error: <strong>{error}</strong></p>
-        </body></html>
-        """, 400
+        error = request.args.get('error')
+        if error:
+            logger.warning(f"🔑 [Google Callback] Google ha retornat error: {error}")
+            return f"""
+            <html><body style="font-family:sans-serif;text-align:center;margin-top:80px;">
+            <h2 style="color:#e74c3c;">Autorització cancel·lada</h2>
+            <p>Google ha retornat un error: <strong>{error}</strong></p>
+            </body></html>
+            """, 400
 
-    client_id = os.environ.get('GOOGLE_CLIENT_ID')
-    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+        client_id = os.environ.get('GOOGLE_CLIENT_ID')
+        client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+        logger.info(f"🔑 [Google Callback] Credencials: client_id={'SET' if client_id else 'MISSING'}, client_secret={'SET' if client_secret else 'MISSING'}")
 
-    from google_auth_oauthlib.flow import Flow
-    flow = Flow.from_client_config(
-        {
-            "web": {
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [GOOGLE_OAUTH_REDIRECT_URI],
-            }
-        },
-        scopes=['https://www.googleapis.com/auth/calendar'],
-        redirect_uri=GOOGLE_OAUTH_REDIRECT_URI,
-        state=session.get('google_oauth_state'),
-    )
+        try:
+            from google_auth_oauthlib.flow import Flow
+        except ImportError as ie:
+            logger.error(f"❌ [Google Callback] ImportError google_auth_oauthlib: {ie}")
+            return jsonify({'error': f'Mòdul no instal·lat: {ie}'}), 500
 
-    # Obtenir tokens amb el codi d'autorització
-    flow.fetch_token(authorization_response=request.url)
-    creds = flow.credentials
+        state = session.get('google_oauth_state')
+        logger.info(f"🔑 [Google Callback] OAuth state de sessió: {'SET' if state else 'MISSING'}")
 
-    if not creds.refresh_token:
-        return f"""
-        <html><body style="font-family:sans-serif;text-align:center;margin-top:80px;">
-        <h2 style="color:#e74c3c;">Error</h2>
-        <p>No s'ha obtingut el refresh_token. Prova a revocar l'accés a
-        <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>
-        i torna a autoritzar.</p>
-        </body></html>
-        """, 400
-
-    # Guardar el refresh_token a Render via API
-    render_ok = _save_refresh_token_to_render(creds.refresh_token)
-
-    # Actualitzar la variable en memòria per ús immediat
-    os.environ['GOOGLE_REFRESH_TOKEN'] = creds.refresh_token
-
-    if render_ok:
-        status_msg = "El token s'ha guardat correctament a Render."
-        color = "#2ecc71"
-    else:
-        status_msg = (
-            "El token s'ha activat en memòria però <strong>no s'ha pogut guardar a Render</strong>. "
-            "Afegeix-lo manualment: <br><code>GOOGLE_REFRESH_TOKEN=" + creds.refresh_token + "</code>"
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [GOOGLE_OAUTH_REDIRECT_URI],
+                }
+            },
+            scopes=['https://www.googleapis.com/auth/calendar'],
+            redirect_uri=GOOGLE_OAUTH_REDIRECT_URI,
+            state=state,
         )
-        color = "#f39c12"
 
-    return f"""
-    <html>
-    <body style="font-family:sans-serif;text-align:center;margin-top:80px;max-width:600px;margin-left:auto;margin-right:auto;">
-        <div style="background:#f8f9fa;border-radius:12px;padding:40px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
-            <h1 style="color:{color};">Autorització completada correctament</h1>
-            <p style="font-size:18px;">El Google Calendar de <strong>pau@rodonverges.com</strong>
-            ja està connectat amb la Gestoria.</p>
-            <p style="color:#666;">{status_msg}</p>
-            <hr style="margin:20px 0;border:none;border-top:1px solid #ddd;">
-            <p style="color:#999;font-size:14px;">Pots tancar aquesta finestra.</p>
-        </div>
-    </body>
-    </html>
-    """
+        # Obtenir tokens amb el codi d'autorització
+        # IMPORTANT: request.url pot arribar amb http:// si hi ha proxy/Render davant
+        auth_response_url = request.url
+        if auth_response_url.startswith('http://') and GOOGLE_OAUTH_REDIRECT_URI.startswith('https://'):
+            auth_response_url = auth_response_url.replace('http://', 'https://', 1)
+            logger.info(f"🔑 [Google Callback] URL corregida http→https: {auth_response_url[:80]}...")
+
+        logger.info(f"🔑 [Google Callback] Fent fetch_token...")
+        flow.fetch_token(authorization_response=auth_response_url)
+        creds = flow.credentials
+        logger.info(f"🔑 [Google Callback] Token obtingut! refresh_token={'SÍ' if creds.refresh_token else 'NO'}")
+
+        if not creds.refresh_token:
+            logger.warning(f"🔑 [Google Callback] NO s'ha rebut refresh_token — cal revocar accés previ")
+            return f"""
+            <html><body style="font-family:sans-serif;text-align:center;margin-top:80px;">
+            <h2 style="color:#e74c3c;">Error</h2>
+            <p>No s'ha obtingut el refresh_token. Prova a revocar l'accés a
+            <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>
+            i torna a autoritzar.</p>
+            </body></html>
+            """, 400
+
+        # Guardar el refresh_token a Render via API
+        logger.info(f"🔑 [Google Callback] Guardant refresh_token a Render...")
+        render_ok = _save_refresh_token_to_render(creds.refresh_token)
+
+        # Actualitzar la variable en memòria per ús immediat
+        os.environ['GOOGLE_REFRESH_TOKEN'] = creds.refresh_token
+        logger.info(f"🔑 [Google Callback] refresh_token guardat en memòria. Render API: {'OK' if render_ok else 'ERROR'}")
+
+        if render_ok:
+            status_msg = "El token s'ha guardat correctament a Render."
+            color = "#2ecc71"
+        else:
+            status_msg = (
+                "El token s'ha activat en memòria però <strong>no s'ha pogut guardar a Render</strong>. "
+                "Afegeix-lo manualment: <br><code>GOOGLE_REFRESH_TOKEN=" + creds.refresh_token + "</code>"
+            )
+            color = "#f39c12"
+
+        logger.info(f"✅ [Google Callback] Flow OAuth completat correctament!")
+        return f"""
+        <html>
+        <body style="font-family:sans-serif;text-align:center;margin-top:80px;max-width:600px;margin-left:auto;margin-right:auto;">
+            <div style="background:#f8f9fa;border-radius:12px;padding:40px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+                <h1 style="color:{color};">Autorització completada correctament</h1>
+                <p style="font-size:18px;">El Google Calendar de <strong>pau@rodonverges.com</strong>
+                ja està connectat amb la Gestoria.</p>
+                <p style="color:#666;">{status_msg}</p>
+                <hr style="margin:20px 0;border:none;border-top:1px solid #ddd;">
+                <p style="color:#999;font-size:14px;">Pots tancar aquesta finestra.</p>
+            </div>
+        </body>
+        </html>
+        """
+
+    except Exception as e:
+        logger.error(f"❌ [Google Callback] Error inesperat: {type(e).__name__}: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Error intern al callback: {type(e).__name__}: {str(e)}'}), 500
 
 def _save_refresh_token_to_render(refresh_token):
     """
