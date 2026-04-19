@@ -5672,6 +5672,9 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
 
         // Mostrar badge de recordatoris d'avui
         loadTodayReminderBadge();
+
+        // Recuperar recordatoris pendents del localStorage (browser-side fallback)
+        recoverReminders();
       }
 
       // ══════════════════════════════════════════
