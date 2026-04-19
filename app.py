@@ -1068,9 +1068,20 @@ def get_unread_counts():
             return jsonify({'ok': True, 'counts': {}, 'needs_init': True})
 
         last_reads = {lr.conv_id: lr.last_pk for lr in last_reads_rows}
+        # Filtrar només conv_ids rellevants per a l'usuari:
+        # - xats de grup (general, seus)
+        # - xats privats on l'usuari és emissor o receptor
+        from sqlalchemy import or_
+        GROUP_CONVS = ['general', 'sede_mataro', 'sede_vilassar']
         conv_ids = [
             row[0] for row in
-            db.session.query(Message.conv_id).distinct().all()
+            db.session.query(Message.conv_id).filter(
+                or_(
+                    Message.conv_id.in_(GROUP_CONVS),
+                    Message.sender_username == username,
+                    Message.recipient_username == username
+                )
+            ).distinct().all()
         ]
         counts = {}
         for cid in conv_ids:

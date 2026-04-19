@@ -4971,15 +4971,15 @@
         await fetchUnreadCounts();
       }
 
-      /** Inicia el polling cada 3 s. */
+      /** Inicia el polling cada 7 s. */
       function startPolling() {
         stopPolling();
         _pollKnownIds = {};
         _serverUnreadCounts = {};
-        console.log('[Polling] Iniciant polling cada 3 s...');
+        console.log('[Polling] Iniciant polling cada 7 s...');
         fetchUnreadCounts(); // carregar unread counts immediatament al login
         _doPoll(); // primer cicle immediat
-        _pollingTimer = setInterval(_doPoll, 3000);
+        _pollingTimer = setInterval(_doPoll, 7000);
       }
 
       /** Atura el polling (logout). */
