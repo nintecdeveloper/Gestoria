@@ -3997,6 +3997,74 @@
         </div>
 
         <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- RECURRÈNCIA (estil Outlook) -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <div style="margin-top:16px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)" id="ev-recurrence-section">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="ev-recurrent" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" onchange="toggleRecurrence('ev')">
+            <label for="ev-recurrent" style="font-size:13px;font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0">🔁 Cita recurrent</label>
+          </div>
+          <div id="ev-recurrence-body" style="display:none;margin-top:14px;display:none">
+            <!-- Periodicitat -->
+            <div style="margin-bottom:12px">
+              <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px">Periodicitat</div>
+              <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:500;cursor:pointer"><input type="radio" name="ev-freq" value="DAILY"   onchange="onFreqChange('ev')" style="accent-color:var(--accent)"> Diàriament</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:500;cursor:pointer"><input type="radio" name="ev-freq" value="WEEKLY"  onchange="onFreqChange('ev')" style="accent-color:var(--accent)" checked> Setmanalment</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:500;cursor:pointer"><input type="radio" name="ev-freq" value="MONTHLY" onchange="onFreqChange('ev')" style="accent-color:var(--accent)"> Mensualment</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:500;cursor:pointer"><input type="radio" name="ev-freq" value="YEARLY"  onchange="onFreqChange('ev')" style="accent-color:var(--accent)"> Anualment</label>
+              </div>
+            </div>
+            <!-- Interval -->
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+              <span style="font-size:13px;font-weight:500">Cada</span>
+              <input type="number" id="ev-interval" min="1" max="99" value="1" style="width:58px;padding:4px 8px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg);color:var(--text);text-align:center">
+              <span id="ev-interval-label" style="font-size:13px;color:var(--text)">setmanes</span>
+            </div>
+            <!-- Dies de la setmana (WEEKLY) -->
+            <div id="ev-byday-section" style="margin-bottom:12px">
+              <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px">Dies de la setmana</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" value="MO" class="ev-byday-cb" style="accent-color:var(--accent)"> Dl</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" value="TU" class="ev-byday-cb" style="accent-color:var(--accent)"> Dm</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" value="WE" class="ev-byday-cb" style="accent-color:var(--accent)"> Dc</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" value="TH" class="ev-byday-cb" style="accent-color:var(--accent)"> Dj</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" value="FR" class="ev-byday-cb" style="accent-color:var(--accent)"> Dv</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" value="SA" class="ev-byday-cb" style="accent-color:var(--accent)"> Ds</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" value="SU" class="ev-byday-cb" style="accent-color:var(--accent)"> Dg</label>
+              </div>
+            </div>
+            <!-- Dia del mes (MONTHLY) -->
+            <div id="ev-bymonthday-section" style="display:none;margin-bottom:12px">
+              <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px">Dia del mes</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:13px;font-weight:500">El dia</span>
+                <input type="number" id="ev-monthday" min="1" max="31" value="1" style="width:58px;padding:4px 8px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg);color:var(--text);text-align:center">
+                <span style="font-size:13px;color:var(--text)">del mes</span>
+              </div>
+            </div>
+            <!-- Fi de la periodicitat -->
+            <div>
+              <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px">Fi de la periodicitat</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                  <input type="radio" name="ev-end-type" value="none"  onchange="onEndTypeChange('ev')" style="accent-color:var(--accent)" checked> Sense data de finalització
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                  <input type="radio" name="ev-end-type" value="until" onchange="onEndTypeChange('ev')" style="accent-color:var(--accent)"> Finalitza el
+                  <input type="date" id="ev-until" style="padding:3px 8px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:12px;background:var(--bg);color:var(--text);display:none" oninput="document.querySelector('input[name=ev-end-type][value=until]').checked=true">
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                  <input type="radio" name="ev-end-type" value="count" onchange="onEndTypeChange('ev')" style="accent-color:var(--accent)"> Finalitza al cap de
+                  <input type="number" id="ev-count" min="1" max="365" value="10" style="width:58px;padding:3px 8px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:12px;background:var(--bg);color:var(--text);text-align:center;display:none" oninput="document.querySelector('input[name=ev-end-type][value=count]').checked=true">
+                  <span id="ev-count-label" style="display:none;font-size:13px">vegades</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════════════ -->
         <!-- WhatsApp Reminder (Para el CLIENTE) -->
         <!-- ════════════════════════════════════════════════════════════ -->
         <div style="margin-top:16px;padding:14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)">
@@ -4092,6 +4160,7 @@
           &times;
         </button>
         <div class="modal-title" id="detail-title">Detall de la cita</div>
+        <div id="detail-recur-badge" style="display:none;font-size:12px;color:var(--accent);font-weight:600;margin-top:4px">🔁 Cita recurrent</div>
         <div
           id="detail-body"
           style="line-height: 2; font-size: 14px; margin-top: 16px"
@@ -4125,6 +4194,32 @@
           >
             Tancar
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: Scope de recurrència (editar / esborrar) -->
+    <div class="modal-overlay" id="recurrence-scope-modal">
+      <div class="modal" style="max-width:420px">
+        <button class="modal-close" onclick="closeModal('recurrence-scope-modal')">&times;</button>
+        <div class="modal-title" id="rscope-title">Cita recurrent</div>
+        <div id="rscope-subtitle" style="font-size:13px;color:var(--text-muted);margin-top:4px"></div>
+        <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
+          <button class="btn btn-primary" style="text-align:left;padding:12px 16px" onclick="applyRecurrenceScope('this')">
+            <div style="font-weight:600">Només aquesta cita</div>
+            <div style="font-size:11px;font-weight:400;opacity:0.8;margin-top:2px">Canvia únicament l'ocurrència seleccionada</div>
+          </button>
+          <button class="btn btn-primary" style="text-align:left;padding:12px 16px" onclick="applyRecurrenceScope('following')">
+            <div style="font-weight:600">Aquesta i totes les següents</div>
+            <div style="font-size:11px;font-weight:400;opacity:0.8;margin-top:2px">Canvia des d'aquesta data fins al final</div>
+          </button>
+          <button class="btn btn-primary" style="text-align:left;padding:12px 16px" onclick="applyRecurrenceScope('all')">
+            <div style="font-weight:600">Totes les cites</div>
+            <div style="font-size:11px;font-weight:400;opacity:0.8;margin-top:2px">Canvia totes les ocurrències de la sèrie</div>
+          </button>
+        </div>
+        <div class="modal-actions" style="margin-top:16px">
+          <button class="btn btn-ghost" onclick="closeModal('recurrence-scope-modal')">Cancel·lar</button>
         </div>
       </div>
     </div>
@@ -6551,7 +6646,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           if (shouldMask)
             return `<div class="cell-event blocked-private" title="Horari no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
           const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
-          return `<div class="cell-event ${colors[i%3]}${ev.private?' private-event':''}" onclick="showEventDetail(${ev.id},event)">${ev.private?'🔒 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
+          return `<div class="cell-event ${colors[i%3]}${ev.private?' private-event':''}" onclick="showEventDetail(${ev.id},event)">${ev.private?'🔒 ':''}${ev.recurrenceMasterId||ev.isRecurringMaster?'🔁 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
         };
 
         // ── VISTA SEMANA ──────────────────────────────────
@@ -6783,28 +6878,39 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           privBtn.style.display = isAdmin ? "" : "none";
           privBtn.textContent = ev.private ? "🔓 Fer pública" : "🔒 Privatitzar";
         }
+        // Indicador visual per a events recurrents
+        const recurBadge = document.getElementById('detail-recur-badge');
+        if (recurBadge) {
+          recurBadge.style.display = (ev.recurrenceMasterId || ev.isRecurringMaster) ? '' : 'none';
+        }
         openModal("detail-modal");
       }
 
       async function deleteCurrentEvent() {
         if (currentDetailId === null) return;
         const evId = currentDetailId;
+        const ev   = EVENTS.find(e => e.id === evId);
+        if (ev && (ev.recurrenceMasterId || ev.isRecurringMaster)) {
+          showRecurrenceScopeModal('delete', evId);
+          return;
+        }
         EVENTS = EVENTS.filter((e) => e.id !== evId);
         currentDetailId = null;
         closeModal("detail-modal");
-        refreshCals();
-        renderDashboard();
+        refreshCals(); renderDashboard();
         try {
           await fetch(`/api/events/${evId}`, { method: 'DELETE' });
           deleteBackendRemindersByEvent(evId).then(() => loadTodayReminderBadge());
-        } catch (e) {
-          console.error('❌ [deleteCurrentEvent] Error:', e);
-        }
+        } catch (e) { console.error('❌ [deleteCurrentEvent]', e); }
       }
 
       function editCurrentEvent() {
         const ev = EVENTS.find((x) => x.id === currentDetailId);
         if (!ev) return;
+        if (ev.recurrenceMasterId || ev.isRecurringMaster) {
+          showRecurrenceScopeModal('edit', currentDetailId);
+          return;
+        }
         closeModal("detail-modal");
         openEditEvent(ev);
       }
@@ -7054,7 +7160,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         _renderPrBadges('ev');
         _waReminders['ev'] = [];
         _renderWaBadges('ev');
-        
+        _resetRecurrenceUI('ev');
         openModal("event-modal");
       }
 
@@ -7135,7 +7241,8 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           });
         }
         _renderWaBadges('ev');
-        
+        // Carregar configuració de recurrència si l'event és recurrent
+        _loadRecurrenceFromEvent(ev, 'ev');
         openModal("event-modal");
       }
 
@@ -7243,11 +7350,13 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
                   clientPhone:  ev.clientPhone || null,
                   waReminders:  ev.waReminders || [],
                   prReminders:  ev.prReminders || [],
+                  scope:        window._editRecurrenceScope || 'this',
                 }),
               });
             } catch (e) {
               console.error('❌ [saveEvent PUT] Error:', e);
             }
+            window._editRecurrenceScope = null;
 
             // Sync recordatoris personals: esborrar vells i desar nous
             deleteBackendRemindersByEvent(ev.id).then(() => {
@@ -7302,21 +7411,22 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                ownerId:      eventObj.ownerId,
-                assignedTo:   eventObj.assignedTo,
-                date:         eventObj.date,
-                time:         eventObj.time,
-                timeEnd:      eventObj.timeEnd || null,
-                client:       eventObj.client || null,
-                // client_id és null si l'usuari ha escrit un nom lliure (no seleccionat de la BD)
-                client_id:    parseInt(document.getElementById('ev-client-id')?.value || '') || null,
-                service:      eventObj.service || null,
-                notes:        eventObj.notes || null,
-                private:      eventObj.private,
-                clientPhone:  eventObj.clientPhone || null,
-                calendarType: eventObj.calendarType || null,
-                waReminders:  eventObj.waReminders || [],
-                prReminders:  eventObj.prReminders || [],
+                ownerId:              eventObj.ownerId,
+                assignedTo:           eventObj.assignedTo,
+                date:                 eventObj.date,
+                time:                 eventObj.time,
+                timeEnd:              eventObj.timeEnd || null,
+                client:               eventObj.client || null,
+                client_id:            parseInt(document.getElementById('ev-client-id')?.value || '') || null,
+                service:              eventObj.service || null,
+                notes:                eventObj.notes || null,
+                private:              eventObj.private,
+                clientPhone:          eventObj.clientPhone || null,
+                calendarType:         eventObj.calendarType || null,
+                waReminders:          eventObj.waReminders || [],
+                prReminders:          eventObj.prReminders || [],
+                recurrence_rule:      buildRRule('ev'),
+                is_recurring_master:  !!(buildRRule('ev')),
               }),
             });
             const resData = await res.json();
@@ -9953,6 +10063,203 @@ document.getElementById("nu-user").addEventListener("input", function() {
       // ══════════════════════════════════════════
 
       const _waReminders = {}; // prefix -> [{timing, label}, ...]
+
+      // ══════════════════════════════════════════
+      //  RECURRÈNCIA — FUNCIONS UI
+      // ══════════════════════════════════════════
+
+      function toggleRecurrence(prefix) {
+        const cb   = document.getElementById(prefix + '-recurrent');
+        const body = document.getElementById(prefix + '-recurrence-body');
+        if (!cb || !body) return;
+        body.style.display = cb.checked ? 'block' : 'none';
+        if (cb.checked) onFreqChange(prefix);
+      }
+
+      function onFreqChange(prefix) {
+        const freq = document.querySelector(`input[name="${prefix}-freq"]:checked`)?.value || 'WEEKLY';
+        const il   = document.getElementById(prefix + '-interval-label');
+        const bd   = document.getElementById(prefix + '-byday-section');
+        const md   = document.getElementById(prefix + '-bymonthday-section');
+        const labels = { DAILY: 'dies', WEEKLY: 'setmanes', MONTHLY: 'mesos', YEARLY: 'anys' };
+        if (il) il.textContent = labels[freq] || 'vegades';
+        if (bd) bd.style.display = freq === 'WEEKLY'  ? 'block' : 'none';
+        if (md) md.style.display = freq === 'MONTHLY' ? 'block' : 'none';
+      }
+
+      function onEndTypeChange(prefix) {
+        const endType = document.querySelector(`input[name="${prefix}-end-type"]:checked`)?.value || 'none';
+        const untilEl = document.getElementById(prefix + '-until');
+        const countEl = document.getElementById(prefix + '-count');
+        const countLb = document.getElementById(prefix + '-count-label');
+        if (untilEl) untilEl.style.display = endType === 'until' ? '' : 'none';
+        if (countEl) countEl.style.display = endType === 'count' ? '' : 'none';
+        if (countLb) countLb.style.display = endType === 'count' ? '' : 'none';
+      }
+
+      function buildRRule(prefix) {
+        const cb = document.getElementById(prefix + '-recurrent');
+        if (!cb || !cb.checked) return null;
+
+        const freq = document.querySelector(`input[name="${prefix}-freq"]:checked`)?.value || 'WEEKLY';
+        const interval = parseInt(document.getElementById(prefix + '-interval')?.value || '1');
+        const endType  = document.querySelector(`input[name="${prefix}-end-type"]:checked`)?.value || 'none';
+
+        let rule = `FREQ=${freq}`;
+        if (interval > 1) rule += `;INTERVAL=${interval}`;
+
+        if (freq === 'WEEKLY') {
+          const days = [...document.querySelectorAll(`.${prefix}-byday-cb:checked`)].map(cb => cb.value);
+          if (days.length > 0) rule += `;BYDAY=${days.join(',')}`;
+        }
+        if (freq === 'MONTHLY') {
+          const md = parseInt(document.getElementById(prefix + '-monthday')?.value || '1');
+          rule += `;BYMONTHDAY=${md}`;
+        }
+
+        if (endType === 'until') {
+          const until = (document.getElementById(prefix + '-until')?.value || '').replace(/-/g, '');
+          if (until.length === 8) rule += `;UNTIL=${until}`;
+        } else if (endType === 'count') {
+          const cnt = parseInt(document.getElementById(prefix + '-count')?.value || '10');
+          rule += `;COUNT=${cnt}`;
+        }
+        return rule;
+      }
+
+      function _resetRecurrenceUI(prefix) {
+        const cb = document.getElementById(prefix + '-recurrent');
+        if (cb) cb.checked = false;
+        const body = document.getElementById(prefix + '-recurrence-body');
+        if (body) body.style.display = 'none';
+        // Reset freq to WEEKLY
+        const wkly = document.querySelector(`input[name="${prefix}-freq"][value="WEEKLY"]`);
+        if (wkly) { wkly.checked = true; onFreqChange(prefix); }
+        // Reset end to none
+        const noneR = document.querySelector(`input[name="${prefix}-end-type"][value="none"]`);
+        if (noneR) { noneR.checked = true; onEndTypeChange(prefix); }
+        // Reset interval
+        const intEl = document.getElementById(prefix + '-interval');
+        if (intEl) intEl.value = '1';
+        // Uncheck days
+        document.querySelectorAll(`.${prefix}-byday-cb`).forEach(c => { c.checked = false; });
+      }
+
+      function _loadRecurrenceFromEvent(ev, prefix) {
+        _resetRecurrenceUI(prefix);
+        if (!ev.recurrenceRule && !ev.isRecurringMaster) return;
+        const rrule = ev.recurrenceRule || '';
+        if (!rrule) return;
+        const cb = document.getElementById(prefix + '-recurrent');
+        if (cb) cb.checked = true;
+        const body = document.getElementById(prefix + '-recurrence-body');
+        if (body) body.style.display = 'block';
+
+        // Parse RRULE
+        const parts = {};
+        rrule.split(';').forEach(p => {
+          const [k,v] = p.split('=');
+          if (k && v !== undefined) parts[k] = v;
+        });
+        const freq = parts['FREQ'] || 'WEEKLY';
+        const freqR = document.querySelector(`input[name="${prefix}-freq"][value="${freq}"]`);
+        if (freqR) freqR.checked = true;
+        onFreqChange(prefix);
+
+        if (parts['INTERVAL']) {
+          const intEl = document.getElementById(prefix + '-interval');
+          if (intEl) intEl.value = parts['INTERVAL'];
+        }
+        if (parts['BYDAY'] && freq === 'WEEKLY') {
+          const days = parts['BYDAY'].split(',');
+          document.querySelectorAll(`.${prefix}-byday-cb`).forEach(cb => {
+            cb.checked = days.includes(cb.value);
+          });
+        }
+        if (parts['BYMONTHDAY'] && freq === 'MONTHLY') {
+          const mdEl = document.getElementById(prefix + '-monthday');
+          if (mdEl) mdEl.value = parts['BYMONTHDAY'];
+        }
+        if (parts['UNTIL']) {
+          const untR = document.querySelector(`input[name="${prefix}-end-type"][value="until"]`);
+          if (untR) untR.checked = true;
+          const raw = parts['UNTIL'];
+          const formatted = raw.length >= 8 ? `${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}` : raw;
+          const untEl = document.getElementById(prefix + '-until');
+          if (untEl) { untEl.value = formatted; untEl.style.display = ''; }
+          onEndTypeChange(prefix);
+        } else if (parts['COUNT']) {
+          const cntR = document.querySelector(`input[name="${prefix}-end-type"][value="count"]`);
+          if (cntR) cntR.checked = true;
+          const cntEl = document.getElementById(prefix + '-count');
+          if (cntEl) { cntEl.value = parts['COUNT']; cntEl.style.display = ''; }
+          const cntLb = document.getElementById(prefix + '-count-label');
+          if (cntLb) cntLb.style.display = '';
+          onEndTypeChange(prefix);
+        }
+      }
+
+      // ── Scope modal per a edició/esborrat de recurrents ──────────
+      let _pendingRScopeAction = null;  // 'edit' | 'delete'
+      let _pendingRScopeEvId   = null;
+
+      function showRecurrenceScopeModal(action, evId) {
+        _pendingRScopeAction = action;
+        _pendingRScopeEvId   = evId;
+        const titleEl    = document.getElementById('rscope-title');
+        const subtitleEl = document.getElementById('rscope-subtitle');
+        if (titleEl)    titleEl.textContent    = action === 'edit' ? 'Editar cita recurrent' : 'Eliminar cita recurrent';
+        if (subtitleEl) subtitleEl.textContent = action === 'edit'
+          ? 'Vols editar totes les cites o només aquesta?'
+          : 'Vols eliminar totes les cites o només aquesta?';
+        closeModal('detail-modal');
+        openModal('recurrence-scope-modal');
+      }
+
+      async function applyRecurrenceScope(scope) {
+        closeModal('recurrence-scope-modal');
+        const evId  = _pendingRScopeEvId;
+        const action = _pendingRScopeAction;
+        _pendingRScopeAction = null;
+        _pendingRScopeEvId   = null;
+        if (!evId) return;
+
+        if (action === 'delete') {
+          // Eliminar events del frontend
+          if (scope === 'this') {
+            EVENTS = EVENTS.filter(e => e.id !== evId);
+          } else if (scope === 'following') {
+            const ev = EVENTS.find(e => e.id === evId);
+            if (ev) {
+              const masterId = ev.recurrenceMasterId || ev.id;
+              EVENTS = EVENTS.filter(e => !(
+                (e.id === evId) ||
+                (e.recurrenceMasterId === masterId && e.date >= ev.date)
+              ));
+            }
+          } else { // all
+            const ev = EVENTS.find(e => e.id === evId);
+            if (ev) {
+              const masterId = ev.recurrenceMasterId || ev.id;
+              EVENTS = EVENTS.filter(e => e.id !== masterId && e.recurrenceMasterId !== masterId);
+            }
+          }
+          refreshCals(); renderDashboard();
+          try {
+            await fetch(`/api/events/${evId}?scope=${scope}`, { method: 'DELETE' });
+            deleteBackendRemindersByEvent(evId).then(() => loadTodayReminderBadge());
+          } catch(e) { console.error('❌ [deleteRecurrent]', e); }
+
+        } else { // edit
+          const ev = EVENTS.find(e => e.id === evId);
+          if (ev) {
+            currentDetailId = evId;
+            openEditEvent(ev);
+            // Guardar scope per usar-lo a saveEvent
+            window._editRecurrenceScope = scope;
+          }
+        }
+      }
 
       function toggleWaDropdown(dropdownId) {
         document.querySelectorAll('.wa-dropdown.open').forEach(d => {

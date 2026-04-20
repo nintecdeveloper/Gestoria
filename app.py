@@ -4,7 +4,7 @@ import threading
 from flask import Flask, render_template, jsonify, request, send_file, redirect, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 import io
 import requests
@@ -31,6 +31,13 @@ try:
 except ImportError:
     SCHEDULER_AVAILABLE = False
     print("⚠️  [Scheduler] APScheduler no instalado. pip install apscheduler para activarlo.")
+
+try:
+    from dateutil.rrule import rrulestr as _rrulestr
+    DATEUTIL_AVAILABLE = True
+except ImportError:
+    DATEUTIL_AVAILABLE = False
+    print("⚠️  [Recurrència] python-dateutil no instal·lat. pip install python-dateutil")
 
 META_PHONE_NUMBER_ID = os.environ.get('META_PHONE_NUMBER_ID', None)
 META_ACCESS_TOKEN = os.environ.get('META_ACCESS_TOKEN', None)
@@ -293,6 +300,10 @@ class Event(db.Model):
     is_private    = db.Column(db.Boolean,     default=False)
     wa_reminder   = db.Column(db.String(500), nullable=True)   # JSON string
     pr_reminder   = db.Column(db.String(1000),nullable=True)   # JSON string
+    recurrence_rule      = db.Column(db.String(200), nullable=True)   # RRULE RFC 5545
+    recurrence_end       = db.Column(db.String(10),  nullable=True)   # YYYY-MM-DD última ocurrència
+    is_recurring_master  = db.Column(db.Boolean,     default=False)
+    recurrence_master_id = db.Column(db.Integer,     nullable=True)   # FK manual (id del master)
     google_calendar_event_id = db.Column(db.String(255), nullable=True)  # Google Calendar sync
     created_at    = db.Column(db.DateTime,    default=datetime.utcnow)
 
@@ -314,6 +325,10 @@ class Event(db.Model):
             'department':   self.department,
             'waReminders':  json.loads(self.wa_reminder) if self.wa_reminder else [],
             'prReminders':  json.loads(self.pr_reminder) if self.pr_reminder else [],
+            'recurrenceRule':      self.recurrence_rule,
+            'recurrenceEnd':       self.recurrence_end,
+            'isRecurringMaster':   bool(self.is_recurring_master) if self.is_recurring_master is not None else False,
+            'recurrenceMasterId':  self.recurrence_master_id,
         }
 
 class PersonalReminder(db.Model):
@@ -1922,6 +1937,87 @@ def admin_reset_data():
 # API EVENTS — Persistència d'events de calendari a PostgreSQL
 # ═══════════════════════════════════════════════════════════════
 
+def _expand_rrule(rrule_str: str, start_date: str, start_time: str, max_count: int = 365):
+    """Expandeix una RRULE RFC 5545 retornant llista de dates YYYY-MM-DD.
+    Salta la primera data (= master). Cap a màxim max_count fills."""
+    if not DATEUTIL_AVAILABLE or not rrule_str:
+        return []
+    try:
+        dt_str  = f"{start_date}T{start_time}:00"
+        dtstart = datetime.fromisoformat(dt_str)
+        full    = f"DTSTART:{dtstart.strftime('%Y%m%dT%H%M%S')}\nRRULE:{rrule_str}"
+        rule    = _rrulestr(full, ignoretz=True)
+        dates   = []
+        for i, dt in enumerate(rule):
+            if i == 0:
+                continue          # salta el primer (= master)
+            if len(dates) >= max_count:
+                break
+            dates.append(dt.strftime('%Y-%m-%d'))
+        return dates
+    except Exception as _e:
+        logger.error(f"❌ [RRULE] Error expandint '{rrule_str}': {_e}")
+        return []
+
+
+def _schedule_wa_for_event(event, wa_reminders_list):
+    """Programa recordatoris WA per a un event fill (creat pel backend per recurrència).
+    wa_reminders_list: llista [{timing, label}] — mateixa estructura que event.wa_reminder JSON.
+    """
+    if not wa_reminders_list or not SCHEDULER_AVAILABLE or not scheduler:
+        return
+    if not event.client_phone:
+        return
+    offsets = {'now': 0, '1h': 3600, '1d': 86400, '1w': 604800}
+    try:
+        import pytz as _ptz
+        madrid  = _ptz.timezone('Europe/Madrid')
+        ev_dt   = datetime.fromisoformat(f"{event.date}T{event.start_time}:00")
+        ev_dt   = madrid.localize(ev_dt)
+        now_tz  = datetime.now(madrid)
+    except Exception as _e:
+        logger.error(f"❌ [WA Recurrent] Error parsejant datetime event {event.id}: {_e}")
+        return
+
+    phone_clean = re.sub(r'[^\d]', '', event.client_phone)
+    if len(phone_clean) == 9:
+        phone_clean = '34' + phone_clean
+
+    for reminder in wa_reminders_list:
+        timing = (reminder.get('timing') or 'none').strip()
+        if timing == 'none' or timing not in offsets:
+            continue
+        send_dt = ev_dt - timedelta(seconds=offsets[timing])
+        job_id  = f"wa_ev{event.id}_{timing}"
+        date_f  = format_date_catalan(event.date)
+        time_f  = event.start_time + 'h'
+        sede    = event.sede or 'Mataró'
+        client  = event.client_name or ''
+        t_params = [client, date_f, time_f, sede]
+        j_args   = [phone_clean, '', 'nom_recordatori_cita', t_params, job_id]
+        tpl_vars = {'nom': client, 'data': date_f, 'hora': time_f, 'seu': sede}
+
+        if send_dt <= now_tz:
+            threading.Thread(target=send_whatsapp_job, args=j_args, daemon=True).start()
+        else:
+            try:
+                old = WaScheduledJob.query.filter_by(job_id=job_id).first()
+                if old:
+                    db.session.delete(old)
+                rec = WaScheduledJob(job_id=job_id, event_id=event.id, phone=phone_clean,
+                                     template_vars=tpl_vars, send_at=send_dt, sent=False)
+                db.session.add(rec)
+                db.session.commit()
+                if not scheduler.get_job(job_id):
+                    scheduler.add_job(func=send_whatsapp_job,
+                                      trigger=DateTrigger(run_date=send_dt),
+                                      args=j_args, id=job_id, replace_existing=True)
+                logger.info(f"📅 [WA Recurrent] {job_id} → {send_dt.isoformat()}")
+            except Exception as _e:
+                db.session.rollback()
+                logger.error(f"❌ [WA Recurrent] Error {job_id}: {_e}")
+
+
 @app.route('/api/events', methods=['GET'])
 def get_events():
     """Retorna tots els events. El frontend s'encarrega del filtratge per permisos."""
@@ -1955,8 +2051,45 @@ def create_event():
             wa_reminder   = json.dumps(data['waReminders']) if data.get('waReminders') else None,
             pr_reminder   = json.dumps(data['prReminders']) if data.get('prReminders') else None,
         )
+        ev.recurrence_rule     = data.get('recurrence_rule') or None
+        ev.is_recurring_master = bool(data.get('is_recurring_master', False))
         db.session.add(ev)
         db.session.commit()
+
+        # ── Expandir RRULE i crear events fills ──────────────────
+        child_events = []
+        rrule_str = data.get('recurrence_rule') or None
+        if rrule_str and DATEUTIL_AVAILABLE:
+            wa_reminders_list = json.loads(ev.wa_reminder) if ev.wa_reminder else []
+            child_dates = _expand_rrule(rrule_str, ev.date, ev.start_time or '09:00')
+            for child_date in child_dates:
+                child = Event(
+                    date          = child_date,
+                    start_time    = ev.start_time,
+                    end_time      = ev.end_time,
+                    client_name   = ev.client_name,
+                    client_phone  = ev.client_phone,
+                    assigned_to   = ev.assigned_to,
+                    created_by    = ev.created_by,
+                    calendar_type = ev.calendar_type,
+                    sede          = ev.sede,
+                    department    = ev.department,
+                    service_type  = ev.service_type,
+                    notes         = ev.notes,
+                    is_private    = ev.is_private,
+                    wa_reminder   = ev.wa_reminder,
+                    pr_reminder   = ev.pr_reminder,
+                    recurrence_master_id = ev.id,
+                    is_recurring_master  = False,
+                )
+                db.session.add(child)
+                child_events.append(child)
+            if child_events:
+                db.session.commit()
+                # Programar WA per a cada fill
+                for child in child_events:
+                    _schedule_wa_for_event(child, wa_reminders_list)
+            logger.info(f"📅 [Recurrència] Master ev.id={ev.id}, {len(child_events)} fills creats")
 
         # Sync asíncron a Google Calendar
         ev_id = ev.id
@@ -1976,27 +2109,57 @@ def create_event():
 
 @app.route('/api/events/<int:ev_id>', methods=['PUT'])
 def update_event(ev_id):
-    """Actualitza un event existent."""
+    """Actualitza un event. Per a recurrents accepta scope: this|following|all."""
     try:
         ev = Event.query.get(ev_id)
         if not ev:
             return jsonify({'ok': False, 'error': 'Event no trobat'}), 404
-        data = request.get_json(force=True) or {}
-        logger.info(f"📅 [Events PUT {ev_id}] waReminders={data.get('waReminders')}, prReminders={data.get('prReminders')}")
-        ev.date          = data.get('date', ev.date)
-        ev.start_time    = data.get('time', ev.start_time)
-        ev.end_time      = data.get('timeEnd') if 'timeEnd' in data else ev.end_time
-        ev.client_name   = data.get('client') or ev.client_name
-        ev.client_phone  = data.get('clientPhone') if 'clientPhone' in data else ev.client_phone
-        ev.assigned_to   = int(data['assignedTo']) if 'assignedTo' in data else ev.assigned_to
-        ev.service_type  = data.get('service') if 'service' in data else ev.service_type
-        ev.notes         = data.get('notes') if 'notes' in data else ev.notes
-        ev.is_private    = bool(data['private']) if 'private' in data else ev.is_private
-        ev.wa_reminder   = json.dumps(data['waReminders']) if data.get('waReminders') else (None if 'waReminders' in data else ev.wa_reminder)
-        ev.pr_reminder   = json.dumps(data['prReminders']) if data.get('prReminders') else (None if 'prReminders' in data else ev.pr_reminder)
+        data  = request.get_json(force=True) or {}
+        scope = data.get('scope', 'this')  # this | following | all
+        logger.info(f"📅 [Events PUT {ev_id}] scope={scope} waReminders={data.get('waReminders')}")
+
+        def _apply_fields(e):
+            e.date          = data.get('date',      e.date)
+            e.start_time    = data.get('time',      e.start_time)
+            e.end_time      = data.get('timeEnd')   if 'timeEnd'   in data else e.end_time
+            e.client_name   = data.get('client')    or e.client_name
+            e.client_phone  = data.get('clientPhone') if 'clientPhone' in data else e.client_phone
+            e.assigned_to   = int(data['assignedTo']) if 'assignedTo' in data else e.assigned_to
+            e.service_type  = data.get('service')   if 'service'   in data else e.service_type
+            e.notes         = data.get('notes')     if 'notes'     in data else e.notes
+            e.is_private    = bool(data['private']) if 'private'   in data else e.is_private
+            e.wa_reminder   = json.dumps(data['waReminders']) if data.get('waReminders') else (None if 'waReminders' in data else e.wa_reminder)
+            e.pr_reminder   = json.dumps(data['prReminders']) if data.get('prReminders') else (None if 'prReminders' in data else e.pr_reminder)
+
+        if scope == 'this':
+            _apply_fields(ev)
+            # Desvincula del master si es modificació individual
+            if ev.recurrence_master_id:
+                ev.recurrence_master_id = None
+                ev.is_recurring_master  = False
+                ev.recurrence_rule      = None
+        elif scope == 'following':
+            # Actualitza aquest i tots els fills posteriors (per data)
+            master_id = ev.recurrence_master_id or ev.id
+            siblings  = Event.query.filter(
+                Event.recurrence_master_id == master_id,
+                Event.date >= ev.date
+            ).all()
+            # Inclou l'event actual si és fill
+            targets = siblings if ev.recurrence_master_id else [ev] + siblings
+            for t in targets:
+                _apply_fields(t)
+        else:  # 'all'
+            master_id = ev.recurrence_master_id or ev.id
+            master    = Event.query.get(master_id)
+            siblings  = Event.query.filter_by(recurrence_master_id=master_id).all()
+            targets   = ([master] if master else []) + siblings
+            for t in targets:
+                _apply_fields(t)
+
         db.session.commit()
 
-        # Sync asíncron a Google Calendar
+        # Sync asíncron a Google Calendar (només l'event directe)
         def _sync_update():
             from calendar_sync import sync_event_to_calendar
             with app.app_context():
@@ -2013,26 +2176,48 @@ def update_event(ev_id):
 
 @app.route('/api/events/<int:ev_id>', methods=['DELETE'])
 def delete_event(ev_id):
-    """Esborra un event."""
+    """Esborra un event. Per a recurrents accepta scope: this|following|all."""
     try:
         ev = Event.query.get(ev_id)
         if not ev:
             return jsonify({'ok': False, 'error': 'Event no trobat'}), 404
 
-        # Eliminar del Google Calendar abans d'esborrar de la BD
-        gcal_id = ev.google_calendar_event_id
-        db.session.delete(ev)
+        scope     = request.args.get('scope', 'this')
+        gcal_ids  = []
+
+        if scope == 'this':
+            gcal_ids.append(ev.google_calendar_event_id)
+            db.session.delete(ev)
+        elif scope == 'following':
+            master_id = ev.recurrence_master_id or ev.id
+            siblings  = Event.query.filter(
+                Event.recurrence_master_id == master_id,
+                Event.date >= ev.date
+            ).all()
+            targets = siblings if ev.recurrence_master_id else [ev] + siblings
+            for t in targets:
+                gcal_ids.append(t.google_calendar_event_id)
+                db.session.delete(t)
+        else:  # 'all'
+            master_id = ev.recurrence_master_id or ev.id
+            master    = Event.query.get(master_id)
+            siblings  = Event.query.filter_by(recurrence_master_id=master_id).all()
+            targets   = ([master] if master else []) + siblings
+            for t in targets:
+                gcal_ids.append(t.google_calendar_event_id)
+                db.session.delete(t)
+
         db.session.commit()
 
-        if gcal_id:
-            def _sync_delete():
+        # Sync GCal per als events esborrats
+        for gcal_id in filter(None, gcal_ids):
+            def _del(gid=gcal_id):
                 from calendar_sync import delete_event_from_calendar
                 from types import SimpleNamespace
-                dummy = SimpleNamespace(google_calendar_event_id=gcal_id)
-                delete_event_from_calendar(dummy)
-            threading.Thread(target=_sync_delete, daemon=True).start()
+                delete_event_from_calendar(SimpleNamespace(google_calendar_event_id=gid))
+            threading.Thread(target=_del, daemon=True).start()
 
-        return jsonify({'ok': True, 'deleted': ev_id})
+        return jsonify({'ok': True, 'deleted': ev_id, 'scope': scope})
     except Exception as e:
         db.session.rollback()
         logger.error(f"❌ [Events DELETE {ev_id}] {str(e)}")
@@ -2410,6 +2595,27 @@ with app.app_context():
                     conn.commit()
                     logger.info("✅ [DB] Columna client_phone afegida a event")
             logger.info(f"✅ [DB] Columnes event verificades: {existing_cols}")
+
+        # Migració: columnes recurrència
+        if 'events' in insp.get_table_names():
+            ev_cols = [c['name'] for c in insp.get_columns('events')]
+            with db.engine.connect() as conn:
+                if 'recurrence_rule' not in ev_cols:
+                    conn.execute(text('ALTER TABLE events ADD COLUMN recurrence_rule VARCHAR(200)'))
+                    conn.commit()
+                    logger.info("✅ Migració: afegit recurrence_rule a events")
+                if 'recurrence_end' not in ev_cols:
+                    conn.execute(text('ALTER TABLE events ADD COLUMN recurrence_end VARCHAR(10)'))
+                    conn.commit()
+                    logger.info("✅ Migració: afegit recurrence_end a events")
+                if 'is_recurring_master' not in ev_cols:
+                    conn.execute(text('ALTER TABLE events ADD COLUMN is_recurring_master BOOLEAN DEFAULT FALSE'))
+                    conn.commit()
+                    logger.info("✅ Migració: afegit is_recurring_master a events")
+                if 'recurrence_master_id' not in ev_cols:
+                    conn.execute(text('ALTER TABLE events ADD COLUMN recurrence_master_id INTEGER'))
+                    conn.commit()
+                    logger.info("✅ Migració: afegit recurrence_master_id a events")
     except Exception as _e:
         logger.error(f"❌ Error creant taules: {_e}")
 
