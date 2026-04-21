@@ -4251,8 +4251,8 @@
             ><input type="text" id="nu-user" placeholder="nom.usuari" />
           </div>
           <div class="form-group">
-            <label>Contrasenya *</label
-           ><input type="text" id="nu-pass" placeholder="••••••••" />
+            <label>Contrasenya</label
+           ><input type="password" id="nu-pass" placeholder="Deixa buit per no canviar" autocomplete="new-password" />
           </div>
         </div>
         <div class="form-group">
@@ -4580,6 +4580,26 @@
     </div>
     <!-- FIN NUEVO MODAL -->
 
+    <!-- MODAL: CANVI DE CONTRASENYA OBLIGATORI -->
+    <div class="modal-overlay" id="must-change-password-modal" style="display:none;z-index:10000;">
+      <div class="modal" style="max-width:400px;">
+        <div class="modal-title">Canvia la contrasenya</div>
+        <div class="modal-sub" style="margin-bottom:16px;">Per seguretat, has de canviar la contrasenya abans de continuar.</div>
+        <div class="form-group">
+          <label>Nova contrasenya *</label>
+          <input type="password" id="mcp-new-pass" placeholder="Mínim 8 caràcters" autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label>Confirmar contrasenya *</label>
+          <input type="password" id="mcp-confirm-pass" placeholder="Repeteix la contrasenya" autocomplete="new-password" />
+        </div>
+        <div class="form-err" id="mcp-err" style="display:none;"></div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="mcp-save-btn" onclick="submitMustChangePassword()">Guardar i entrar</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       // ══════════════════════════════════════════
       //  DATA
@@ -4617,141 +4637,9 @@
         return free ? free.id : USER_COLOR_PALETTE[userId % USER_COLOR_PALETTE.length].id;
       }
 
-      let USERS = [
-        // ✅ ADMINS (únicos usuarios existentes que se mantienen)
-        {
-          id: 1,
-          username: "antonio",
-          password: "admin123",
-          name: "Antonio",
-          role: "admin",
-          email: "antonio@rodonverges.com",
-          phone: "+34 93 000 00 01",
-          active: true,
-          color: "teal",
-          sede: "Mataró",
-        },
-        {
-          id: 3,
-          username: "pau",
-          password: "pau123",
-          name: "Pau",
-          role: "admin",
-          email: "pau@rodonverges.com",
-          phone: "+34 93 000 00 03",
-          active: true,
-          color: "orange",
-          sede: "Vilassar",
-        },
-
-        // ✅ USUARIOS MATARÓ (nuevos)
-        {
-          id: 10,
-          username: "myriam",
-          password: "Myriam123",
-          name: "Myriam Recolons",
-          role: "empleado",
-          email: "myriam@rodonverges.com",
-          phone: "+34 93 000 00 10",
-          active: true,
-          departamento: "laboral",
-          color: "blue",
-          sede: "Mataró",
-        },
-        {
-          id: 11,
-          username: "anna_f",
-          password: "Anna123",
-          name: "Anna Fabregà",
-          role: "empleado",
-          email: "anna.f@rodonverges.com",
-          phone: "+34 93 000 00 11",
-          active: true,
-          departamento: "fiscal",
-          color: "purple",
-          sede: "Mataró",
-        },
-        {
-          id: 12,
-          username: "montse",
-          password: "Montse123",
-          name: "Montse Martín",
-          role: "empleado",
-          email: "montse@rodonverges.com",
-          phone: "+34 93 000 00 12",
-          active: true,
-          departamento: "mercantil",
-          color: "pink",
-          sede: "Mataró",
-        },
-
-        // ✅ USUARIOS VILASSAR (nuevos)
-        {
-          id: 20,
-          username: "cristina",
-          password: "Cristina123",
-          name: "Cristina Navas",
-          role: "empleado",
-          email: "cristina@rodonverges.com",
-          phone: "+34 93 000 00 20",
-          active: true,
-          departamento: "fiscal",
-          color: "green",
-          sede: "Vilassar",
-        },
-        {
-          id: 21,
-          username: "anna_l",
-          password: "Anna123",
-          name: "Anna Llinas",
-          role: "empleado",
-          email: "anna.l@rodonverges.com",
-          phone: "+34 93 000 00 21",
-          active: true,
-          departamento: "laboral",
-          color: "cyan",
-          sede: "Vilassar",
-        },
-        {
-          id: 22,
-          username: "anna_m",
-          password: "Anna123",
-          name: "Anna Maria Rodón",
-          role: "empleado",
-          email: "anna.m@rodonverges.com",
-          phone: "+34 93 000 00 22",
-          active: true,
-          departamento: "mercantil",
-          color: "yellow",
-          sede: "Vilassar",
-        },
-        {
-          id: 23,
-          username: "vanessa",
-          password: "Vanessa123",
-          name: "Vanessa Culebras",
-          role: "empleado",
-          email: "vanessa@rodonverges.com",
-          phone: "+34 93 000 00 23",
-          active: true,
-          departamento: "laboral",
-          color: "red",
-          sede: "Vilassar",
-        },
-        {
-          id: 24,
-          username: "montserrat",
-          password: "Montserrat123",
-          name: "Montserrat Mir",
-          role: "empleado",
-          email: "montserrat@rodonverges.com",
-          phone: "+34 93 000 00 24",
-          active: true,
-          departamento: "fiscal",
-          color: "brown",
-          sede: "Vilassar",
-        },
-      ];
+      // USERS es carrega des del backend via loadUsersFromBackend() en fer login.
+      // Inicialment buit per evitar exposar dades al codi font.
+      let USERS = [];
 
       let SERVICES = [
         {
@@ -5517,32 +5405,151 @@
         }
       }
 
-      function doLogin() {
+      // ── Mapeig d'usuari del backend al format del frontend ──────────
+      function mapBackendUser(u) {
+        return {
+          id:           u.id,
+          username:     u.username,
+          name:         u.name,
+          role:         u.role,
+          email:        u.email  || '',
+          phone:        u.phone  || '',
+          active:       u.active !== false,
+          color:        u.color  || 'teal',
+          sede:         u.sede   || '',
+          departamento: u.departamento || '',
+        };
+      }
+
+      // ── Carrega la llista d'usuaris des del backend ──────────────
+      async function loadUsersFromBackend() {
+        try {
+          const res  = await fetch('/api/usuarios');
+          const data = await res.json();
+          if (data.ok && Array.isArray(data.usuarios)) {
+            USERS = data.usuarios.map(mapBackendUser);
+          }
+        } catch(e) {
+          console.error('❌ [loadUsersFromBackend]', e);
+        }
+      }
+
+      // ── Comprova sessió activa en carregar la pàgina ─────────────
+      async function checkSession() {
+        try {
+          const res = await fetch('/api/auth/me');
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.ok && data.user) {
+            currentUser = mapBackendUser(data.user);
+            await loadUsersFromBackend();
+            document.getElementById("login-screen").style.display = "none";
+            document.getElementById("app").style.display = "flex";
+            initApp();
+          }
+        } catch(e) {
+          // Sense sessió activa, mostrar login
+        }
+      }
+
+      // ── Login via backend ────────────────────────────────────────
+      async function doLogin() {
         const u = document.getElementById("login-user").value.trim();
         const p = document.getElementById("login-pass").value;
-        const found = USERS.find(
-          (x) => x.username === u && x.password === p && x.active,
-        );
-        if (!found) {
-          document.getElementById("login-error").style.display = "block";
-          return;
+        const errEl = document.getElementById("login-error");
+        errEl.style.display = "none";
+
+        if (!u || !p) { errEl.style.display = "block"; return; }
+
+        try {
+          const res  = await fetch('/api/auth/login', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ username: u, password: p }),
+          });
+          const data = await res.json();
+
+          if (data.must_change_password) {
+            _pendingChangePasswordUserId = data.user_id;
+            document.getElementById("must-change-password-modal").style.display = "flex";
+            document.getElementById("mcp-new-pass").value     = "";
+            document.getElementById("mcp-confirm-pass").value = "";
+            document.getElementById("mcp-err").style.display  = "none";
+            return;
+          }
+
+          if (!res.ok || !data.ok) {
+            errEl.style.display = "block";
+            return;
+          }
+
+          currentUser = mapBackendUser(data.user);
+          await loadUsersFromBackend();
+          errEl.style.display = "none";
+          document.getElementById("login-screen").style.display = "none";
+          document.getElementById("app").style.display = "flex";
+          initApp();
+          if (activeConvId !== null) renderMsgs(activeConvId);
+          else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeChat}`] || []);
+
+        } catch(e) {
+          console.error('❌ [doLogin]', e);
+          errEl.style.display = "block";
         }
-        document.getElementById("login-error").style.display = "none";
+      }
 
-       currentUser = found;
-document.getElementById("login-screen").style.display = "none";
-document.getElementById("app").style.display = "flex";
-initApp();
+      // ── Canvi de contrasenya obligatori (must_change_password) ───
+      let _pendingChangePasswordUserId = null;
 
-// Re-renderitzar conversa oberta amb el nou currentUser
-if (activeConvId !== null) renderMsgs(activeConvId);
-else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeChat}`] || []);
+      async function submitMustChangePassword() {
+        const newPass  = document.getElementById("mcp-new-pass").value;
+        const confPass = document.getElementById("mcp-confirm-pass").value;
+        const errEl    = document.getElementById("mcp-err");
+        errEl.style.display = "none";
+
+        if (newPass.length < 8) {
+          errEl.textContent = "La contrasenya ha de tenir mínim 8 caràcters.";
+          errEl.style.display = "block"; return;
+        }
+        if (newPass !== confPass) {
+          errEl.textContent = "Les contrasenyes no coincideixen.";
+          errEl.style.display = "block"; return;
+        }
+
+        try {
+          const res  = await fetch('/api/auth/change-password', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+              user_id:          _pendingChangePasswordUserId,
+              new_password:     newPass,
+              confirm_password: confPass,
+            }),
+          });
+          const data = await res.json();
+
+          if (!res.ok || !data.ok) {
+            errEl.textContent = data.error || "Error desconegut.";
+            errEl.style.display = "block"; return;
+          }
+
+          document.getElementById("must-change-password-modal").style.display = "none";
+          currentUser = mapBackendUser(data.user);
+          await loadUsersFromBackend();
+          document.getElementById("login-screen").style.display = "none";
+          document.getElementById("app").style.display = "flex";
+          initApp();
+
+        } catch(e) {
+          errEl.textContent = "Error de xarxa.";
+          errEl.style.display = "block";
+        }
       }
 
       function doLogout() {
-        // NO esborrem localStorage: els missatges es conserven per a la propera sessió
-        // _recalcMine s'encarrega de recalcular correctament qui és "mine" per a cada usuari
-      
+        // Cridar logout al backend (sense await, és millor esforç)
+        fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+
         currentUser = null;
         activeConvId = null;
         activeSedeChat = null;
@@ -5551,12 +5558,11 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         _serverUnreadCounts = {};
         GENERAL_CHAT = [];
         CONVS = { sede_mataro: [], sede_vilassar: [] };
-        
-        // Aturar polling en temps real
+
         stopPolling();
         stopCalendarPolling();
         _calLastSig = '';
-        
+
         document.getElementById("app").style.display = "none";
         document.getElementById("login-screen").style.display = "flex";
         document.getElementById("login-user").value = "";
@@ -5575,6 +5581,15 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
       document.getElementById("login-pass").addEventListener("keydown", (e) => {
         if (e.key === "Enter") doLogin();
       });
+      document.getElementById("login-user").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") doLogin();
+      });
+      document.getElementById("mcp-confirm-pass").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submitMustChangePassword();
+      });
+
+      // Comprova si hi ha sessió activa en carregar la pàgina
+      checkSession();
 
       // ══════════════════════════════════════════
       //  INIT
@@ -8362,12 +8377,12 @@ document.getElementById("nu-user").addEventListener("input", function() {
         editingUserId = id;
         document.getElementById("user-modal-title").textContent = "Editar usuari";
         document.getElementById("nu-save-btn").textContent = "Desar canvis";
-        document.getElementById("nu-name").value = u.name;
-        document.getElementById("nu-user").value = u.username;
-        document.getElementById("nu-pass").value = u.password || "";
+        document.getElementById("nu-name").value  = u.name;
+        document.getElementById("nu-user").value  = u.username;
+        document.getElementById("nu-pass").value  = "";   // mai mostrar contrasenya
         document.getElementById("nu-email").value = u.email || "";
         document.getElementById("nu-phone").value = u.phone || "";
-        document.getElementById("nu-role").value = u.role;
+        document.getElementById("nu-role").value  = u.role;
         const deptGroup = document.getElementById("nu-dept-group");
         if (u.role === "admin") {
           deptGroup.style.display = "none";
@@ -8375,121 +8390,133 @@ document.getElementById("nu-user").addEventListener("input", function() {
           deptGroup.style.display = "";
           document.getElementById("nu-dept").value = u.departamento || "laboral";
         }
-        // NUEVO: Cargar sede
         document.getElementById("nu-sede").value = u.sede || "Mataró";
         document.getElementById("nu-err").style.display = "none";
-        // renderizar color picker con el color del usuario
         renderColorPicker(u.color || "teal");
         openModal("user-modal");
       }
 
-      function saveUser() {
-        const name = document.getElementById("nu-name").value.trim();
+      async function saveUser() {
+        const name  = document.getElementById("nu-name").value.trim();
         const uname = document.getElementById("nu-user").value.trim();
-        const pass = document.getElementById("nu-pass").value;
+        const pass  = document.getElementById("nu-pass").value;
         const email = document.getElementById("nu-email").value.trim();
         const phone = document.getElementById("nu-phone").value.trim();
-        const role = document.getElementById("nu-role").value;
-        const dept = role !== "admin" ? document.getElementById("nu-dept").value : null;
-        const sede = document.getElementById("nu-sede").value; // NUEVO: capturar sede
+        const role  = document.getElementById("nu-role").value;
+        const dept  = role !== "admin" ? document.getElementById("nu-dept").value : null;
+        const sede  = document.getElementById("nu-sede").value;
         const color = document.getElementById("nu-color")?.value || "teal";
         const errEl = document.getElementById("nu-err");
 
         if (!name || !uname) {
           errEl.textContent = "Nom i usuari són obligatoris.";
-          errEl.style.display = "";
-          return;
+          errEl.style.display = ""; return;
         }
-        // Si és un usuari nou i el camp és buit, generar automàticament
-        const finalPass = (editingUserId === null && !pass)
-          ? generarPasswordUsername(uname)
-          : pass;
-        
         if (role !== "admin" && !dept) {
           errEl.textContent = "El departament és obligatori per a empleats.";
-          errEl.style.display = "";
-          return;
+          errEl.style.display = ""; return;
         }
-        // NUEVO: validar sede
         if (!sede) {
           errEl.textContent = "La seu és obligatòria.";
-          errEl.style.display = "";
-          return;
+          errEl.style.display = ""; return;
         }
-        const dupUser = USERS.find(
-          (u) => u.username === uname && u.id !== editingUserId,
-        );
+        const dupUser = USERS.find((u) => u.username === uname && u.id !== editingUserId);
         if (dupUser) {
           errEl.textContent = "El nom d'usuari ja existeix.";
-          errEl.style.display = "";
-          return;
+          errEl.style.display = ""; return;
         }
         errEl.style.display = "none";
 
-        if (editingUserId !== null) {
-          const u = USERS.find((x) => x.id === editingUserId);
-          if (u) {
-            u.name = name;
-            u.username = uname;
-            u.email = email;
-            u.phone = phone;
-            u.role = role;
-            u.departamento = role !== "admin" ? dept : null;
-            u.sede = sede; // NUEVO: actualizar sede
-            u.color = color;
-            if (pass) u.password = pass;
+        try {
+          if (editingUserId !== null) {
+            // ── Editar usuari existent ──────────────────────────────
+            const res = await fetch(`/api/usuarios/${editingUserId}`, {
+              method:  'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nombre: name, email, phone, role, rol: role, departamento: dept, sede, color }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+              errEl.textContent = data.error || "Error desant canvis.";
+              errEl.style.display = ""; return;
+            }
+            // Actualitzar USERS local
+            const idx = USERS.findIndex(u => u.id === editingUserId);
+            if (idx !== -1) USERS[idx] = mapBackendUser(data.usuario);
+
+            // Canvi de contrasenya opcional
+            if (pass) {
+              const pres = await fetch('/api/auth/change-password', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: editingUserId, new_password: pass, confirm_password: pass }),
+              });
+              const pdata = await pres.json();
+              if (!pres.ok || !pdata.ok) {
+                alert(`Dades desades però error canviant contrasenya: ${pdata.error || ''}`);
+              }
+            }
+
+          } else {
+            // ── Crear usuari nou ────────────────────────────────────
+            const finalPass = pass || generarPasswordUsername(uname);
+            const res = await fetch('/api/usuarios', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: uname, nombre: name, email, phone, departamento: dept || 'admin', rol: role, sede, color }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+              errEl.textContent = data.error || "Error creant usuari.";
+              errEl.style.display = ""; return;
+            }
+            USERS.push(mapBackendUser(data.usuario));
+
+            // Si l'admin va posar una contrasenya manual diferent de la generada, aplicar-la
+            if (pass && pass !== data.password_generada) {
+              await fetch('/api/auth/change-password', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: data.usuario.id, new_password: pass, confirm_password: pass }),
+              });
+            }
+
+            alert(`✅ Usuari creat!\n\nUsuari: ${uname}\nContrasenya temporal: ${data.password_generada}\n\nL'usuari haurà de canviar-la en el primer accés.`);
           }
-        } else {
-          USERS.push({
-            id: nextUserId++,
-            username: uname,
-          password: finalPass,
-            name,
-            role,
-            departamento: role !== "admin" ? dept : null,
-            email,
-            phone,
-            active: true,
-            sede, // NUEVO: agregar sede a nuevos usuarios
-            color,
-          });
-          // Guardar al backend
-        fetch('/api/usuarios', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: uname,
-            nombre: name,
-            email: email,
-            departamento: dept || 'admin',
-            rol: role,
-            sede: sede
-          })
-        }).then(r => r.json()).then(data => {
-          console.log('✅ Usuari guardat al backend:', data);
-        }).catch(e => console.error('❌ Error guardant usuari:', e));
+
+        } catch(e) {
+          errEl.textContent = "Error de xarxa.";
+          errEl.style.display = ""; return;
         }
-         if (editingUserId === null) {
-          alert(`✅ Usuari creat!\n\nUsuari: ${uname}\nContrasenya: ${finalPass}\n\nGuarda-la abans de continuar.`);
-        }
+
         closeModal("user-modal");
         renderUsers();
-        // ✅ CAMBIO 9: Actualizar lista de usuarios personales cuando se guarda
         renderCalendarsUserList();
         buildMsgList();
         updateGchatHeader();
         updateDeptCalNav();
       }
 
-      function toggleUser(id) {
+      async function toggleUser(id) {
         if (id === currentUser.id) {
           alert("No pots desactivar el teu propi usuari.");
           return;
         }
         const u = USERS.find((x) => x.id === id);
-        if (u) u.active = !u.active;
+        if (!u) return;
+        const newActive = !u.active;
+        try {
+          const res = await fetch(`/api/usuarios/${id}`, {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ active: newActive }),
+          });
+          const data = await res.json();
+          if (data.ok) u.active = newActive;
+        } catch(e) {
+          console.error('❌ [toggleUser]', e);
+        }
         renderUsers();
-        // ✅ CAMBIO 10: Actualizar lista de usuarios personales cuando se activa/desactiva
         renderCalendarsUserList();
       }
 
