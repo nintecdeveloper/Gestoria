@@ -51,8 +51,12 @@ META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/mes
 
 def send_email(to_email: str, subject: str, html_body: str) -> bool:
     """Envia un email via Gmail SMTP SSL. Retorna True si ok."""
+    print(f"[DEBUG send_email] Intentant enviar email a {to_email}")
+    print(f"[DEBUG send_email] GMAIL_USER: {GMAIL_USER}")
+    print(f"[DEBUG send_email] GMAIL_APP_PASSWORD exists: {bool(GMAIL_APP_PASSWORD)}")
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
         logger.warning("⚠️ [Email] GMAIL_USER o GMAIL_APP_PASSWORD no configurats.")
+        print("[DEBUG send_email] ABORT: credencials no configurades")
         return False
     try:
         msg = MIMEMultipart('alternative')
@@ -65,9 +69,11 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
             server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
             server.sendmail(GMAIL_USER, to_email, msg.as_string())
         logger.info(f"✅ [Email] Enviat a {to_email}: {subject}")
+        print(f"[DEBUG send_email] OK: email enviat a {to_email}")
         return True
     except Exception as e:
         logger.error(f"❌ [Email] Error enviant a {to_email}: {e}")
+        print(f"[DEBUG send_email] EXCEPTION: {type(e).__name__}: {e}")
         return False
 
 # ═══════════════════════════════════════════════════════════════
