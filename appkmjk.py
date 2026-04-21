@@ -450,6 +450,7 @@ EXEMPTED_PATHS = {
     '/api/health',
     '/api/status',
     '/api/whatsapp/webhook',
+    '/api/debug/users',  # temporal — treure quan ja no calgui
 }
 
 @app.before_request
