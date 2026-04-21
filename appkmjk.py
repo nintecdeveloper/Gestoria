@@ -54,8 +54,9 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
     """Envia un email via Gmail SMTP SSL. Retorna True si ok."""
     import unicodedata
     def clean(s): return ''.join(c for c in unicodedata.normalize('NFKD', str(s)) if ord(c) < 128)
-    to_email = clean(to_email).strip()
-    subject  = clean(subject).strip()
+    to_email   = clean(to_email).strip()
+    subject    = clean(subject).strip()
+    html_body  = html_body.replace('\xa0', ' ').replace('\u00a0', ' ')
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
         logger.warning("⚠️ [Email] GMAIL_USER o GMAIL_APP_PASSWORD no configurats.")
         return False
@@ -64,7 +65,7 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
         msg['Subject'] = Header(subject, 'utf-8')
         msg['From']    = GMAIL_USER
         msg['To']      = to_email
-        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+        msg.attach(MIMEText(html_body.encode('utf-8', 'replace').decode('utf-8'), 'html', 'utf-8'))
         ctx = ssl.create_default_context()
         with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=ctx) as server:
             server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
