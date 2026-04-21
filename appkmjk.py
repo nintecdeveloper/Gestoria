@@ -51,6 +51,7 @@ META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/mes
 
 def send_email(to_email: str, subject: str, html_body: str) -> bool:
     """Envia un email via Gmail SMTP SSL. Retorna True si ok."""
+    subject = subject.encode('ascii', 'ignore').decode('ascii')
     print(f"[DEBUG send_email] Intentant enviar email a {to_email}")
     print(f"[DEBUG send_email] GMAIL_USER: {GMAIL_USER}")
     print(f"[DEBUG send_email] GMAIL_APP_PASSWORD exists: {bool(GMAIL_APP_PASSWORD)}")
