@@ -15,6 +15,7 @@ from functools import wraps
 import smtplib, ssl, secrets
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.header import Header
 # ═══════════════════════════════════════════════════════════════
 # LOGGING — CONFIGURACIÓN INMEDIATA
 # ═══════════════════════════════════════════════════════════════
@@ -61,8 +62,8 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
         return False
     try:
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From']    = f"Rodonvergés Associats <{GMAIL_USER}>"
+        msg['Subject'] = Header(subject, 'utf-8')
+        msg['From']    = GMAIL_USER
         msg['To']      = to_email
         msg.attach(MIMEText(html_body, 'html', 'utf-8'))
         ctx = ssl.create_default_context()
