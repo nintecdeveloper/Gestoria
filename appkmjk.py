@@ -51,25 +51,27 @@ META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/mes
 # ═══════════════════════════════════════════════════════════════
 
 def send_email(to_email: str, subject: str, html_body: str) -> bool:
-    """Envia un email via Gmail SMTP SSL. Retorna True si ok."""
-    import unicodedata
-    def clean(s): return ''.join(c for c in unicodedata.normalize('NFKD', str(s)) if ord(c) < 128)
-    to_email   = clean(to_email).strip()
-    subject    = clean(subject).strip()
-    html_body  = html_body.replace('\xa0', ' ').replace('\u00a0', ' ')
-    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
-        logger.warning("⚠️ [Email] GMAIL_USER o GMAIL_APP_PASSWORD no configurats.")
+    """Envia un email via Resend API (HTTP). Retorna True si ok."""
+    resend_api_key = os.environ.get('RESEND_API_KEY')
+    if not resend_api_key:
+        logger.warning("⚠️ [Email] RESEND_API_KEY no configurada.")
         return False
     try:
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = Header(subject, 'utf-8')
-        msg['From']    = GMAIL_USER
-        msg['To']      = to_email
-        msg.attach(MIMEText(html_body.encode('utf-8', 'replace').decode('utf-8'), 'html', 'utf-8'))
-        ctx = ssl.create_default_context()
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=ctx) as server:
-            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_USER, to_email, msg.as_string())
+        resp = requests.post(
+            'https://api.resend.com/emails',
+            headers={
+                'Authorization': f'Bearer {resend_api_key}',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'from': 'Rodonverges <onboarding@resend.dev>',
+                'to': [to_email.strip()],
+                'subject': subject,
+                'html': html_body,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
         logger.info(f"✅ [Email] Enviat a {to_email}: {subject}")
         return True
     except Exception as e:
@@ -1573,25 +1575,25 @@ def actualitzar_usuario(user_id):
         return jsonify({'ok': False, 'error': 'Usuari no trobat'}), 404
     data = request.get_json(silent=True) or {}
     if 'nombre' in data:
-        user.name = data['nombre'].strip()
+        user.name = (data.get('nombre') or '').strip()
     if 'email' in data:
-        new_email = data['email'].strip().replace('\xa0', '').replace('\u200b', '')
+        new_email = (data.get('email') or '').strip().replace('\xa0', '').replace('\u200b', '')
         existing = User.query.filter(User.email == new_email, User.id != user_id).first()
         if existing:
             return jsonify({'ok': False, 'error': f"L'email '{new_email}' ja existeix"}), 409
         user.email = new_email or None
     if 'phone' in data:
-        user.phone = data['phone'].strip() or None
+        user.phone = (data.get('phone') or '').strip() or None
     if 'rol' in data:
-        user.role = data['rol'].strip()
+        user.role = (data.get('rol') or '').strip()
     if 'role' in data:
-        user.role = data['role'].strip()
+        user.role = (data.get('role') or '').strip()
     if 'departamento' in data:
-        user.departamento = data['departamento'].strip() or None
+        user.departamento = (data.get('departamento') or '').strip() or None
     if 'sede' in data:
-        user.sede = data['sede'].strip()
+        user.sede = (data.get('sede') or '').strip()
     if 'color' in data:
-        user.color = data['color'].strip()
+        user.color = (data.get('color') or '').strip()
     if 'active' in data:
         user.active = bool(data['active'])
     db.session.commit()
