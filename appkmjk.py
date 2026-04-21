@@ -63,7 +63,7 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
         msg['Subject'] = subject
         msg['From']    = f"Rodonvergés Associats <{GMAIL_USER}>"
         msg['To']      = to_email
-        msg.attach(MIMEText(html_body, 'html'))
+        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
         ctx = ssl.create_default_context()
         with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=ctx) as server:
             server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
@@ -659,16 +659,16 @@ def auth_forgot_password():
                 base_url  = os.environ.get('APP_BASE_URL', request.host_url.rstrip('/'))
                 link      = f"{base_url}/set-password?token={token}"
                 html_body = f"""
-<html><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
+<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
 <h2 style="color:#2c4a3e;">Restablir contrasenya</h2>
 <p>Hola <strong>{user.name}</strong>,</p>
-<p>Has sol·licitat restablir la teva contrasenya. Fes clic al botó per continuar:</p>
+<p>Has sol&middot;licitat restablir la teva contrasenya. Fes clic al bot&oacute; per continuar:</p>
 <p style="margin:24px 0;">
   <a href="{link}" style="background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Restablir contrasenya</a>
 </p>
 <p style="color:#999;font-size:12px;">Aquest link caduca en 24 hores. Si no ho has demanat, ignora aquest correu.</p>
 </body></html>"""
-                send_email(user.email, "Restablir contrasenya · Rodonvergés Associats", html_body)
+                send_email(user.email, "Restablir contrasenya - Rodonverges Associats", html_body)
             except Exception as e:
                 logger.error(f"❌ [ForgotPassword] Error: {e}")
     return jsonify({'ok': True})
@@ -687,16 +687,16 @@ def auth_resend_verification():
         base_url  = os.environ.get('APP_BASE_URL', request.host_url.rstrip('/'))
         link      = f"{base_url}/set-password?token={token}"
         html_body = f"""
-<html><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
-<h2 style="color:#2c4a3e;">Configura el teu accés</h2>
+<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
+<h2 style="color:#2c4a3e;">Configura el teu acc&eacute;s</h2>
 <p>Hola <strong>{user.name}</strong>,</p>
-<p>Fes clic al botó per establir la teva contrasenya:</p>
+<p>Fes clic al bot&oacute; per establir la teva contrasenya:</p>
 <p style="margin:24px 0;">
   <a href="{link}" style="background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Establir contrasenya</a>
 </p>
 <p style="color:#999;font-size:12px;">Aquest link caduca en 24 hores.</p>
 </body></html>"""
-        send_email(user.email, "Configura el teu accés · Rodonvergés Associats", html_body)
+        send_email(user.email, "Configura el teu acces - Rodonverges Associats", html_body)
     except Exception as e:
         logger.error(f"❌ [ResendVerification] Error: {e}")
     return jsonify({'ok': True})
@@ -1550,16 +1550,16 @@ def crear_usuario():
             base_url   = os.environ.get('APP_BASE_URL', request.host_url.rstrip('/'))
             link       = f"{base_url}/set-password?token={token}"
             html_body  = f"""
-<html><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
-<h2 style="color:#2c4a3e;">Benvingut/da a Rodonvergés Associats</h2>
+<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
+<h2 style="color:#2c4a3e;">Benvingut/da a Rodonverg&eacute;s Associats</h2>
 <p>Hola <strong>{nombre}</strong>,</p>
-<p>El teu compte ha estat creat. Fes clic al botó per establir la teva contrasenya:</p>
+<p>El teu compte ha estat creat. Fes clic al bot&oacute; per establir la teva contrasenya:</p>
 <p style="margin:24px 0;">
   <a href="{link}" style="background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Establir contrasenya</a>
 </p>
 <p style="color:#999;font-size:12px;">Aquest link caduca en 24 hores. Si no l'has demanat, ignora aquest correu.</p>
 </body></html>"""
-            send_email(email, "Configura el teu accés · Rodonvergés Associats", html_body)
+            send_email(email, "Configura el teu acces - Rodonverges Associats", html_body)
         except Exception as e:
             logger.error(f"❌ [Email benvinguda] Error: {e}")
 
