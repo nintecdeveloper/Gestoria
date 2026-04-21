@@ -52,8 +52,8 @@ META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/mes
 
 def send_email(to_email, subject, html_body):
     try:
-        gmail_user     = os.environ.get('GMAIL_USER')
-        gmail_password = os.environ.get('GMAIL_APP_PASSWORD')
+        gmail_user     = os.environ.get('GMAIL_USER', '').strip().replace('\xa0', '').replace('\u00a0', '')
+        gmail_password = os.environ.get('GMAIL_APP_PASSWORD', '').strip().replace('\xa0', '').replace('\u00a0', '')
         if not gmail_user or not gmail_password:
             logger.warning("GMAIL_USER o GMAIL_APP_PASSWORD no configurats")
             return False
