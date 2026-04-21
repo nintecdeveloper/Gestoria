@@ -50,32 +50,31 @@ META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/mes
 # EMAIL — GMAIL SMTP
 # ═══════════════════════════════════════════════════════════════
 
-def send_email(to_email: str, subject: str, html_body: str) -> bool:
-    """Envia un email via Resend API (HTTP). Retorna True si ok."""
-    resend_api_key = os.environ.get('RESEND_API_KEY')
-    if not resend_api_key:
-        logger.warning("⚠️ [Email] RESEND_API_KEY no configurada.")
-        return False
+def send_email(to_email, subject, html_body):
     try:
-        resp = requests.post(
-            'https://api.resend.com/emails',
-            headers={
-                'Authorization': f'Bearer {resend_api_key}',
-                'Content-Type': 'application/json',
-            },
-            json={
-                'from': 'Rodonverges <onboarding@resend.dev>',
-                'to': [to_email.strip()],
-                'subject': subject,
-                'html': html_body,
-            },
-            timeout=10,
-        )
-        resp.raise_for_status()
-        logger.info(f"✅ [Email] Enviat a {to_email}: {subject}")
+        gmail_user     = os.environ.get('GMAIL_USER')
+        gmail_password = os.environ.get('GMAIL_APP_PASSWORD')
+
+        if not gmail_user or not gmail_password:
+            logger.warning("GMAIL_USER o GMAIL_APP_PASSWORD no configurats")
+            return False
+
+        to_email = to_email.strip()
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'Rodonverges Associats <{gmail_user}>'
+        msg['To']      = to_email
+        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(gmail_user, gmail_password)
+            server.sendmail(gmail_user, to_email, msg.as_bytes())
+
+        logger.info(f"Email enviat a {to_email}")
         return True
     except Exception as e:
-        logger.error(f"❌ [Email] Error enviant a {to_email}: {e}")
+        logger.error(f"Error email: {e}")
         return False
 
 # ═══════════════════════════════════════════════════════════════
