@@ -450,7 +450,6 @@ EXEMPTED_PATHS = {
     '/api/health',
     '/api/status',
     '/api/whatsapp/webhook',
-    '/api/debug/users',  # temporal — treure quan ja no calgui
 }
 
 @app.before_request
@@ -597,34 +596,6 @@ def auth_change_password():
 
     logger.info(f"✅ [ChangePassword] Contrasenya actualitzada per usuari id={user.id}")
     return jsonify({'ok': True, 'user': user.to_dict()})
-
-# ═══════════════════════════════════════════════════════════════
-# DEBUG — Endpoint temporal per diagnosticar la taula users
-# ═══════════════════════════════════════════════════════════════
-
-@app.route('/api/debug/users', methods=['GET'])
-def debug_users():
-    """Endpoint temporal de diagnòstic. Retorna usuaris de la BD sense password_hash."""
-    try:
-        users = User.query.order_by(User.id).all()
-        return jsonify({
-            'ok':    True,
-            'count': len(users),
-            'users': [
-                {
-                    'id':                   u.id,
-                    'username':             u.username,
-                    'email':                u.email,
-                    'must_change_password': u.must_change_password,
-                    'active':               u.active,
-                    'role':                 u.role,
-                    'sede':                 u.sede,
-                }
-                for u in users
-            ]
-        })
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e), 'type': type(e).__name__}), 500
 
 # ═══════════════════════════════════════════════════════════════
 # RUTAS PRINCIPALES
