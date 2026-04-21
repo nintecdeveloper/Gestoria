@@ -2979,6 +2979,18 @@
           <button class="btn btn-primary btn-full" style="margin-top:10px" onclick="doLogin()">
             Iniciar sessió &rarr;
           </button>
+
+          <div style="margin-top:12px;text-align:center;">
+            <a href="#" id="forgot-link" style="font-size:13px;color:rgba(255,255,255,0.7);text-decoration:underline;" onclick="showForgotForm(event)">Has oblidat la contrasenya?</a>
+          </div>
+
+          <!-- Forgot password form (hidden by default) -->
+          <div id="forgot-form" style="display:none;margin-top:16px;">
+            <input type="email" id="forgot-email" placeholder="El teu email" style="width:100%;padding:10px 14px;border-radius:6px;border:none;font-size:14px;background:rgba(255,255,255,0.15);color:#fff;box-sizing:border-box;" />
+            <button class="btn btn-primary btn-full" style="margin-top:8px;" onclick="submitForgotPassword()">Enviar link</button>
+            <div id="forgot-ok" style="display:none;margin-top:8px;font-size:13px;color:rgba(255,255,255,0.85);text-align:center;">Si l'email existeix, rebràs un correu en breus.</div>
+          </div>
+
         </div>
 
       </div>
@@ -4597,6 +4609,10 @@
         <div class="modal-actions">
           <button class="btn btn-primary" id="mcp-save-btn" onclick="submitMustChangePassword()">Guardar i entrar</button>
         </div>
+        <div style="margin-top:12px;text-align:center;">
+          <a href="#" style="font-size:13px;color:var(--text-muted);text-decoration:underline;" onclick="sendMcpEmailLink(event)">Rebre link per email en comptes</a>
+        </div>
+        <div id="mcp-email-ok" style="display:none;margin-top:8px;font-size:13px;color:var(--success);text-align:center;">Hem enviat un email a la teva adreça.</div>
       </div>
     </div>
 
@@ -5496,6 +5512,37 @@
           console.error('❌ [doLogin]', e);
           errEl.style.display = "block";
         }
+      }
+
+      function showForgotForm(e) {
+        e.preventDefault();
+        document.getElementById("forgot-form").style.display = "block";
+        document.getElementById("forgot-link").style.display = "none";
+        document.getElementById("forgot-email").focus();
+      }
+
+      async function submitForgotPassword() {
+        const email = document.getElementById("forgot-email").value.trim();
+        if (!email) return;
+        await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }).catch(() => {});
+        document.getElementById("forgot-ok").style.display = "block";
+        document.getElementById("forgot-email").disabled = true;
+        document.querySelector("#forgot-form button").disabled = true;
+      }
+
+      async function sendMcpEmailLink(e) {
+        e.preventDefault();
+        if (!_pendingChangePasswordUserId) return;
+        await fetch('/api/auth/resend-verification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: _pendingChangePasswordUserId }),
+        }).catch(() => {});
+        document.getElementById("mcp-email-ok").style.display = "block";
       }
 
       // ── Canvi de contrasenya obligatori (must_change_password) ───
@@ -8481,7 +8528,11 @@ document.getElementById("nu-user").addEventListener("input", function() {
               });
             }
 
-            alert(`✅ Usuari creat!\n\nUsuari: ${uname}\nContrasenya temporal: ${data.password_generada}\n\nL'usuari haurà de canviar-la en el primer accés.`);
+            if (email) {
+              alert(`✅ Usuari creat!\n\nS'ha enviat un email a ${email} per configurar la contrasenya.`);
+            } else {
+              alert(`✅ Usuari creat!\n\nUsuari: ${uname}\nContrasenya temporal: ${data.password_generada}\n\nL'usuari haurà de canviar-la en el primer accés.`);
+            }
           }
 
         } catch(e) {

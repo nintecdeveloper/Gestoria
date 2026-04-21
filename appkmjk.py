@@ -12,6 +12,9 @@ import base64
 import pandas as pd
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+import smtplib, ssl, secrets
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 # ═══════════════════════════════════════════════════════════════
 # LOGGING — CONFIGURACIÓN INMEDIATA
 # ═══════════════════════════════════════════════════════════════
@@ -36,8 +39,36 @@ except ImportError:
 META_PHONE_NUMBER_ID = os.environ.get('META_PHONE_NUMBER_ID', None)
 META_ACCESS_TOKEN = os.environ.get('META_ACCESS_TOKEN', None)
 META_BUSINESS_ACCOUNT_ID = os.environ.get('META_BUSINESS_ACCOUNT_ID', None)
+
+GMAIL_USER         = os.environ.get('GMAIL_USER')
+GMAIL_APP_PASSWORD = os.environ.get('GMAIL_APP_PASSWORD')
 META_API_VERSION = "v18.0"
 META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/messages"
+
+# ═══════════════════════════════════════════════════════════════
+# EMAIL — GMAIL SMTP
+# ═══════════════════════════════════════════════════════════════
+
+def send_email(to_email: str, subject: str, html_body: str) -> bool:
+    """Envia un email via Gmail SMTP SSL. Retorna True si ok."""
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        logger.warning("⚠️ [Email] GMAIL_USER o GMAIL_APP_PASSWORD no configurats.")
+        return False
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f"Rodonvergés Associats <{GMAIL_USER}>"
+        msg['To']      = to_email
+        msg.attach(MIMEText(html_body, 'html'))
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=ctx) as server:
+            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            server.sendmail(GMAIL_USER, to_email, msg.as_string())
+        logger.info(f"✅ [Email] Enviat a {to_email}: {subject}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ [Email] Error enviant a {to_email}: {e}")
+        return False
 
 # ═══════════════════════════════════════════════════════════════
 # USUARIOS Y CALENDARIOS — DATOS INICIALES
@@ -350,6 +381,8 @@ class User(db.Model):
     active               = db.Column(db.Boolean,     default=True)
     email_verified       = db.Column(db.Boolean,     default=False)
     must_change_password = db.Column(db.Boolean,     default=True)
+    reset_token          = db.Column(db.String(100), nullable=True)
+    reset_token_expires  = db.Column(db.DateTime,    nullable=True)
     created_at           = db.Column(db.DateTime,    default=datetime.utcnow)
 
     def to_dict(self):
@@ -438,6 +471,14 @@ def seed_users():
         pass
     logger.info(f"✅ [Seed] {len(SEED_USERS)} usuaris migrats a la BD amb must_change_password=True")
 
+def generate_reset_token(user) -> str:
+    """Genera un token de reset i el guarda a l'usuari. Retorna el token."""
+    token = secrets.token_urlsafe(32)
+    user.reset_token         = token
+    user.reset_token_expires = datetime.utcnow() + timedelta(hours=24)
+    db.session.commit()
+    return token
+
 # ═══════════════════════════════════════════════════════════════
 # BEFORE REQUEST — Protecció global de les rutes /api/*
 # ═══════════════════════════════════════════════════════════════
@@ -447,6 +488,8 @@ EXEMPTED_PATHS = {
     '/api/auth/logout',
     '/api/auth/me',
     '/api/auth/change-password',
+    '/api/auth/forgot-password',
+    '/api/auth/resend-verification',
     '/api/health',
     '/api/status',
     '/api/whatsapp/webhook',
@@ -596,6 +639,140 @@ def auth_change_password():
 
     logger.info(f"✅ [ChangePassword] Contrasenya actualitzada per usuari id={user.id}")
     return jsonify({'ok': True, 'user': user.to_dict()})
+
+@app.route('/api/auth/forgot-password', methods=['POST'])
+def auth_forgot_password():
+    data  = request.get_json(silent=True) or {}
+    email = data.get('email', '').strip().lower()
+    # Sempre retornem ok per no revelar si l'email existeix
+    if email:
+        user = User.query.filter(db.func.lower(User.email) == email).first()
+        if user:
+            try:
+                token     = generate_reset_token(user)
+                base_url  = os.environ.get('APP_BASE_URL', request.host_url.rstrip('/'))
+                link      = f"{base_url}/set-password?token={token}"
+                html_body = f"""
+<html><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
+<h2 style="color:#2c4a3e;">Restablir contrasenya</h2>
+<p>Hola <strong>{user.name}</strong>,</p>
+<p>Has sol·licitat restablir la teva contrasenya. Fes clic al botó per continuar:</p>
+<p style="margin:24px 0;">
+  <a href="{link}" style="background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Restablir contrasenya</a>
+</p>
+<p style="color:#999;font-size:12px;">Aquest link caduca en 24 hores. Si no ho has demanat, ignora aquest correu.</p>
+</body></html>"""
+                send_email(user.email, "Restablir contrasenya · Rodonvergés Associats", html_body)
+            except Exception as e:
+                logger.error(f"❌ [ForgotPassword] Error: {e}")
+    return jsonify({'ok': True})
+
+@app.route('/api/auth/resend-verification', methods=['POST'])
+def auth_resend_verification():
+    data    = request.get_json(silent=True) or {}
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'user_id requerit'}), 400
+    user = User.query.get(int(user_id))
+    if not user or not user.email:
+        return jsonify({'ok': True})  # silent
+    try:
+        token     = generate_reset_token(user)
+        base_url  = os.environ.get('APP_BASE_URL', request.host_url.rstrip('/'))
+        link      = f"{base_url}/set-password?token={token}"
+        html_body = f"""
+<html><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
+<h2 style="color:#2c4a3e;">Configura el teu accés</h2>
+<p>Hola <strong>{user.name}</strong>,</p>
+<p>Fes clic al botó per establir la teva contrasenya:</p>
+<p style="margin:24px 0;">
+  <a href="{link}" style="background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Establir contrasenya</a>
+</p>
+<p style="color:#999;font-size:12px;">Aquest link caduca en 24 hores.</p>
+</body></html>"""
+        send_email(user.email, "Configura el teu accés · Rodonvergés Associats", html_body)
+    except Exception as e:
+        logger.error(f"❌ [ResendVerification] Error: {e}")
+    return jsonify({'ok': True})
+
+@app.route('/set-password', methods=['GET'])
+def set_password_page():
+    token = request.args.get('token', '').strip()
+    if not token:
+        return "<h2>Link invàlid o caducat.</h2>", 400
+    user = User.query.filter_by(reset_token=token).first()
+    if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
+        return "<h2>Link invàlid o caducat.</h2>", 400
+    html = f"""<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Establir contrasenya · Rodonvergés Associats</title>
+  <style>
+    body{{font-family:'DM Sans',Arial,sans-serif;background:#f2f1ee;min-height:100vh;display:flex;align-items:center;justify-content:center;}}
+    .card{{background:#fff;border-radius:12px;padding:40px;max-width:400px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,.1);}}
+    h2{{color:#2c4a3e;margin-bottom:8px;font-size:22px;}}
+    p{{color:#555;margin-bottom:24px;font-size:14px;}}
+    label{{display:block;font-size:13px;color:#333;margin-bottom:4px;}}
+    input{{width:100%;padding:10px 12px;border:1px solid #d4d2cc;border-radius:6px;font-size:14px;margin-bottom:16px;box-sizing:border-box;}}
+    button{{width:100%;padding:12px;background:#2c4a3e;color:#fff;border:none;border-radius:6px;font-size:15px;cursor:pointer;}}
+    button:hover{{background:#1a3028;}}
+    .err{{color:#b94a48;font-size:13px;margin-bottom:12px;display:none;}}
+    .ok{{color:#4a7a5a;font-size:14px;margin-top:16px;display:none;text-align:center;}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Establir contrasenya</h2>
+    <p>Hola <strong>{user.name}</strong>, crea la teva contrasenya per accedir.</p>
+    <div class="err" id="err"></div>
+    <label>Nova contrasenya *</label>
+    <input type="password" id="p1" placeholder="Mínim 8 caràcters" autocomplete="new-password"/>
+    <label>Confirmar contrasenya *</label>
+    <input type="password" id="p2" placeholder="Repeteix la contrasenya" autocomplete="new-password"/>
+    <button onclick="submit()">Guardar contrasenya</button>
+    <div class="ok" id="ok">✅ Contrasenya guardada. Ja pots <a href="/">iniciar sessió</a>.</div>
+  </div>
+  <script>
+    async function submit(){{
+      const p1=document.getElementById('p1').value;
+      const p2=document.getElementById('p2').value;
+      const err=document.getElementById('err');
+      err.style.display='none';
+      if(p1.length<8){{err.textContent='La contrasenya ha de tenir mínim 8 caràcters.';err.style.display='block';return;}}
+      if(p1!==p2){{err.textContent='Les contrasenyes no coincideixen.';err.style.display='block';return;}}
+      const res=await fetch('/set-password',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{token:'{token}',new_password:p1}})}});
+      const data=await res.json();
+      if(data.ok){{document.querySelector('button').style.display='none';document.getElementById('ok').style.display='block';}}
+      else{{err.textContent=data.error||'Error desconegut.';err.style.display='block';}}
+    }}
+    document.getElementById('p2').addEventListener('keydown',e=>{{if(e.key==='Enter')submit();}});
+  </script>
+</body>
+</html>"""
+    return html
+
+@app.route('/set-password', methods=['POST'])
+def set_password_submit():
+    data     = request.get_json(silent=True) or {}
+    token    = data.get('token', '').strip()
+    new_pass = data.get('new_password', '')
+    if not token:
+        return jsonify({'ok': False, 'error': 'Token invàlid'}), 400
+    if len(new_pass) < 8:
+        return jsonify({'ok': False, 'error': 'La contrasenya ha de tenir mínim 8 caràcters'}), 400
+    user = User.query.filter_by(reset_token=token).first()
+    if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
+        return jsonify({'ok': False, 'error': 'Link invàlid o caducat'}), 400
+    user.password_hash        = generate_password_hash(new_pass)
+    user.email_verified       = True
+    user.must_change_password = False
+    user.reset_token          = None
+    user.reset_token_expires  = None
+    db.session.commit()
+    logger.info(f"✅ [SetPassword] Contrasenya establerta per {user.username}")
+    return jsonify({'ok': True})
 
 # ═══════════════════════════════════════════════════════════════
 # RUTAS PRINCIPALES
@@ -1359,6 +1536,27 @@ def crear_usuario():
     db.session.commit()
     logger.info(f"✅ [Usuari] Creat: {nombre} (username: {username})")
     create_seat_chats(user.id, nombre, sede)
+
+    # Enviar email de benvinguda amb link per establir contrasenya
+    if email:
+        try:
+            token      = generate_reset_token(user)
+            base_url   = os.environ.get('APP_BASE_URL', request.host_url.rstrip('/'))
+            link       = f"{base_url}/set-password?token={token}"
+            html_body  = f"""
+<html><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
+<h2 style="color:#2c4a3e;">Benvingut/da a Rodonvergés Associats</h2>
+<p>Hola <strong>{nombre}</strong>,</p>
+<p>El teu compte ha estat creat. Fes clic al botó per establir la teva contrasenya:</p>
+<p style="margin:24px 0;">
+  <a href="{link}" style="background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Establir contrasenya</a>
+</p>
+<p style="color:#999;font-size:12px;">Aquest link caduca en 24 hores. Si no l'has demanat, ignora aquest correu.</p>
+</body></html>"""
+            send_email(email, "Configura el teu accés · Rodonvergés Associats", html_body)
+        except Exception as e:
+            logger.error(f"❌ [Email benvinguda] Error: {e}")
+
     return jsonify({'ok': True, 'usuario': user.to_dict(), 'password_generada': password}), 201
 
 @app.route('/api/usuarios/<int:user_id>', methods=['PUT'])
