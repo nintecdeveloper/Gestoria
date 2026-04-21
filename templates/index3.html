@@ -4257,15 +4257,13 @@
             </select>
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Usuari *</label
-            ><input type="text" id="nu-user" placeholder="nom.usuari" />
-          </div>
-          <div class="form-group">
-            <label>Contrasenya</label
-           ><input type="password" id="nu-pass" placeholder="Deixa buit per no canviar" autocomplete="new-password" />
-          </div>
+        <div class="form-group">
+          <label>Usuari *</label
+          ><input type="text" id="nu-user" placeholder="nom.usuari" />
+        </div>
+        <div id="nu-reset-link-group" style="display:none;margin-bottom:12px;">
+          <button type="button" class="btn btn-ghost" style="font-size:13px;" onclick="sendResetLink()">Enviar link de reset de contrasenya</button>
+          <span id="nu-reset-ok" style="display:none;margin-left:8px;font-size:13px;color:var(--success);">✓ Link enviat per email</span>
         </div>
         <div class="form-group">
           <label>Email</label
@@ -8369,15 +8367,16 @@ function generarPasswordUsername(username) {
         editingUserId = null;
         document.getElementById("user-modal-title").textContent = "Nou usuari";
         document.getElementById("nu-save-btn").textContent = "Crear usuari";
-        ["nu-name", "nu-user", "nu-pass", "nu-email", "nu-phone"].forEach(
+        ["nu-name", "nu-user", "nu-email", "nu-phone"].forEach(
           (id) => (document.getElementById(id).value = ""),
         );
         document.getElementById("nu-role").selectedIndex = 0;
         document.getElementById("nu-dept").selectedIndex = 0;
-        // NUEVO: Establecer Sede por defecto a Mataró
         document.getElementById("nu-sede").value = "Mataró";
         document.getElementById("nu-err").style.display = "none";
         document.getElementById("nu-dept-group").style.display = "";
+        document.getElementById("nu-reset-link-group").style.display = "none";
+        document.getElementById("nu-reset-ok").style.display = "none";
         // renderizar color picker con primer color libre
         const defaultColor = autoAssignColor(nextUserId);
         renderColorPicker(defaultColor);
@@ -8407,13 +8406,6 @@ function generarPasswordUsername(username) {
       function selectUserColor(colorId) {
         renderColorPicker(colorId);
       }
-// Auto-generar contrasenya quan es canvia el username (només en creació)
-document.getElementById("nu-user").addEventListener("input", function() {
-  if (editingUserId === null) {  // només en nou usuari, no en edició
-    const passField = document.getElementById("nu-pass");
-    passField.value = generarPasswordUsername(this.value.trim());
-  }
-});
       document.getElementById("nu-role").addEventListener("change", function() {
         document.getElementById("nu-dept-group").style.display = this.value === "admin" ? "none" : "";
       });
@@ -8426,7 +8418,6 @@ document.getElementById("nu-user").addEventListener("input", function() {
         document.getElementById("nu-save-btn").textContent = "Desar canvis";
         document.getElementById("nu-name").value  = u.name;
         document.getElementById("nu-user").value  = u.username;
-        document.getElementById("nu-pass").value  = "";   // mai mostrar contrasenya
         document.getElementById("nu-email").value = u.email || "";
         document.getElementById("nu-phone").value = u.phone || "";
         document.getElementById("nu-role").value  = u.role;
@@ -8439,14 +8430,28 @@ document.getElementById("nu-user").addEventListener("input", function() {
         }
         document.getElementById("nu-sede").value = u.sede || "Mataró";
         document.getElementById("nu-err").style.display = "none";
+        document.getElementById("nu-reset-link-group").style.display = "";
+        document.getElementById("nu-reset-ok").style.display = "none";
         renderColorPicker(u.color || "teal");
         openModal("user-modal");
+      }
+
+      async function sendResetLink() {
+        if (!editingUserId) return;
+        const btn = document.querySelector("#nu-reset-link-group button");
+        btn.disabled = true;
+        await fetch('/api/auth/resend-verification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: editingUserId }),
+        }).catch(() => {});
+        document.getElementById("nu-reset-ok").style.display = "inline";
+        btn.disabled = false;
       }
 
       async function saveUser() {
         const name  = document.getElementById("nu-name").value.trim();
         const uname = document.getElementById("nu-user").value.trim();
-        const pass  = document.getElementById("nu-pass").value;
         const email = document.getElementById("nu-email").value.trim();
         const phone = document.getElementById("nu-phone").value.trim();
         const role  = document.getElementById("nu-role").value;
@@ -8491,22 +8496,8 @@ document.getElementById("nu-user").addEventListener("input", function() {
             const idx = USERS.findIndex(u => u.id === editingUserId);
             if (idx !== -1) USERS[idx] = mapBackendUser(data.usuario);
 
-            // Canvi de contrasenya opcional
-            if (pass) {
-              const pres = await fetch('/api/auth/change-password', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: editingUserId, new_password: pass, confirm_password: pass }),
-              });
-              const pdata = await pres.json();
-              if (!pres.ok || !pdata.ok) {
-                alert(`Dades desades però error canviant contrasenya: ${pdata.error || ''}`);
-              }
-            }
-
           } else {
             // ── Crear usuari nou ────────────────────────────────────
-            const finalPass = pass || generarPasswordUsername(uname);
             const res = await fetch('/api/usuarios', {
               method:  'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -8518,16 +8509,6 @@ document.getElementById("nu-user").addEventListener("input", function() {
               errEl.style.display = ""; return;
             }
             USERS.push(mapBackendUser(data.usuario));
-
-            // Si l'admin va posar una contrasenya manual diferent de la generada, aplicar-la
-            if (pass && pass !== data.password_generada) {
-              await fetch('/api/auth/change-password', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: data.usuario.id, new_password: pass, confirm_password: pass }),
-              });
-            }
-
             if (email) {
               alert(`✅ Usuari creat!\n\nS'ha enviat un email a ${email} per configurar la contrasenya.`);
             } else {
