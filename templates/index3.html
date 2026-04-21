@@ -1151,24 +1151,24 @@
       }
       .day-view-date.today-date { color: var(--accent); }
 
-      /* Hourly grid */
+      /* Hourly grid — proportional (px per hour) */
       .day-hours-grid {
-        display: flex;
-        flex-direction: column;
+        position: relative;
         border-left: 2px solid var(--border);
         margin-left: 52px;
         margin-top: 8px;
-      }
-      .day-hour-row {
-        display: flex;
-        min-height: 52px;
-        border-bottom: 1px solid var(--bg2);
-        position: relative;
         cursor: pointer;
-        transition: background 0.12s;
+        overflow: visible;
       }
-      .day-hour-row:hover { background: var(--bg); }
-      .day-hour-row.current-hour { background: rgba(44,74,62,0.04); }
+      .day-hour-line {
+        position: absolute;
+        left: 0; right: 0;
+        height: 60px;
+        border-top: 1px solid var(--bg2);
+        pointer-events: none;
+        box-sizing: border-box;
+      }
+      .day-hour-line.current-hour { background: rgba(44,74,62,0.04); }
       .day-hour-label {
         position: absolute;
         left: -56px;
@@ -1181,24 +1181,16 @@
         pointer-events: none;
         user-select: none;
       }
-      .day-hour-content {
-        flex: 1;
-        padding: 4px 10px 4px 12px;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-      }
-      .day-hour-now-line {
+      .day-now-line {
         position: absolute;
         left: 0; right: 0;
         height: 2px;
         background: var(--danger);
         border-radius: 2px;
-        z-index: 2;
+        z-index: 3;
         pointer-events: none;
       }
-      .day-hour-now-line::before {
+      .day-now-line::before {
         content: '';
         position: absolute;
         left: -4px; top: -4px;
@@ -1207,48 +1199,62 @@
         border-radius: 50%;
       }
 
-      /* Events in day hour view */
-      .day-event-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 14px;
-        padding: 6px 0;
-        cursor: pointer;
-        transition: background 0.12s;
+      /* Event blocks — absolutely positioned */
+      .day-event-block {
+        position: absolute;
+        left: 8px; right: 8px;
         border-radius: 6px;
-        padding-left: 6px;
+        overflow: hidden;
+        cursor: pointer;
+        z-index: 1;
+        padding: 3px 8px;
+        background: var(--accent-light);
+        border-left: 3px solid var(--accent);
+        box-sizing: border-box;
+        transition: opacity 0.12s;
       }
-      .day-event-row:hover { background: var(--bg2); }
-      .day-event-time {
-        min-width: 82px;
-        font-size: 12px;
+      .day-event-block:hover { opacity: 0.82; }
+      .day-event-block.blocked {
+        background: #ede9e0;
+        border-left-color: #bbb;
+        cursor: default;
+      }
+      .day-event-block-time {
+        font-size: 11px;
         font-weight: 700;
         color: var(--text-muted);
-        padding-top: 2px;
         white-space: nowrap;
+        line-height: 1.3;
       }
-      .day-event-bar {
-        width: 3px;
-        min-width: 3px;
-        border-radius: 3px;
-        align-self: stretch;
-        min-height: 36px;
-        background: var(--accent);
-        flex-shrink: 0;
-      }
-      .day-event-body { flex: 1; min-width: 0; }
-      .day-event-client {
-        font-size: 13px;
+      .day-event-block-title {
+        font-size: 12px;
         font-weight: 600;
         color: var(--text);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        line-height: 1.3;
       }
-      .day-event-service {
+      .day-event-block-service {
         font-size: 11px;
         color: var(--text-muted);
-        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.3;
+      }
+      .day-blocked-toast {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0,0,0,0.72);
+        color: #fff;
+        padding: 7px 18px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        z-index: 10;
+        pointer-events: none;
       }
       .day-view-empty {
         padding: 32px 0;
@@ -6549,6 +6555,9 @@
       }
 
       // Renderizar vista de UN día — devuelve HTML con horas del día
+      // Stores day events per calId for the click handler
+      let _dayViewEvs = {};
+
       function _renderDayView(calId, evs, clickWhich, evDetailFn) {
         _initDay(calId);
         const d = _calDay[calId];
@@ -6559,29 +6568,49 @@
         const weekday = d.toLocaleDateString('ca-ES', {weekday:'long'});
         const dateStr = d.toLocaleDateString('ca-ES', {day:'numeric', month:'long', year:'numeric'});
 
-        // Build hourly grid from 07:00 to 21:00
+        const PX_PER_HOUR = 60;
         const HOURS_START = 7, HOURS_END = 21;
-        const nowH = isToday ? new Date().getHours() : -1;
-        const nowMin = isToday ? new Date().getMinutes() : 0;
+        const TOTAL_HEIGHT = (HOURS_END - HOURS_START + 1) * PX_PER_HOUR;
 
-        let hoursHtml = '';
+        // Store events so dayViewGridClick can access them
+        _dayViewEvs[calId] = dayEvs;
+
+        // Decorative hour lines
+        let hourLinesHtml = '';
         for (let h = HOURS_START; h <= HOURS_END; h++) {
+          const topPx = (h - HOURS_START) * PX_PER_HOUR;
           const hStr = String(h).padStart(2,'0') + ':00';
-          const isCurrentHour = (h === nowH);
-          // Events starting in this hour
-          const hEvs = dayEvs.filter(ev => {
-            const evH = parseInt(ev.time.split(':')[0]);
-            return evH === h;
-          });
-          const evRows = hEvs.map(ev => evDetailFn(ev)).join('');
-          hoursHtml += `
-            <div class="day-hour-row${isCurrentHour ? ' current-hour' : ''}" onclick="calCellClick('${ds}',event,'${clickWhich}')">
-              <div class="day-hour-label">${hStr}</div>
-              <div class="day-hour-content">
-                ${evRows || (isCurrentHour ? `<div class="day-hour-now-line" style="top:${Math.round((nowMin/60)*100)}%"></div>` : '')}
-                ${isCurrentHour && evRows ? `<div class="day-hour-now-line" style="top:${Math.round((nowMin/60)*100)}%"></div>` : ''}
-              </div>
-            </div>`;
+          const isCurrentHour = isToday && h === new Date().getHours();
+          hourLinesHtml += `<div class="day-hour-line${isCurrentHour ? ' current-hour' : ''}" style="top:${topPx}px"><span class="day-hour-label">${hStr}</span></div>`;
+        }
+
+        // Absolutely positioned event blocks
+        let evBlocksHtml = '';
+        for (const ev of dayEvs) {
+          const [startH, startM] = ev.time.split(':').map(Number);
+          if (startH < HOURS_START || startH > HOURS_END) continue;
+          const startMinFromTop = (startH - HOURS_START) * 60 + startM;
+          let endMinFromTop;
+          if (ev.timeEnd) {
+            const [endH, endM] = ev.timeEnd.split(':').map(Number);
+            endMinFromTop = (endH - HOURS_START) * 60 + endM;
+          } else {
+            endMinFromTop = startMinFromTop + 60;
+          }
+          const topPx = (startMinFromTop / 60) * PX_PER_HOUR;
+          const heightPx = Math.max(((endMinFromTop - startMinFromTop) / 60) * PX_PER_HOUR, 28);
+          evBlocksHtml += evDetailFn(ev, topPx, heightPx);
+        }
+
+        // "Now" line
+        let nowLineHtml = '';
+        if (isToday) {
+          const now = new Date();
+          const nH = now.getHours(), nM = now.getMinutes();
+          if (nH >= HOURS_START && nH <= HOURS_END) {
+            const nowTopPx = ((nH - HOURS_START) * 60 + nM) / 60 * PX_PER_HOUR;
+            nowLineHtml = `<div class="day-now-line" style="top:${Math.round(nowTopPx)}px"></div>`;
+          }
         }
 
         return `<div class="day-view-container">
@@ -6590,8 +6619,55 @@
             <span class="day-view-date${isToday?' today-date':''}">${dateStr}</span>
             ${isToday ? '<span class="tag tag-green" style="font-size:11px;padding:2px 8px">Avui</span>' : ''}
           </div>
-          <div class="day-hours-grid">${hoursHtml}</div>
+          <div class="day-hours-grid" style="height:${TOTAL_HEIGHT}px"
+               onclick="dayViewGridClick(event,'${ds}','${clickWhich}','${calId}')">
+            ${hourLinesHtml}${evBlocksHtml}${nowLineHtml}
+          </div>
         </div>`;
+      }
+
+      function dayViewGridClick(event, ds, which, calId) {
+        if (event.target.closest('.day-event-block')) return;
+        const PX_PER_HOUR = 60, HOURS_START = 7;
+        const rect = event.currentTarget.getBoundingClientRect();
+        const offsetY = event.clientY - rect.top;
+        const clickedMin = HOURS_START * 60 + (offsetY / PX_PER_HOUR) * 60;
+
+        // Check private event blocking
+        const evs = _dayViewEvs[calId] || [];
+        const isAdm = currentUser && currentUser.role === 'admin';
+        for (const ev of evs) {
+          if (!ev.private) continue;
+          const isMasked = !isAdm && ev.assignedTo !== currentUser?.id;
+          if (!isMasked) continue;
+          const [sH, sM] = ev.time.split(':').map(Number);
+          const evStart = sH * 60 + sM;
+          let evEnd = evStart + 60;
+          if (ev.timeEnd) { const [eH, eM] = ev.timeEnd.split(':').map(Number); evEnd = eH * 60 + eM; }
+          if (clickedMin >= evStart && clickedMin < evEnd) {
+            _showDayBlockedToast(event.currentTarget);
+            return;
+          }
+        }
+
+        // Open event modal (same logic as calCellClick)
+        if (which === 'admin-view') { openAdminCalEventModal(ds); return; }
+        const SEDE_LIST = ['mataro','vilassar'];
+        const DEPT_LIST = ['laboral','fiscal','mercantil'];
+        let filterParam = null;
+        if (SEDE_LIST.includes(which)) filterParam = which === 'mataro' ? 'Mataró' : 'Vilassar';
+        else if (DEPT_LIST.includes(which)) filterParam = which;
+        else if (which.startsWith('dept-')) { const dn = which.replace('dept-',''); if (DEPT_LIST.includes(dn)) filterParam = dn; }
+        openEventModal((which === 'global') || filterParam !== null, ds, filterParam);
+      }
+
+      function _showDayBlockedToast(container) {
+        if (container.querySelector('.day-blocked-toast')) return;
+        const t = document.createElement('div');
+        t.className = 'day-blocked-toast';
+        t.textContent = 'Hora bloquejada';
+        container.appendChild(t);
+        setTimeout(() => t.remove(), 1800);
       }
 
       function changeMonth(dir, which) {
@@ -6736,22 +6812,21 @@
           const allEvs = filterEvs(EVENTS.filter(e => e.date === ds));
           titleEl.textContent = _dayTitle(dayDate);
           calCellsEl.className = 'cal-cells day-view';
-          calCellsEl.innerHTML = _renderDayView(calId, allEvs, which, (ev) => {
+          calCellsEl.innerHTML = _renderDayView(calId, allEvs, which, (ev, topPx, heightPx) => {
             const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+            const posStyle = `top:${topPx}px;height:${heightPx}px;`;
             if (shouldMask) {
-              return `<div class="day-event-row" style="cursor:default">
-                <div class="day-event-time">${ev.time}${ev.timeEnd?'<br>→ '+ev.timeEnd:''}</div>
-                <div class="day-event-bar" style="background:#bbb"></div>
-                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloquejada</div></div>
+              return `<div class="day-event-block blocked" style="${posStyle}" title="Hora bloquejada">
+                <div class="day-event-block-time">${ev.time}${ev.timeEnd?' - '+ev.timeEnd:''}</div>
+                <div class="day-event-block-title" style="color:#999">🔒 Hora bloquejada</div>
               </div>`;
             }
-            return `<div class="day-event-row" onclick="showEventDetail(${ev.id},event)">
-              <div class="day-event-time">${ev.time}${ev.timeEnd?'<br><span style="font-weight:400">→ '+ev.timeEnd+'</span>':''}</div>
-              <div class="day-event-bar"></div>
-              <div class="day-event-body">
-                <div class="day-event-client">${ev.private?'🔒 ':''}${safeHtml(ev.client)}</div>
-                <div class="day-event-service">${safeHtml(ev.service||'')}${ev.timeEnd?' · '+calcDuration(ev.time,ev.timeEnd):''}</div>
-              </div>
+            const borderColor = ev.color ? ev.color : 'var(--accent)';
+            return `<div class="day-event-block" style="${posStyle}border-left-color:${borderColor};"
+                onclick="showEventDetail(${ev.id},event);event.stopPropagation()">
+              <div class="day-event-block-time">${ev.time}${ev.timeEnd?' - '+ev.timeEnd:''}</div>
+              <div class="day-event-block-title">${ev.private?'🔒 ':''}${safeHtml(ev.client)}</div>
+              ${heightPx > 42 ? `<div class="day-event-block-service">${safeHtml(ev.service||'')}${ev.timeEnd?' · '+calcDuration(ev.time,ev.timeEnd):''}</div>` : ''}
             </div>`;
           });
           renderApptList(which, allEvs);
