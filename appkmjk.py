@@ -51,19 +51,24 @@ META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/mes
 # ═══════════════════════════════════════════════════════════════
 
 def send_email(to_email: str, subject: str, html_body: str) -> bool:
-    """Envia un email via Resend API. Retorna True si ok."""
+    """Envia un email via Gmail SMTP SSL. Retorna True si ok."""
+    import unicodedata
+    def clean(s): return ''.join(c for c in unicodedata.normalize('NFKD', str(s)) if ord(c) < 128)
+    to_email = clean(to_email).strip()
+    subject  = clean(subject).strip()
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        logger.warning("⚠️ [Email] GMAIL_USER o GMAIL_APP_PASSWORD no configurats.")
+        return False
     try:
-        import resend
-        resend.api_key = os.environ.get('RESEND_API_KEY')
-        if not resend.api_key:
-            logger.warning("⚠️ [Email] RESEND_API_KEY no configurada.")
-            return False
-        resend.Emails.send({
-            "from": "Rodonverges <onboarding@resend.dev>",
-            "to": [to_email.strip()],
-            "subject": subject,
-            "html": html_body,
-        })
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = Header(subject, 'utf-8')
+        msg['From']    = GMAIL_USER
+        msg['To']      = to_email
+        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=ctx) as server:
+            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            server.sendmail(GMAIL_USER, to_email, msg.as_string())
         logger.info(f"✅ [Email] Enviat a {to_email}: {subject}")
         return True
     except Exception as e:
