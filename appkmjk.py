@@ -1511,8 +1511,12 @@ def crear_usuario():
     color        = data.get('color', 'teal').strip()
     phone        = data.get('phone', '').strip()
 
+    password_raw = data.get('password', '').strip()
+
     if not username or not nombre or not departamento or not sede:
         return jsonify({'ok': False, 'error': 'Falten camps obligatoris: username, nombre, departamento, sede'}), 400
+    if not password_raw:
+        return jsonify({'ok': False, 'error': 'La contrasenya es obligatoria'}), 400
 
     if User.query.filter_by(username=username).first():
         return jsonify({'ok': False, 'error': f"El username '{username}' ja existeix"}), 409
@@ -1520,10 +1524,9 @@ def crear_usuario():
     if email and User.query.filter_by(email=email).first():
         return jsonify({'ok': False, 'error': f"L'email '{email}' ja existeix"}), 409
 
-    password = generar_password_username(username)
     user = User(
         username=username,
-        password_hash=generate_password_hash(password),
+        password_hash=generate_password_hash(password_raw),
         name=nombre,
         email=email or None,
         phone=phone or None,
@@ -1539,29 +1542,7 @@ def crear_usuario():
     db.session.commit()
     logger.info(f"✅ [Usuari] Creat: {nombre} (username: {username})")
     create_seat_chats(user.id, nombre, sede)
-
-    # Enviar email de benvinguda amb link per establir contrasenya
-    if email:
-        try:
-            token      = generate_reset_token(user)
-            base_url   = os.environ.get('APP_BASE_URL', request.host_url.rstrip('/'))
-            link       = f"{base_url}/set-password?token={token}"
-            html_body = (
-                "<html><body style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;'>"
-                "<h2 style='color:#2c4a3e;'>Benvingut a Rodonverges Associats</h2>"
-                f"<p>Hola <strong>{nombre}</strong>,</p>"
-                "<p>El teu compte ha estat creat. Fes clic al boto per establir la teva contrasenya:</p>"
-                "<p style='margin:24px 0;'>"
-                f"<a href='{link}' style='background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;'>Establir contrasenya</a>"
-                "</p>"
-                "<p style='color:#999;font-size:12px;'>Aquest link caduca en 24 hores. Si no ho has demanat, ignora aquest correu.</p>"
-                "</body></html>"
-            )
-            send_email(email, "Configura el teu acces - Rodonverges Associats", html_body)
-        except Exception as e:
-            logger.error(f"❌ [Email benvinguda] Error: {e}")
-
-    return jsonify({'ok': True, 'usuario': user.to_dict(), 'password_generada': password}), 201
+    return jsonify({'ok': True, 'usuario': user.to_dict()}), 201
 
 @app.route('/api/usuarios/<int:user_id>', methods=['PUT'])
 def actualitzar_usuario(user_id):

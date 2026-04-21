@@ -4261,6 +4261,10 @@
           <label>Usuari *</label
           ><input type="text" id="nu-user" placeholder="nom.usuari" />
         </div>
+        <div class="form-group" id="nu-pass-group">
+          <label id="nu-pass-label">Contrasenya *</label
+          ><input type="password" id="nu-pass" placeholder="Contrasenya temporal" autocomplete="new-password" />
+        </div>
         <div id="nu-reset-link-group" style="display:none;margin-bottom:12px;">
           <button type="button" class="btn btn-ghost" style="font-size:13px;" onclick="sendResetLink()">Enviar link de reset de contrasenya</button>
           <span id="nu-reset-ok" style="display:none;margin-left:8px;font-size:13px;color:var(--success);">✓ Link enviat per email</span>
@@ -8367,7 +8371,7 @@ function generarPasswordUsername(username) {
         editingUserId = null;
         document.getElementById("user-modal-title").textContent = "Nou usuari";
         document.getElementById("nu-save-btn").textContent = "Crear usuari";
-        ["nu-name", "nu-user", "nu-email", "nu-phone"].forEach(
+        ["nu-name", "nu-user", "nu-pass", "nu-email", "nu-phone"].forEach(
           (id) => (document.getElementById(id).value = ""),
         );
         document.getElementById("nu-role").selectedIndex = 0;
@@ -8375,6 +8379,8 @@ function generarPasswordUsername(username) {
         document.getElementById("nu-sede").value = "Mataró";
         document.getElementById("nu-err").style.display = "none";
         document.getElementById("nu-dept-group").style.display = "";
+        document.getElementById("nu-pass-group").style.display = "";
+        document.getElementById("nu-pass-label").textContent = "Contrasenya *";
         document.getElementById("nu-reset-link-group").style.display = "none";
         document.getElementById("nu-reset-ok").style.display = "none";
         // renderizar color picker con primer color libre
@@ -8430,6 +8436,8 @@ function generarPasswordUsername(username) {
         }
         document.getElementById("nu-sede").value = u.sede || "Mataró";
         document.getElementById("nu-err").style.display = "none";
+        document.getElementById("nu-pass").value = "";
+        document.getElementById("nu-pass-group").style.display = "none";
         document.getElementById("nu-reset-link-group").style.display = "";
         document.getElementById("nu-reset-ok").style.display = "none";
         renderColorPicker(u.color || "teal");
@@ -8452,6 +8460,7 @@ function generarPasswordUsername(username) {
       async function saveUser() {
         const name  = document.getElementById("nu-name").value.trim();
         const uname = document.getElementById("nu-user").value.trim();
+        const pass  = document.getElementById("nu-pass").value;
         const email = document.getElementById("nu-email").value.trim();
         const phone = document.getElementById("nu-phone").value.trim();
         const role  = document.getElementById("nu-role").value;
@@ -8475,6 +8484,10 @@ function generarPasswordUsername(username) {
         const dupUser = USERS.find((u) => u.username === uname && u.id !== editingUserId);
         if (dupUser) {
           errEl.textContent = "El nom d'usuari ja existeix.";
+          errEl.style.display = ""; return;
+        }
+        if (editingUserId === null && !pass) {
+          errEl.textContent = "La contrasenya és obligatoria.";
           errEl.style.display = ""; return;
         }
         errEl.style.display = "none";
@@ -8501,7 +8514,7 @@ function generarPasswordUsername(username) {
             const res = await fetch('/api/usuarios', {
               method:  'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username: uname, nombre: name, email, phone, departamento: dept || 'admin', rol: role, sede, color }),
+              body: JSON.stringify({ username: uname, nombre: name, password: pass, email, phone, departamento: dept || 'admin', rol: role, sede, color }),
             });
             const data = await res.json();
             if (!res.ok || !data.ok) {
@@ -8509,11 +8522,7 @@ function generarPasswordUsername(username) {
               errEl.style.display = ""; return;
             }
             USERS.push(mapBackendUser(data.usuario));
-            if (email) {
-              alert(`✅ Usuari creat!\n\nS'ha enviat un email a ${email} per configurar la contrasenya.`);
-            } else {
-              alert(`✅ Usuari creat!\n\nUsuari: ${uname}\nContrasenya temporal: ${data.password_generada}\n\nL'usuari haurà de canviar-la en el primer accés.`);
-            }
+            alert(`\u2705 Usuari creat!\n\nUsuari: ${uname}\nL'usuari haura de canviar la contrasenya en el primer acces.`);
           }
 
         } catch(e) {
