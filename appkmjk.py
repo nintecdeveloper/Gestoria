@@ -2152,6 +2152,13 @@ with app.app_context():
     try:
         db.create_all()
         logger.info("✅ Taules de BD creades/verificades correctament")
+        try:
+            db.session.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(100)"))
+            db.session.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP"))
+            db.session.commit()
+        except Exception as e:
+            logger.error(f"Error migració reset_token: {e}")
+            db.session.rollback()
         seed_users()
     except Exception as _e:
         logger.error(f"❌ Error creant taules o seed: {_e}")
