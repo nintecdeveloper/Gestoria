@@ -1511,7 +1511,7 @@ def crear_usuario():
     data         = request.get_json(silent=True) or {}
     username     = data.get('username', '').strip()
     nombre       = data.get('nombre', '').strip()
-    email        = data.get('email', '').strip()
+    email        = data.get('email', '').strip().replace('\xa0', '').replace('\u200b', '')
     departamento = data.get('departamento', '').strip()
     rol          = data.get('rol', 'empleado').strip()
     sede         = data.get('sede', '').strip()
@@ -1579,7 +1579,7 @@ def actualitzar_usuario(user_id):
     if 'nombre' in data:
         user.name = data['nombre'].strip()
     if 'email' in data:
-        new_email = data['email'].strip()
+        new_email = data['email'].strip().replace('\xa0', '').replace('\u200b', '')
         existing = User.query.filter(User.email == new_email, User.id != user_id).first()
         if existing:
             return jsonify({'ok': False, 'error': f"L'email '{new_email}' ja existeix"}), 409
