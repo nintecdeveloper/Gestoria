@@ -51,24 +51,20 @@ META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/mes
 # ═══════════════════════════════════════════════════════════════
 
 def send_email(to_email, subject, html_body):
-    """Envia un email via Resend API (HTTP JSON). Cap encoding MIME."""
-    api_key = os.environ.get('RESEND_API_KEY')
-    if not api_key:
-        logger.warning("RESEND_API_KEY no configurada")
-        return False
     try:
-        resp = requests.post(
-            'https://api.resend.com/emails',
-            headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'},
-            json={
-                'from':    'onboarding@resend.dev',
-                'to':      [to_email.strip()],
-                'subject': subject,
-                'html':    html_body,
-            },
-            timeout=10,
-        )
-        resp.raise_for_status()
+        gmail_user     = os.environ.get('GMAIL_USER')
+        gmail_password = os.environ.get('GMAIL_APP_PASSWORD')
+        if not gmail_user or not gmail_password:
+            logger.warning("GMAIL_USER o GMAIL_APP_PASSWORD no configurats")
+            return False
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = gmail_user
+        msg['To']      = to_email.strip()
+        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(gmail_user, gmail_password)
+            server.send_message(msg)
         logger.info(f"Email enviat a {to_email}")
         return True
     except Exception as e:
