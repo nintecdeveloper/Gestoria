@@ -51,26 +51,24 @@ META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/mes
 # ═══════════════════════════════════════════════════════════════
 
 def send_email(to_email, subject, html_body):
+    """Envia un email via Resend API (HTTP JSON). Cap encoding MIME."""
+    api_key = os.environ.get('RESEND_API_KEY')
+    if not api_key:
+        logger.warning("RESEND_API_KEY no configurada")
+        return False
     try:
-        gmail_user     = os.environ.get('GMAIL_USER')
-        gmail_password = os.environ.get('GMAIL_APP_PASSWORD')
-
-        if not gmail_user or not gmail_password:
-            logger.warning("GMAIL_USER o GMAIL_APP_PASSWORD no configurats")
-            return False
-
-        to_email = to_email.strip()
-
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From']    = f'Rodonverges Associats <{gmail_user}>'
-        msg['To']      = to_email
-        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
-
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(gmail_user, gmail_password)
-            server.sendmail(gmail_user, to_email, msg.as_bytes())
-
+        resp = requests.post(
+            'https://api.resend.com/emails',
+            headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'},
+            json={
+                'from':    'onboarding@resend.dev',
+                'to':      [to_email.strip()],
+                'subject': subject,
+                'html':    html_body,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
         logger.info(f"Email enviat a {to_email}")
         return True
     except Exception as e:
@@ -659,16 +657,17 @@ def auth_forgot_password():
                 token     = generate_reset_token(user)
                 base_url  = os.environ.get('APP_BASE_URL', request.host_url.rstrip('/'))
                 link      = f"{base_url}/set-password?token={token}"
-                html_body = f"""
-<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
-<h2 style="color:#2c4a3e;">Restablir contrasenya</h2>
-<p>Hola <strong>{user.name}</strong>,</p>
-<p>Has sol&middot;licitat restablir la teva contrasenya. Fes clic al bot&oacute; per continuar:</p>
-<p style="margin:24px 0;">
-  <a href="{link}" style="background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Restablir contrasenya</a>
-</p>
-<p style="color:#999;font-size:12px;">Aquest link caduca en 24 hores. Si no ho has demanat, ignora aquest correu.</p>
-</body></html>"""
+                html_body = (
+                    "<html><body style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;'>"
+                    "<h2 style='color:#2c4a3e;'>Restablir contrasenya</h2>"
+                    f"<p>Hola <strong>{user.name}</strong>,</p>"
+                    "<p>Has demanat restablir la teva contrasenya. Fes clic al boto per continuar:</p>"
+                    "<p style='margin:24px 0;'>"
+                    f"<a href='{link}' style='background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;'>Restablir contrasenya</a>"
+                    "</p>"
+                    "<p style='color:#999;font-size:12px;'>Aquest link caduca en 24 hores. Si no ho has demanat, ignora aquest correu.</p>"
+                    "</body></html>"
+                )
                 send_email(user.email, "Restablir contrasenya - Rodonverges Associats", html_body)
             except Exception as e:
                 logger.error(f"❌ [ForgotPassword] Error: {e}")
@@ -687,16 +686,17 @@ def auth_resend_verification():
         token     = generate_reset_token(user)
         base_url  = os.environ.get('APP_BASE_URL', request.host_url.rstrip('/'))
         link      = f"{base_url}/set-password?token={token}"
-        html_body = f"""
-<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
-<h2 style="color:#2c4a3e;">Configura el teu acc&eacute;s</h2>
-<p>Hola <strong>{user.name}</strong>,</p>
-<p>Fes clic al bot&oacute; per establir la teva contrasenya:</p>
-<p style="margin:24px 0;">
-  <a href="{link}" style="background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Establir contrasenya</a>
-</p>
-<p style="color:#999;font-size:12px;">Aquest link caduca en 24 hores.</p>
-</body></html>"""
+        html_body = (
+            "<html><body style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;'>"
+            "<h2 style='color:#2c4a3e;'>Configura el teu acces</h2>"
+            f"<p>Hola <strong>{user.name}</strong>,</p>"
+            "<p>Fes clic al boto per establir la teva contrasenya:</p>"
+            "<p style='margin:24px 0;'>"
+            f"<a href='{link}' style='background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;'>Establir contrasenya</a>"
+            "</p>"
+            "<p style='color:#999;font-size:12px;'>Aquest link caduca en 24 hores.</p>"
+            "</body></html>"
+        )
         send_email(user.email, "Configura el teu acces - Rodonverges Associats", html_body)
     except Exception as e:
         logger.error(f"❌ [ResendVerification] Error: {e}")
@@ -1550,16 +1550,17 @@ def crear_usuario():
             token      = generate_reset_token(user)
             base_url   = os.environ.get('APP_BASE_URL', request.host_url.rstrip('/'))
             link       = f"{base_url}/set-password?token={token}"
-            html_body  = f"""
-<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;">
-<h2 style="color:#2c4a3e;">Benvingut/da a Rodonverg&eacute;s Associats</h2>
-<p>Hola <strong>{nombre}</strong>,</p>
-<p>El teu compte ha estat creat. Fes clic al bot&oacute; per establir la teva contrasenya:</p>
-<p style="margin:24px 0;">
-  <a href="{link}" style="background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Establir contrasenya</a>
-</p>
-<p style="color:#999;font-size:12px;">Aquest link caduca en 24 hores. Si no l'has demanat, ignora aquest correu.</p>
-</body></html>"""
+            html_body = (
+                "<html><body style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;'>"
+                "<h2 style='color:#2c4a3e;'>Benvingut a Rodonverges Associats</h2>"
+                f"<p>Hola <strong>{nombre}</strong>,</p>"
+                "<p>El teu compte ha estat creat. Fes clic al boto per establir la teva contrasenya:</p>"
+                "<p style='margin:24px 0;'>"
+                f"<a href='{link}' style='background:#2c4a3e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;'>Establir contrasenya</a>"
+                "</p>"
+                "<p style='color:#999;font-size:12px;'>Aquest link caduca en 24 hores. Si no ho has demanat, ignora aquest correu.</p>"
+                "</body></html>"
+            )
             send_email(email, "Configura el teu acces - Rodonverges Associats", html_body)
         except Exception as e:
             logger.error(f"❌ [Email benvinguda] Error: {e}")
