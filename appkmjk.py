@@ -1684,6 +1684,105 @@ def get_clients():
         logger.error(f"❌ [Clients] Error: {str(e)}")
         return jsonify({'ok': False, 'error': str(e), 'clients': []}), 500
 
+@app.route('/api/clients', methods=['POST'])
+def create_client():
+    """Crea un nou client a PostgreSQL."""
+    if not PSYCOPG2_AVAILABLE:
+        return jsonify({'ok': False, 'error': 'psycopg2 no disponible'}), 500
+    if not DATABASE_URL:
+        return jsonify({'ok': False, 'error': 'Base de dades no configurada'}), 500
+    data   = request.get_json(silent=True) or {}
+    name   = (data.get('name') or '').strip()
+    phone  = clean_phone(data.get('phone') or '')
+    email  = (data.get('email') or '').strip()
+    cif    = (data.get('cif') or '').strip()
+    city   = (data.get('city') or data.get('ciutat') or '').strip()
+    notes  = (data.get('notes') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'El nom és obligatori'}), 400
+    try:
+        conn = get_db_connection()
+        cur  = conn.cursor()
+        cur.execute("""
+            INSERT INTO clients (nombre, telefono, email, cif, ciudad, notas, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            RETURNING id
+        """, (name, phone or None, email or None, cif or None, city or None, notes or None))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info(f"✅ [Clients] Creat client id={new_id} nom='{name}'")
+        return jsonify({'ok': True, 'client': {
+            'id': new_id, 'name': name, 'phone': phone,
+            'email': email, 'cif': cif, 'city': city, 'notes': notes, 'address': ''
+        }}), 201
+    except Exception as e:
+        logger.error(f"❌ [Clients] Error creant client: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/clients/<int:client_id>', methods=['PUT'])
+def update_client(client_id):
+    """Edita un client existent a PostgreSQL."""
+    if not PSYCOPG2_AVAILABLE:
+        return jsonify({'ok': False, 'error': 'psycopg2 no disponible'}), 500
+    if not DATABASE_URL:
+        return jsonify({'ok': False, 'error': 'Base de dades no configurada'}), 500
+    data   = request.get_json(silent=True) or {}
+    name   = (data.get('name') or '').strip()
+    phone  = clean_phone(data.get('phone') or '')
+    email  = (data.get('email') or '').strip()
+    cif    = (data.get('cif') or '').strip()
+    city   = (data.get('city') or data.get('ciutat') or '').strip()
+    notes  = (data.get('notes') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'El nom és obligatori'}), 400
+    try:
+        conn = get_db_connection()
+        cur  = conn.cursor()
+        cur.execute("""
+            UPDATE clients
+            SET nombre=%s, telefono=%s, email=%s, cif=%s, ciudad=%s, notas=%s
+            WHERE id=%s
+        """, (name, phone or None, email or None, cif or None, city or None, notes or None, client_id))
+        if cur.rowcount == 0:
+            conn.rollback(); cur.close(); conn.close()
+            return jsonify({'ok': False, 'error': 'Client no trobat'}), 404
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info(f"✅ [Clients] Editat client id={client_id}")
+        return jsonify({'ok': True, 'client': {
+            'id': client_id, 'name': name, 'phone': phone,
+            'email': email, 'cif': cif, 'city': city, 'notes': notes, 'address': ''
+        }})
+    except Exception as e:
+        logger.error(f"❌ [Clients] Error editant client: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/clients/<int:client_id>', methods=['DELETE'])
+def delete_client(client_id):
+    """Elimina un client de PostgreSQL."""
+    if not PSYCOPG2_AVAILABLE:
+        return jsonify({'ok': False, 'error': 'psycopg2 no disponible'}), 500
+    if not DATABASE_URL:
+        return jsonify({'ok': False, 'error': 'Base de dades no configurada'}), 500
+    try:
+        conn = get_db_connection()
+        cur  = conn.cursor()
+        cur.execute("DELETE FROM clients WHERE id=%s", (client_id,))
+        if cur.rowcount == 0:
+            conn.rollback(); cur.close(); conn.close()
+            return jsonify({'ok': False, 'error': 'Client no trobat'}), 404
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info(f"✅ [Clients] Eliminat client id={client_id}")
+        return jsonify({'ok': True})
+    except Exception as e:
+        logger.error(f"❌ [Clients] Error eliminant client: {str(e)}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
 @app.route('/api/clients/import', methods=['POST'])
 def import_clients_db():
     """Importa clients des d'Excel o CSV a PostgreSQL. Només admins."""

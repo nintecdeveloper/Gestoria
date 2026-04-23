@@ -8809,24 +8809,25 @@ function generarPasswordUsername(username) {
       }
 
       async function saveClient() {
-        const name = document.getElementById("client-name").value.trim();
+        const name  = document.getElementById("client-name").value.trim();
         const phone = document.getElementById("client-phone").value.trim();
         const errEl = document.getElementById("client-err");
 
         if (!name || !phone) {
+          errEl.textContent = 'El nom i el telèfon del client són obligatoris.';
           errEl.style.display = "";
           return;
         }
         errEl.style.display = "none";
 
         const payload = { name, phone };
-        if (editingClientId !== null) {
-          payload.id = editingClientId;
-        }
+        const isEdit  = editingClientId !== null;
+        const url     = isEdit ? `/api/clients/${editingClientId}` : '/api/clients';
+        const method  = isEdit ? 'PUT' : 'POST';
 
         try {
-          const res = await fetch('/api/clients', {
-            method: 'POST',
+          const res  = await fetch(url, {
+            method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
@@ -8837,23 +8838,29 @@ function generarPasswordUsername(username) {
             return;
           }
         } catch (e) {
-          console.warn('Error guardant client a BD:', e.message);
-          // Fallback: guardar en memòria igualment
+          errEl.textContent = 'Error de connexió. Torna-ho a intentar.';
+          errEl.style.display = '';
+          return;
         }
 
         closeModal("client-modal");
-        // Recarregar clients des de la BD per tenir IDs reals i llista actualitzada
         await loadClientsFromDB();
       }
 
-      function deleteClient(id) {
-        // ✅ CAMBIO 13: Validar que solo admins pueden eliminar clientes
+      async function deleteClient(id) {
         if (currentUser.role !== 'admin') {
           alert('❌ Només els administradors poden eliminar clients');
           return;
         }
-        
         if (!confirm("Vols eliminar aquest client?")) return;
+        try {
+          const res  = await fetch(`/api/clients/${id}`, { method: 'DELETE' });
+          const data = await res.json();
+          if (!data.ok) { alert(data.error || 'Error eliminant client'); return; }
+        } catch (e) {
+          alert('Error de connexió eliminant client');
+          return;
+        }
         CLIENTS = CLIENTS.filter((c) => c.id !== id);
         renderClients();
       }
