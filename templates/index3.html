@@ -4738,6 +4738,7 @@
       let _pollingTimer      = null;
       let _pollKnownIds      = {}; // convId → Set<msgId> — IDs ja vistos
       let _serverUnreadCounts = {}; // convId → unread count (font de veritat del servidor)
+      let _pendingReads = new Set(); // convIds marcats llegits localment, pendent confirmació servidor
 
       /**
        * Consulta GET /api/unread-counts per a l'usuari actual i
@@ -4757,8 +4758,24 @@
             console.log('[Unread] Primera sessió — inicialitzant last_read al servidor...');
             await initSessionRead();
             _serverUnreadCounts = {};
+            _pendingReads.clear();
           } else {
-            _serverUnreadCounts = data.counts || {};
+            const serverCounts = data.counts || {};
+            _serverUnreadCounts = {};
+            for (const [id, count] of Object.entries(serverCounts)) {
+              // Si el user ja ha marcat aquesta conv com llegida localment,
+              // mantenim 0 fins que el servidor confirmi (evita race condition amb POST mark-read)
+              if (_pendingReads.has(id) && count > 0) {
+                _serverUnreadCounts[id] = 0;
+              } else {
+                _serverUnreadCounts[id] = count;
+                if (count === 0) _pendingReads.delete(id);
+              }
+            }
+            // Eliminar del set les convs que el servidor ja no reporta com a no llegides
+            for (const id of _pendingReads) {
+              if (!(id in serverCounts)) _pendingReads.delete(id);
+            }
           }
           updateBadge();
           buildMsgList(document.getElementById('msg-search-inp')?.value || '');
@@ -4789,6 +4806,7 @@
       async function markConvRead(convId) {
         if (!currentUser) return;
         _serverUnreadCounts[convId] = 0;
+        _pendingReads.add(convId);
         updateBadge();
         try {
           await fetch(`/api/messages/${encodeURIComponent(convId)}/read`, {
