@@ -561,6 +561,14 @@
         padding: 2px 7px;
         border-radius: 10px;
       }
+      #msg-badge {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #F97316;
+        padding: 0;
+        font-size: 0;
+        flex-shrink: 0;
+      }
       /* ESTILOS PARA NAVEGACIÓN EXPANDIBLE */
       .nav-expandable {
         display: flex;
@@ -4737,46 +4745,17 @@
 
       let _pollingTimer      = null;
       let _pollKnownIds      = {}; // convId → Set<msgId> — IDs ja vistos
-      let _serverUnreadCounts = {}; // convId → unread count (font de veritat del servidor)
-      let _pendingReads = new Set(); // convIds marcats llegits localment, pendent confirmació servidor
+      let _serverUnreadCounts = {}; // convId → unread count (per display a llistes)
+      let _totalUnread = 0;         // total no llegits (font de veritat per al badge nav)
 
-      /**
-       * Consulta GET /api/unread-counts per a l'usuari actual i
-       * actualitza _serverUnreadCounts + badge + llista de convs.
-       */
+      /** Consulta GET /api/messages/unread-count i actualitza el badge de nav. */
       async function fetchUnreadCounts() {
         if (!currentUser) return;
         try {
-          const res = await fetch(`/api/unread-counts?username=${encodeURIComponent(currentUser.name)}`);
+          const res = await fetch('/api/messages/unread-count');
           if (!res.ok) return;
           const data = await res.json();
-          if (!data.ok) return;
-
-          if (data.needs_init) {
-            // Primera sessió amb el sistema last_read:
-            // marcar tots els missatges existents com a llegits → 0 no llegits
-            console.log('[Unread] Primera sessió — inicialitzant last_read al servidor...');
-            await initSessionRead();
-            _serverUnreadCounts = {};
-            _pendingReads.clear();
-          } else {
-            const serverCounts = data.counts || {};
-            _serverUnreadCounts = {};
-            for (const [id, count] of Object.entries(serverCounts)) {
-              // Si el user ja ha marcat aquesta conv com llegida localment,
-              // mantenim 0 fins que el servidor confirmi (evita race condition amb POST mark-read)
-              if (_pendingReads.has(id) && count > 0) {
-                _serverUnreadCounts[id] = 0;
-              } else {
-                _serverUnreadCounts[id] = count;
-                if (count === 0) _pendingReads.delete(id);
-              }
-            }
-            // Eliminar del set les convs que el servidor ja no reporta com a no llegides
-            for (const id of _pendingReads) {
-              if (!(id in serverCounts)) _pendingReads.delete(id);
-            }
-          }
+          _totalUnread = data.unread || 0;
           updateBadge();
           buildMsgList(document.getElementById('msg-search-inp')?.value || '');
           if (document.getElementById('section-dashboard')?.classList.contains('active')) {
@@ -4785,29 +4764,9 @@
         } catch(e) {}
       }
 
-      /** Marca tots els missatges existents com a llegits per a l'usuari actual.
-       *  S'usa la primera vegada amb el sistema last_read per evitar falsos no llegits.
-       */
-      async function initSessionRead() {
-        if (!currentUser) return;
-        try {
-          await fetch('/api/messages/init-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: currentUser.name })
-          });
-        } catch(e) {}
-      }
-
-      /**
-       * Marca una conversa com a llegida al servidor (POST /api/messages/<conv_id>/read)
-       * i actualitza el recompte local a 0 immediatament (optimista).
-       */
+      /** Marca una conversa com a llegida al servidor i refresca el badge. */
       async function markConvRead(convId) {
         if (!currentUser) return;
-        _serverUnreadCounts[convId] = 0;
-        _pendingReads.add(convId);
-        updateBadge();
         try {
           await fetch(`/api/messages/${encodeURIComponent(convId)}/read`, {
             method: 'POST',
@@ -4815,6 +4774,7 @@
             body: JSON.stringify({ username: currentUser.name })
           });
         } catch(e) {}
+        await fetchUnreadCounts();
       }
       let _calPollingTimer = null;
       let _calLastSig      = ''; // fingerprint de l'últim EVENTS per detectar canvis
@@ -4989,15 +4949,16 @@
         await fetchUnreadCounts();
       }
 
-      /** Inicia el polling cada 3 s. */
+      /** Inicia el polling cada 7 s. */
       function startPolling() {
         stopPolling();
         _pollKnownIds = {};
         _serverUnreadCounts = {};
-        console.log('[Polling] Iniciant polling cada 3 s...');
+        _totalUnread = 0;
+        console.log('[Polling] Iniciant polling cada 7 s...');
         fetchUnreadCounts(); // carregar unread counts immediatament al login
         _doPoll(); // primer cicle immediat
-        _pollingTimer = setInterval(_doPoll, 3000);
+        _pollingTimer = setInterval(_doPoll, 7000);
       }
 
       /** Atura el polling (logout). */
@@ -5303,23 +5264,8 @@
       }
 
     function updateBadge() {
-        // Usar _serverUnreadCounts com a font de veritat (persistent entre sessions)
-        let nGeneral = _serverUnreadCounts['general'] || 0;
-        let nResta   = 0;
-        Object.entries(_serverUnreadCounts).forEach(([cid, count]) => {
-          if (cid !== 'general') nResta += (count || 0);
-        });
-        const n = nGeneral + nResta;
         const b = document.getElementById("msg-badge");
-        if (b) {
-          b.textContent = n;
-          b.style.display = n > 0 ? "" : "none";
-        }
-        const g = document.getElementById("gchat-badge");
-        if (g) {
-          g.textContent = nGeneral;
-          g.style.display = nGeneral > 0 ? "" : "none";
-        }
+        if (b) b.style.display = _totalUnread > 0 ? "" : "none";
       }
       // Validació de solapament eliminada — l'usuari pot crear cites lliurement
 
@@ -5472,6 +5418,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         editingEvId = null;
         gchatUnreadCount = 0;
         _serverUnreadCounts = {};
+        _totalUnread = 0;
         GENERAL_CHAT = [];
         CONVS = { sede_mataro: [], sede_vilassar: [] };
         
