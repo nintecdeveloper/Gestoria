@@ -4004,7 +4004,7 @@
           <input type="checkbox" id="ev-private" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" />
           <div>
             <label for="ev-private" style="font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0">🔒 Cita privada</label>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Només visible per a l'admin i l'empleat assignat</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Només visible per a tu</div>
           </div>
         </div>
         <div class="form-err" id="ev-err">
@@ -6622,7 +6622,7 @@
         const isAdm = currentUser && currentUser.role === 'admin';
         for (const ev of evs) {
           if (!ev.private) continue;
-          const isMasked = !isAdm && ev.assignedTo !== currentUser?.id;
+          const isMasked = ev.ownerId !== currentUser?.id;
           if (!isMasked) continue;
           const [sH, sM] = ev.time.split(':').map(Number);
           const evStart = sH * 60 + sM;
@@ -6746,7 +6746,7 @@
             const userIdToFilter = viewingUserIdForCalendar !== null ? viewingUserIdForCalendar : currentUser.id;
             return evs.filter(e => e.assignedTo === userIdToFilter);
           }
-          if (!isAdmin) evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
+          evs = evs.filter(e => !e.private || e.ownerId === currentUser.id);
           
           // NUEVO: Filtrar por sede si es necesario
           const sedeFilter = getSedeFilter();
@@ -6766,7 +6766,7 @@
 
         // HTML de un evento individual
         const evHtml = (ev, i) => {
-          const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+          const shouldMask = ev.private && ev.ownerId !== currentUser.id;
           if (shouldMask)
             return `<div class="cell-event blocked-private" title="Horari no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
           const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
@@ -6797,7 +6797,7 @@
           titleEl.textContent = _dayTitle(dayDate);
           calCellsEl.className = 'cal-cells day-view';
           calCellsEl.innerHTML = _renderDayView(calId, allEvs, which, (ev, topPx, heightPx) => {
-            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+            const shouldMask = ev.private && ev.ownerId !== currentUser.id;
             const posStyle = `top:${topPx}px;height:${heightPx}px;`;
             if (shouldMask) {
               return `<div class="day-event-block blocked" style="${posStyle}" title="Hora bloquejada">
@@ -6890,7 +6890,7 @@
             // MODIFICADO (extensión): En la lista de citas, si la cita es privada
             // y el usuario no es admin ni el assignedTo, mostrar fila bloqueada.
             // ══════════════════════════════════════════════════
-            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+            const shouldMask = ev.private && ev.ownerId !== currentUser.id;
             if (shouldMask) {
               const dur = ev.timeEnd ? calcDuration(ev.time, ev.timeEnd) : '';
               return `<div class="appt-item blocked">
@@ -6967,7 +6967,7 @@
         // se puedan ver los detalles de una cita privatizada.
         // ══════════════════════════════════════════════════
         const isAdmin = currentUser.role === "admin";
-        if (ev.private && !isAdmin && ev.assignedTo !== currentUser.id) {
+        if (ev.private && ev.ownerId !== currentUser.id) {
           // No mostrar detalle: horario bloqueado
           return;
         }
@@ -7733,7 +7733,7 @@
 
         // HTML d'event per dept (colors per empleat)
         const deptEvHtml = (ev) => {
-          const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+          const shouldMask = ev.private && ev.ownerId !== currentUser.id;
           if (shouldMask)
             return `<div class="cell-event blocked-private" title="Horari no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
           const emp = USERS.find(u => u.id === ev.assignedTo);
@@ -7755,7 +7755,7 @@
             return;
           }
           listEl.innerHTML = sorted.map(ev => {
-            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+            const shouldMask = ev.private && ev.ownerId !== currentUser.id;
             if (shouldMask) {
               const dur = ev.timeEnd ? calcDuration(ev.time, ev.timeEnd) : '';
               return `<div class="appt-item blocked">
@@ -7784,7 +7784,7 @@
           const sun = new Date(mon.getTime() + 6*86400000);
           const startStr = _dsOf(mon), endStr = _dsOf(sun);
           const evs = EVENTS.filter(e => e.date >= startStr && e.date <= endStr && deptUserIds.includes(e.assignedTo) && (e.calendarType === calKey || (!e.calendarType && deptUserIds.includes(e.assignedTo)) || (e.calendarType === dept && deptUserIds.includes(e.assignedTo))));
-          const evsFiltered = isAdmin ? evs : evs.filter(e => !e.private || e.assignedTo === currentUser.id);
+          const evsFiltered = evs.filter(e => !e.private || e.ownerId === currentUser.id);
           titleEl.textContent = _weekTitle(mon);
           cellsEl.className = 'cal-cells week-view';
           cellsEl.innerHTML = _renderWeekGrid(calId, evsFiltered, 'dept-'+calKey,
@@ -7799,11 +7799,11 @@
           const dayDate = _calDay[calId];
           const ds = _dsOf(dayDate);
           let evs = EVENTS.filter(e => e.date === ds && deptUserIds.includes(e.assignedTo) && (e.calendarType === calKey || (!e.calendarType && deptUserIds.includes(e.assignedTo)) || (e.calendarType === dept && deptUserIds.includes(e.assignedTo))));
-          if (!isAdmin) evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
+          evs = evs.filter(e => !e.private || e.ownerId === currentUser.id);
           titleEl.textContent = _dayTitle(dayDate);
           cellsEl.className = 'cal-cells day-view';
           cellsEl.innerHTML = _renderDayView(calId, evs, 'dept-'+calKey, (ev) => {
-            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+            const shouldMask = ev.private && ev.ownerId !== currentUser.id;
             if (shouldMask) {
               return `<div class="day-event-row" style="cursor:default">
                 <div class="day-event-time">${ev.time}${ev.timeEnd?'<br>→ '+ev.timeEnd:''}</div>
@@ -7836,7 +7836,7 @@
         const monthStr = `${year}-${String(month+1).padStart(2,"0")}`;
 
         let evs = EVENTS.filter(e => e.date.startsWith(monthStr) && deptUserIds.includes(e.assignedTo) && (e.calendarType === calKey || (!e.calendarType && deptUserIds.includes(e.assignedTo)) || (e.calendarType === dept && deptUserIds.includes(e.assignedTo))));
-        if (!isAdmin) evs = evs.filter(e => !e.private || e.assignedTo === currentUser.id);
+        evs = evs.filter(e => !e.private || e.ownerId === currentUser.id);
 
         const today = todayStr();
         let html = "";
@@ -7935,7 +7935,7 @@
 
         // HTML de evento admin
         const adminEvHtml = (ev) => {
-          const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+          const shouldMask = ev.private && ev.ownerId !== currentUser.id;
           if (shouldMask)
             return `<div class="cell-event blocked-private" title="Horari no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
           const emp = USERS.find(u => u.id === ev.assignedTo);
@@ -7971,7 +7971,7 @@
           titleEl.textContent = _dayTitle(dayDate);
           cellsEl.className = 'cal-cells day-view';
           cellsEl.innerHTML = _renderDayView(calId, evs, 'admin-view', (ev) => {
-            const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+            const shouldMask = ev.private && ev.ownerId !== currentUser.id;
             if (shouldMask) {
               return `<div class="day-event-row" style="cursor:default">
                 <div class="day-event-time">${ev.time}${ev.timeEnd?'<br>→ '+ev.timeEnd:''}</div>
@@ -8039,7 +8039,7 @@
           return;
         }
         listEl.innerHTML = sorted.map(ev => {
-          const shouldMask = ev.private && !isAdmin && ev.assignedTo !== currentUser.id;
+          const shouldMask = ev.private && ev.ownerId !== currentUser.id;
           if (shouldMask) {
             const dur = ev.timeEnd ? calcDuration(ev.time, ev.timeEnd) : '';
             return `<div class="appt-item blocked">

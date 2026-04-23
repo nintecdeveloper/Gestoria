@@ -2116,10 +2116,33 @@ def admin_reset_data():
 
 @app.route('/api/events', methods=['GET'])
 def get_events():
-    """Retorna tots els events. El frontend s'encarrega del filtratge per permisos."""
+    """Retorna tots els events.
+    Les cites privades d'altri es retornen sense detalls (només data/hora/privat=true)
+    per evitar exposar dades sensibles al navegador.
+    """
     try:
+        current_user_id = session.get('user_id')
         events = Event.query.order_by(Event.date.asc(), Event.start_time.asc()).all()
-        return jsonify({'ok': True, 'events': [e.to_dict() for e in events]})
+        result = []
+        for e in events:
+            if e.is_private and e.created_by != current_user_id:
+                # Cita privada d'un altre usuari: retornar versió enmascarada
+                result.append({
+                    'id':         e.id,
+                    'date':       e.date,
+                    'time':       e.start_time or '',
+                    'timeEnd':    e.end_time or '',
+                    'private':    True,
+                    'client':     '',
+                    'service':    '',
+                    'notes':      '',
+                    'assignedTo': e.assigned_to,
+                    'ownerId':    e.created_by,
+                    'calendarType': e.calendar_type or '',
+                })
+            else:
+                result.append(e.to_dict())
+        return jsonify({'ok': True, 'events': result})
     except Exception as e:
         logger.error(f"❌ [Events GET] {str(e)}")
         return jsonify({'ok': False, 'error': str(e), 'events': []}), 500
