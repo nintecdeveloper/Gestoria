@@ -1389,6 +1389,7 @@ def send_message_api(conv_id):
         # ── Web Push: notifica el destinatari en converses privades ──
         try:
             recipient_un = data.get('recipient_username', '').strip()
+            logger.info(f"[Push] Trigger missatge: conv={norm_conv_id!r} recipient_un={recipient_un!r}")
             if recipient_un and norm_conv_id.startswith('private_'):
                 recipient_user = User.query.filter_by(username=recipient_un, active=True).first()
                 if recipient_user:
@@ -1400,8 +1401,12 @@ def send_message_api(conv_id):
                         url='/',
                         tag=f'msg-{norm_conv_id}',
                     )
+                else:
+                    logger.warning(f"[Push] ⚠️  Destinatari no trobat: username={recipient_un!r}")
+            else:
+                logger.info(f"[Push] No s'envia push: conv privada={norm_conv_id.startswith('private_')} recipient={bool(recipient_un)}")
         except Exception as _push_err:
-            logger.warning(f"[Push] Error en trigger de missatge: {_push_err}")
+            logger.error(f"[Push] ❌ Error en trigger de missatge: {_push_err!r}")
 
         logger.info(f"[Polling POST] {sender}: \"{text[:40]}\" -> {norm_conv_id}")
         return jsonify({'ok': True, 'message': msg.to_dict()}), 201
@@ -2385,11 +2390,18 @@ def serve_sw():
 def send_push_notification(user_id, title, body, url='/', tag='ra-push'):
     """Envia una Web Push Notification a tots els dispositius d'un usuari."""
     if not WEBPUSH_AVAILABLE:
+        logger.warning(f"[Push] ⚠️  WEBPUSH_AVAILABLE=False — pywebpush no instal·lat o error d'importació")
         return
     subs = PushSubscription.query.filter_by(user_id=user_id).all()
+    logger.info(f"[Push] → user_id={user_id} | subs={len(subs)} | title='{title}'")
+    if not subs:
+        logger.warning(f"[Push] ⚠️  Cap subscripció trobada per user_id={user_id}")
+        return
     payload = json.dumps({'title': title, 'body': body, 'url': url, 'tag': tag})
+    logger.info(f"[Push] VAPID public_key (primeres 20c): {(VAPID_PUBLIC_KEY or '')[:20]}…")
     expired = []
     for sub in subs:
+        ep_short = sub.endpoint[-40:] if sub.endpoint else '?'
         try:
             webpush(
                 subscription_info={
@@ -2399,21 +2411,45 @@ def send_push_notification(user_id, title, body, url='/', tag='ra-push'):
                 data=payload,
                 vapid_private_key=VAPID_PRIVATE_KEY,
                 vapid_claims={'sub': VAPID_SUBJECT},
+                ttl=86400,
             )
+            logger.info(f"[Push] ✅ Enviat correctament a ...{ep_short}")
         except WebPushException as exc:
-            if exc.response is not None and exc.response.status_code in (404, 410):
-                expired.append(sub)  # Subscripció expirada o invàlida
-            else:
-                logger.warning(f"[Push] Error enviant a user {user_id}: {exc}")
+            resp_status = exc.response.status_code if exc.response is not None else 'N/A'
+            resp_body   = ''
+            try:
+                resp_body = exc.response.text[:200] if exc.response is not None else ''
+            except Exception:
+                pass
+            logger.error(f"[Push] ❌ WebPushException user={user_id} ep=...{ep_short} "
+                         f"HTTP={resp_status} body={resp_body!r} exc={exc}")
+            if resp_status in (404, 410):
+                expired.append(sub)
         except Exception as exc:
-            logger.warning(f"[Push] Error inesperat: {exc}")
-    # Netejar subscripcions expirades
+            logger.error(f"[Push] ❌ Excepció inesperat user={user_id} ep=...{ep_short}: {exc!r}")
     for sub in expired:
         try:
+            logger.info(f"[Push] 🗑️  Eliminant subscripció expirada user={user_id}")
             db.session.delete(sub)
             db.session.commit()
         except Exception:
             db.session.rollback()
+
+@app.route('/api/push/test', methods=['POST'])
+def push_test():
+    """Envia una push de prova a l'usuari actual. Útil per debugar."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'No autenticat'}), 401
+    logger.info(f"[Push/test] Enviant push de prova a user_id={user_id}")
+    send_push_notification(
+        user_id,
+        title='🔔 Prova de notificació',
+        body='Si veus això, el Web Push funciona correctament!',
+        url='/',
+        tag='push-test',
+    )
+    return jsonify({'ok': True, 'message': f'Push de prova enviat a user_id={user_id}'})
 
 @app.route('/api/push/vapid-public-key', methods=['GET'])
 def get_vapid_public_key():

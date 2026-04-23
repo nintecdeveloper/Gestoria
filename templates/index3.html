@@ -10737,26 +10737,46 @@ function generarPasswordUsername(username) {
         return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
       }
 
-      /** Envia la subscripció push al backend. */
+      /** Envia la subscripció push al backend amb logs de diagnòstic. */
       async function subscribeToPush() {
-        if (!('PushManager' in window)) return;
-        if (Notification.permission !== 'granted') return;
+        console.log('[Push] subscribeToPush() — inici');
+        if (!('PushManager' in window)) {
+          console.warn('[Push] PushManager no suportat en aquest navegador');
+          return;
+        }
+        if (Notification.permission !== 'granted') {
+          console.warn('[Push] Permís no atorgat:', Notification.permission);
+          return;
+        }
         const reg = window._swRegistration;
-        if (!reg) return;
+        if (!reg) {
+          console.warn('[Push] window._swRegistration és null — SW no registrat encara');
+          return;
+        }
+        console.log('[Push] SW state:', reg.active ? reg.active.state : 'no active');
         try {
-          // Obtenir la VAPID public key del servidor
+          // 1) Obtenir VAPID public key
           const r    = await fetch('/api/push/vapid-public-key');
-          const data = await r.json();
-          if (!data.ok || !data.public_key) return;
+          const kd   = await r.json();
+          if (!kd.ok || !kd.public_key) {
+            console.error('[Push] No s\'ha pogut obtenir VAPID public key:', kd);
+            return;
+          }
+          console.log('[Push] VAPID public_key (primeres 20c):', kd.public_key.slice(0, 20), '…');
 
-          const appKey = _urlBase64ToUint8Array(data.public_key);
-          // Subscriure (o reutilitzar subscripció existent)
+          const appKey = _urlBase64ToUint8Array(kd.public_key);
+
+          // 2) Subscriure al PushManager (retorna subscripció existent si ja existeix)
           const sub = await reg.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: appKey,
           });
           const subJson = sub.toJSON();
-          await fetch('/api/push/subscribe', {
+          console.log('[Push] Subscripció obtinguda, endpoint (últims 40c):',
+                      subJson.endpoint.slice(-40));
+
+          // 3) Enviar subscripció al backend
+          const res  = await fetch('/api/push/subscribe', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({
@@ -10765,23 +10785,42 @@ function generarPasswordUsername(username) {
               auth:     subJson.keys.auth,
             }),
           });
-          console.log('[Push] Subscripció push registrada ✅');
+          const resData = await res.json();
+          if (resData.ok) {
+            console.log('[Push] Subscripció registrada al backend ✅');
+          } else {
+            console.error('[Push] El backend ha rebutjat la subscripció:', resData);
+          }
         } catch (e) {
-          console.warn('[Push] Error en subscribeToPush:', e);
+          console.error('[Push] ❌ Error en subscribeToPush:', e);
         }
+      }
+
+      /** Envia un push de prova cridant POST /api/push/test (útil des de la consola). */
+      async function testPushNotification() {
+        console.log('[Push] Enviant push de prova…');
+        const res  = await fetch('/api/push/test', { method: 'POST' });
+        const data = await res.json();
+        console.log('[Push] Resposta /api/push/test:', data);
       }
 
       /** Registra el Service Worker real (/sw.js) i subscriu al push si ja tenim permís. */
       function registerServiceWorker() {
-        if (!('serviceWorker' in navigator)) return;
+        if (!('serviceWorker' in navigator)) {
+          console.warn('[Push] serviceWorker no suportat');
+          return;
+        }
+        console.log('[Push] Registrant /sw.js…');
         navigator.serviceWorker.register('/sw.js', { scope: '/' })
           .then(reg => {
-            console.log('✅ Service Worker registrat (scope:', reg.scope, ')');
+            console.log('[Push] SW registrat — scope:', reg.scope,
+                        '| installing:', !!reg.installing,
+                        '| waiting:', !!reg.waiting,
+                        '| active:', !!reg.active);
             window._swRegistration = reg;
-            // Si ja tenim permís, subscriure directament
             if (Notification.permission === 'granted') subscribeToPush();
           })
-          .catch(err => console.warn('⚠️ Error registrant Service Worker:', err));
+          .catch(err => console.error('[Push] ❌ Error registrant SW:', err));
       }
 
       function requestNotificationPermission() {
