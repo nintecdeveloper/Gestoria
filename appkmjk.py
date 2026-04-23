@@ -1622,6 +1622,18 @@ def actualitzar_usuario(user_id):
     db.session.commit()
     logger.info(f"✅ [Usuari] Actualitzat: id={user_id}")
     return jsonify({'ok': True, 'usuario': user.to_dict()})
+
+@app.route('/api/users/admins', methods=['GET'])
+def get_admin_users():
+    """Retorna tots els usuaris amb role='admin' i active=True."""
+    if not session.get('user_id'):
+        return jsonify({'ok': False, 'error': 'Autenticació requerida'}), 401
+    admins = User.query.filter_by(role='admin', active=True).order_by(User.sede, User.name).all()
+    return jsonify({'ok': True, 'admins': [
+        {'id': u.id, 'username': u.username, 'name': u.name, 'sede': u.sede or ''}
+        for u in admins
+    ]})
+
 # ═══════════════════════════════════════════════════════════════
 # API WHATSAPP — ENVÍO AUTOMÁTICO
 # ═══════════════════════════════════════════════════════════════

@@ -3038,24 +3038,10 @@
             <div class="nav-subitem admin-only" id="nav-mataro-calendar" onclick="showSection('mataro-calendar')">
               📍 Calendario Mataró
             </div>
-            <!-- Cal. Antonio — visible només per a no-admins de Mataró -->
-            <div class="nav-subitem" id="nav-cal-mataro-cap" onclick="openUserCalendar(1, 'Antonio')" style="display:none">
-              👤 Cal. Antonio
-            </div>
-            <!-- Cal. Pau — visible per a Antonio (cap de Mataró veu el cap de Vilassar) -->
-            <div class="nav-subitem" id="nav-cal-pau-for-antonio" onclick="openUserCalendar(3, 'Pau')" style="display:none">
-              👤 Cal. Pau
-            </div>
+            <!-- Calendaris fixats dinàmics: admins carregats des de /api/users/admins -->
+            <div id="nav-pinned-admins"></div>
             <div class="nav-subitem admin-only" id="nav-vilassar-calendar" onclick="showSection('vilassar-calendar')">
               📍 Calendario Vilassar
-            </div>
-            <!-- Cal. Pau — visible només per a no-admins de Vilassar -->
-            <div class="nav-subitem" id="nav-cal-vilassar-cap" onclick="openUserCalendar(3, 'Pau')" style="display:none">
-              👤 Cal. Pau
-            </div>
-            <!-- Cal. Antonio — visible per a Pau (cap de Vilassar veu el cap de Mataró) -->
-            <div class="nav-subitem" id="nav-cal-antonio-for-pau" onclick="openUserCalendar(1, 'Antonio')" style="display:none">
-              👤 Cal. Antonio
             </div>
             <!-- Cal. Administradores (amagat per a no-admins, substituït per les entrades de cap de seu) -->
             <div class="nav-subitem" id="nav-admin-view-calendar" onclick="showSection('admin-view-calendar')">
@@ -4665,6 +4651,9 @@
       // Inicialment buit per evitar exposar dades al codi font.
       let USERS = [];
 
+      // Admins carregats dinàmicament per als calendaris fixats del menú lateral.
+      let PINNED_ADMINS = [];
+
       let SERVICES = [
         {
           id: 1,
@@ -5769,7 +5758,7 @@
         const navAdminView = document.getElementById("nav-admin-view-calendar");
         if (navAdminView) {
           // Admins: amagat (tenen el propi calendari)
-          // No-admins: amagat (substituït per nav-cal-mataro-cap / nav-cal-vilassar-cap)
+          // No-admins: amagat (substituït per nav-pinned-admins dinàmic)
           navAdminView.style.display = "none";
           // Mantenim SEC_TITLES actualitzat per si es navega per URL directa
           if (adminUser) {
@@ -5817,6 +5806,9 @@
 
         // Carregar clients des de la base de dades
         loadClientsFromDB();
+
+        // Carregar admins i renderitzar calendaris fixats al menú lateral
+        loadPinnedAdmins();
 
         // Carregar events des de la base de dades i iniciar polling en temps real
         loadEvents();
@@ -5925,6 +5917,49 @@
         container.innerHTML = html || '<div style="padding:12px;color:var(--text-muted);font-size:13px">No hi ha usuaris disponibles</div>';
       }
 
+      // ── Calendaris fixats dinàmics ──────────────────────────────
+      // Carrega admins des de l'API i renderitza els ítems al menú.
+      async function loadPinnedAdmins() {
+        try {
+          const res  = await fetch('/api/users/admins');
+          const data = await res.json();
+          if (data.ok) {
+            PINNED_ADMINS = data.admins || [];
+            renderPinnedAdmins();
+          }
+        } catch (e) {
+          console.warn('[PinnedAdmins] Error carregant admins:', e);
+        }
+      }
+
+      function renderPinnedAdmins() {
+        const container = document.getElementById('nav-pinned-admins');
+        if (!container) return;
+        if (!currentUser) { container.innerHTML = ''; return; }
+
+        const isAdmin   = currentUser.role === 'admin';
+        const userSede  = currentUser.sede || '';
+
+        // Determinar quins admins ha de veure l'usuari actual
+        let visible = [];
+        if (isAdmin) {
+          // Admin veu TOTS els altres admins (no ell mateix)
+          // Ordre: mateixa seu primer, després les altres
+          const sameSede  = PINNED_ADMINS.filter(a => a.id !== currentUser.id && a.sede === userSede);
+          const otherSede = PINNED_ADMINS.filter(a => a.id !== currentUser.id && a.sede !== userSede);
+          visible = [...sameSede, ...otherSede];
+        } else {
+          // Empleat veu els admins de la SEVA seu
+          visible = PINNED_ADMINS.filter(a => a.sede === userSede);
+        }
+
+        container.innerHTML = visible.map(a => {
+          const firstName = a.name.split(' ')[0];
+          const safeName  = a.name.replace(/'/g, "\\'");
+          return `<div class="nav-subitem" onclick="openUserCalendar(${a.id}, '${safeName}')">👤 Cal. ${safeHtml(firstName)}</div>`;
+        }).join('');
+      }
+
       // ✅ CORRECCIÓN 2: Nueva función para controlar visibilidad de calendarios según permisos
       function updateCalendarVisibility() {
         const isAdmin = currentUser.role === 'admin';
@@ -5953,26 +5988,7 @@
           vilassarCalNav.style.display = canSeeVilassarCalendar ? '' : 'none';
         }
 
-        // ✅ Cal. cap de seu: visible només per a no-admins de la seva seu
-        const calMataroCap = document.getElementById('nav-cal-mataro-cap');
-        if (calMataroCap) {
-          calMataroCap.style.display = (!isAdmin && userSede === 'Mataró') ? '' : 'none';
-        }
-        const calVilassarCap = document.getElementById('nav-cal-vilassar-cap');
-        if (calVilassarCap) {
-          calVilassarCap.style.display = (!isAdmin && userSede === 'Vilassar') ? '' : 'none';
-        }
-
-        // ✅ Caps de seu: es veuen mútuament el calendari
-        // Antonio (id=1) veu Cal. Pau; Pau (id=3) veu Cal. Antonio
-        const calPauForAntonio = document.getElementById('nav-cal-pau-for-antonio');
-        if (calPauForAntonio) {
-          calPauForAntonio.style.display = (currentUser.id === 1) ? '' : 'none';
-        }
-        const calAntonioForPau = document.getElementById('nav-cal-antonio-for-pau');
-        if (calAntonioForPau) {
-          calAntonioForPau.style.display = (currentUser.id === 3) ? '' : 'none';
-        }
+        // Els calendaris fixats d'admins es gestionen dinàmicament via renderPinnedAdmins().
 
         // ✅ Calendaris Departamentals: estructura diferent per admins i no-admins
         const adminMataroGrp    = document.getElementById('nav-dept-admin-mataro-grp');
