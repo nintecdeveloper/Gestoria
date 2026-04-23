@@ -575,7 +575,12 @@ def auth_login():
     if not username or not password:
         return jsonify({'error': 'Credencials incorrectes'}), 401
 
+    print(f"LOGIN attempt: {username}", flush=True)
     user = User.query.filter_by(username=username, active=True).first()
+    print(f"User found: {user is not None}", flush=True)
+    if user:
+        print(f"Password check: {check_password_hash(user.password_hash, password)}", flush=True)
+
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({'error': 'Credencials incorrectes'}), 401
 
