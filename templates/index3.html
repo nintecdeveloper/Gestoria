@@ -3973,6 +3973,10 @@
           <div id="ev-client-phone-display"></div>
           <small style="color:var(--text-muted);font-size:11px">Si el client no existeix a la llista, escriu el nom directament</small>
         </div>
+        <div class="form-group" id="ev-manual-phone-group" style="display:none">
+          <label for="ev-manual-phone">Telèfon <span style="font-weight:400;color:var(--text-muted)">(per recordatori WhatsApp)</span></label>
+          <input type="tel" id="ev-manual-phone" placeholder="+34 6XX XXX XXX" autocomplete="tel" />
+        </div>
         <div class="form-group">
           <label>Tipus de servei</label>
           <select id="ev-service"></select>
@@ -4491,6 +4495,10 @@
           <input type="hidden" id="aev-client-phone" value="" />
           <div id="aev-client-phone-display"></div>
           <small style="color:var(--text-muted);font-size:11px">Si el client no existeix a la llista, escriu el nom directament</small>
+        </div>
+        <div class="form-group" id="aev-manual-phone-group" style="display:none">
+          <label for="aev-manual-phone">Telèfon <span style="font-weight:400;color:var(--text-muted)">(per recordatori WhatsApp)</span></label>
+          <input type="tel" id="aev-manual-phone" placeholder="+34 6XX XXX XXX" autocomplete="tel" />
         </div>
         <div class="form-group">
           <label>Tipus de servei</label>
@@ -7293,6 +7301,11 @@
         if (evClientPhoneDisp) evClientPhoneDisp.innerHTML = "";
         const evClientSugg = document.getElementById("ev-client-suggestions");
         if (evClientSugg) evClientSugg.classList.remove("open");
+        // Reset camp telèfon manual
+        const evManualPhoneGroup = document.getElementById("ev-manual-phone-group");
+        if (evManualPhoneGroup) evManualPhoneGroup.style.display = "none";
+        const evManualPhoneInput = document.getElementById("ev-manual-phone");
+        if (evManualPhoneInput) evManualPhoneInput.value = "";
         const pvGroup = document.getElementById("ev-private-group");
         if (pvGroup) pvGroup.style.display = "flex";
         const pvChk = document.getElementById("ev-private");
@@ -7446,9 +7459,10 @@
         console.log('📅 [saveEvent] waReminders:', JSON.stringify(waReminders),
           'prReminders:', JSON.stringify(prReminders));
 
-        // Obtener teléfono del cliente (desde hidden field o búsqueda en CLIENTS)
-        const evClientPhone = (document.getElementById("ev-client-phone") || {}).value || "";
-        const clientPhoneForWa = evClientPhone || lookupClientPhone(client);
+        // Obtener teléfono del cliente (desde hidden field, campo manual, o búsqueda en CLIENTS)
+        const evClientPhone  = (document.getElementById("ev-client-phone")  || {}).value || "";
+        const evManualPhone  = (document.getElementById("ev-manual-phone")   || {}).value?.trim() || "";
+        const clientPhoneForWa = evClientPhone || evManualPhone || lookupClientPhone(client);
 
         if (editingEvId !== null) {
           const ev = EVENTS.find((e) => e.id === editingEvId);
@@ -8154,6 +8168,11 @@
         if (aevClientPhoneDisp) aevClientPhoneDisp.innerHTML = "";
         const aevClientSugg = document.getElementById("aev-client-suggestions");
         if (aevClientSugg) aevClientSugg.classList.remove("open");
+        // Reset camp telèfon manual
+        const aevManualPhoneGroup = document.getElementById("aev-manual-phone-group");
+        if (aevManualPhoneGroup) aevManualPhoneGroup.style.display = "none";
+        const aevManualPhoneInput = document.getElementById("aev-manual-phone");
+        if (aevManualPhoneInput) aevManualPhoneInput.value = "";
 
         // Limpiar recordatorios al abrir el modal para nueva cita
         _prReminders['aev'] = []; // ✅ Array vacío
@@ -8231,9 +8250,10 @@
         const prReminders = _prReminders['aev'] || []; // ✅ Ahora es un array
         const waReminders = (_waReminders['aev'] || []).filter(r => r.timing !== 'none');
 
-        // Obtener teléfono del cliente
+        // Obtener teléfono del cliente (desde hidden field, campo manual, o búsqueda en CLIENTS)
         const aevClientPhone = (document.getElementById("aev-client-phone") || {}).value || "";
-        const clientPhoneForWa = aevClientPhone || lookupClientPhone(client);
+        const aevManualPhone = (document.getElementById("aev-manual-phone")  || {}).value?.trim() || "";
+        const clientPhoneForWa = aevClientPhone || aevManualPhone || lookupClientPhone(client);
 
         const eventObj = {
           id: nextEventId++,
@@ -11293,6 +11313,36 @@ ${dateStr} a les ${eventData.time}`,
       /**
        * Actualiza el indicador de teléfono vinculado debajo del campo cliente.
        */
+      /**
+       * Mostra o amaga el camp de telèfon manual segons si hi ha un client de la BD seleccionat.
+       * - Client seleccionat AMB telèfon → amaga (el telèfon ve del client)
+       * - Text lliure (sense ID) o client SENSE telèfon → mostra
+       * - Camp buit → amaga i neteja
+       * inputId: 'ev-client' | 'aev-client'
+       */
+      function _updateManualPhone(inputId) {
+        const prefix       = inputId.replace('-client', '');          // 'ev' | 'aev'
+        const textInput    = document.getElementById(inputId);
+        const clientIdEl   = document.getElementById(inputId + '-id');
+        const phoneHidden  = document.getElementById(inputId + '-phone');
+        const manualGroup  = document.getElementById(prefix + '-manual-phone-group');
+        const manualInput  = document.getElementById(prefix + '-manual-phone');
+        if (!manualGroup) return;
+
+        const hasText     = !!(textInput && textInput.value.trim());
+        const hasClientId = !!(clientIdEl && clientIdEl.value);
+        const hasPhone    = !!(phoneHidden && phoneHidden.value);
+
+        if (!hasText || (hasClientId && hasPhone)) {
+          // Cap text o client amb telèfon → amaga i neteja
+          manualGroup.style.display = 'none';
+          if (manualInput) manualInput.value = '';
+        } else {
+          // Text lliure sense client, o client sense telèfon → mostra
+          manualGroup.style.display = '';
+        }
+      }
+
       function updateClientPhoneDisplay(phoneInputId, displayId, waInfoId) {
         const phone = (document.getElementById(phoneInputId) || {}).value || "";
         const dispEl = document.getElementById(displayId);
@@ -11333,6 +11383,7 @@ ${dateStr} a les ${eventData.time}`,
           list.classList.remove("open");
           list.innerHTML = "";
           updateClientPhoneDisplay(phoneInputId, displayId, waInfoId);
+          _updateManualPhone(inputId);
           return;
         }
 
@@ -11348,6 +11399,7 @@ ${dateStr} a les ${eventData.time}`,
         if (!matches.length) {
           list.classList.remove("open");
           list.innerHTML = "";
+          _updateManualPhone(inputId);
           return;
         }
 
@@ -11364,6 +11416,7 @@ ${dateStr} a les ${eventData.time}`,
           </div>
         `).join("");
         list.classList.add("open");
+        _updateManualPhone(inputId);
       }
 
       /**
@@ -11384,6 +11437,7 @@ ${dateStr} a les ${eventData.time}`,
         const displayId = phoneInputId.replace('-phone', '-phone-display');
         const waInfoId = inputId === 'ev-client' ? 'ev-wa-phone-info' : null;
         updateClientPhoneDisplay(phoneInputId, displayId, waInfoId);
+        _updateManualPhone(inputId);
       }
 
       /**
