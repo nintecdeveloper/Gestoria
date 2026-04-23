@@ -4000,7 +4000,7 @@
             placeholder="Informació addicional..."
           ></textarea>
         </div>
-        <div class="form-group admin-only" id="ev-private-group" style="display:flex;align-items:center;gap:10px;background:var(--bg2);padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border)">
+        <div class="form-group" id="ev-private-group" style="display:flex;align-items:center;gap:10px;background:var(--bg2);padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border)">
           <input type="checkbox" id="ev-private" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" />
           <div>
             <label for="ev-private" style="font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0">🔒 Cita privada</label>
@@ -7271,7 +7271,7 @@
         const evClientSugg = document.getElementById("ev-client-suggestions");
         if (evClientSugg) evClientSugg.classList.remove("open");
         const pvGroup = document.getElementById("ev-private-group");
-        if (pvGroup) pvGroup.style.display = currentUser.role === "admin" ? "flex" : "none";
+        if (pvGroup) pvGroup.style.display = "flex";
         const pvChk = document.getElementById("ev-private");
         if (pvChk) pvChk.checked = false;
         fillServiceSelect();
@@ -7309,7 +7309,7 @@
         if (evCPEl) evCPEl.value = ev.clientPhone || lookupClientPhone(ev.client) || "";
         updateClientPhoneDisplay('ev-client-phone', 'ev-client-phone-display', 'ev-wa-phone-info');
         const pvGroup = document.getElementById("ev-private-group");
-        if (pvGroup) pvGroup.style.display = currentUser.role === "admin" ? "flex" : "none";
+        if (pvGroup) pvGroup.style.display = "flex";
         const pvChk = document.getElementById("ev-private");
         if (pvChk) pvChk.checked = !!ev.private;
         fillServiceSelect();
@@ -7414,7 +7414,7 @@
         
         const service = document.getElementById("ev-service").value;
         const notes = document.getElementById("ev-notes").value;
-        const isPrivate = isAdmin ? (document.getElementById("ev-private")?.checked || false) : false;
+        const isPrivate = document.getElementById("ev-private")?.checked || false;
 
         // Obtener estado de recordatorios
         const prReminders = _prReminders['ev'] || [];
@@ -7437,7 +7437,8 @@
             ev.service = service;
             ev.notes = notes;
             ev.clientPhone = clientPhoneForWa || ev.clientPhone || null;
-            if (isAdmin) { ev.assignedTo = assignedTo; ev.private = isPrivate; }
+            ev.private = isPrivate;
+            if (isAdmin) { ev.assignedTo = assignedTo; }
 
             // Recordatoris personals
             if (prReminders.length > 0) {
