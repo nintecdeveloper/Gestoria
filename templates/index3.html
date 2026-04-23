@@ -7208,55 +7208,74 @@
       }
 
       function fillEmployeeSelect(selectedId, filterDept = null) {
-        const grp = document.getElementById("ev-employee-group");
+        const grp            = document.getElementById("ev-employee-group");
         const employeeSelect = document.getElementById("ev-employee");
-        const isAdmin = currentUser.role === "admin";
-        
-        // ✅ ARREGLO: Si se está viendo el calendario de otro usuario, el dropdown debe mostrar SOLO ese usuario y estar deshabilitado
-        if (viewingUserIdForCalendar !== null) {
-          // Admin abrió calendario de otro usuario
+
+        // Lock al calendari d'un usuari concret ÚNICAMENT en modal personal (no global/dept).
+        // Bug anterior: viewingUserIdForCalendar persistia i bloquejava el dropdown global.
+        if (!pendingIsGlobal && viewingUserIdForCalendar !== null) {
           const targetUser = USERS.find(u => u.id === viewingUserIdForCalendar);
           if (targetUser) {
             grp.style.display = "";
+            employeeSelect.disabled = true;
             employeeSelect.innerHTML = `<option value="${targetUser.id}" selected>${safeHtml(targetUser.name)} (${targetUser.departamento || 'sense depto'}, ${targetUser.sede || 'Sense seu'})</option>`;
-            employeeSelect.disabled = true;  // Deshabilitar dropdown
-            return;  // Salir sin continuar
+            return;
           }
         }
-        
-        // Mostrar desplegable si: modal global/departamental/seu
-        const showDropdown = pendingIsGlobal;
-        grp.style.display = showDropdown ? "" : "none";
-        employeeSelect.disabled = false;  // Habilitar dropdown normalmente
-        
-        if (showDropdown) {
-          let usersToShow = USERS.filter(u => u.active && u.role !== "admin");
-          
-          const SEDE_LIST = ['mataro', 'vilassar', 'mataró'];
-          const DEPT_LIST = ['laboral', 'fiscal', 'mercantil'];
-          const filterLower = filterDept ? filterDept.toLowerCase() : null;
 
-          if (filterLower === 'vilassar') {
-            usersToShow = usersToShow.filter(u => u.sede === 'Vilassar');
-          } else if (filterLower === 'mataro' || filterLower === 'mataró') {
-            usersToShow = usersToShow.filter(u => u.sede === 'Mataró');
-          } else if (filterDept && DEPT_LIST.includes(filterLower)) {
-            const deptUsers = usersToShow.filter(u => u.departamento === filterLower);
-            // Si no hi ha usuaris al departament, mostrar tots els actius
-            usersToShow = deptUsers.length > 0 ? deptUsers : usersToShow;
-          } else {
-            // Sense filtre: admins veuen tots, no-admins veuen la seva seu
-            if (!isAdmin) {
-              usersToShow = usersToShow.filter(u => u.sede === currentUser.sede);
-            }
+        // El dropdown és visible només en modal global/departamental/seu
+        const showDropdown = pendingIsGlobal;
+        grp.style.display        = showDropdown ? "" : "none";
+        employeeSelect.disabled  = false;
+        if (!showDropdown) return;
+
+        // Base: tots els usuaris actius (inclou admins, es poden assignar cites a tothom)
+        let usersToShow = USERS.filter(u => u.active);
+
+        // Parsejar filterDept, que pot ser simple ('Mataró', 'laboral')
+        // o compost ('laboral-Mataró', 'fiscal-Vilassar') generat per openDeptEventModal
+        const DEPT_NAMES = ['laboral', 'fiscal', 'mercantil'];
+        const fl = filterDept ? filterDept.toLowerCase() : '';
+        let deptFilter = null;   // 'laboral' | 'fiscal' | 'mercantil'
+        let sedeFilter = null;   // 'Mataró'  | 'Vilassar'
+
+        if (fl === 'mataró' || fl === 'mataro') {
+          sedeFilter = 'Mataró';
+        } else if (fl === 'vilassar') {
+          sedeFilter = 'Vilassar';
+        } else if (fl) {
+          // Pot ser 'laboral', 'laboral-mataró', 'fiscal-vilassar', etc.
+          const parts = fl.split('-');
+          if (DEPT_NAMES.includes(parts[0])) {
+            deptFilter = parts[0];
+            if (parts[1] === 'mataró' || parts[1] === 'mataro') sedeFilter = 'Mataró';
+            else if (parts[1] === 'vilassar')                    sedeFilter = 'Vilassar';
           }
-          
-          employeeSelect.innerHTML = 
-            `<option value="">— Selecciona empleat —</option>` +
-            usersToShow.map(u =>
-              `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)} (${u.departamento || 'sense depto'}, ${u.sede || 'Sense seu'})</option>`
-            ).join("");
         }
+
+        if (sedeFilter && !deptFilter) {
+          // Calendari de seu → empleats d'aquesta seu
+          usersToShow = usersToShow.filter(u => u.sede === sedeFilter);
+        } else if (deptFilter) {
+          // Calendari departamental → empleats del departament (case-insensitive)
+          let deptUsers = usersToShow.filter(u =>
+            u.departamento && u.departamento.toLowerCase() === deptFilter
+          );
+          if (sedeFilter) deptUsers = deptUsers.filter(u => u.sede === sedeFilter);
+          // Si no hi ha usuaris al departament, mostrar tots de la seu (o tots si no hi ha seu)
+          if (!deptUsers.length) {
+            usersToShow = sedeFilter ? usersToShow.filter(u => u.sede === sedeFilter) : usersToShow;
+          } else {
+            usersToShow = deptUsers;
+          }
+        }
+        // else: Calendari Global (sense filtre) → tots els actius, sense restricció
+
+        employeeSelect.innerHTML =
+          `<option value="">— Selecciona empleat —</option>` +
+          usersToShow.map(u =>
+            `<option value="${u.id}"${u.id === selectedId ? " selected" : ""}>${safeHtml(u.name)} (${u.departamento || 'sense depto'}, ${u.sede || 'Sense seu'})</option>`
+          ).join("");
       }
 
       // ✅ CORRECCIÓN 5: Validar permisos antes de abrir modal departamental
