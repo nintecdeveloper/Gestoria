@@ -6629,7 +6629,8 @@
           let evEnd = evStart + 60;
           if (ev.timeEnd) { const [eH, eM] = ev.timeEnd.split(':').map(Number); evEnd = eH * 60 + eM; }
           if (clickedMin >= evStart && clickedMin < evEnd) {
-            _showDayBlockedToast(event.currentTarget);
+            const _on = (USERS.find(u=>u.id===ev.ownerId)||{}).name||'';
+            _showDayBlockedToast(event.currentTarget, _on);
             return;
           }
         }
@@ -6645,11 +6646,11 @@
         openEventModal((which === 'global') || filterParam !== null, ds, filterParam);
       }
 
-      function _showDayBlockedToast(container) {
+      function _showDayBlockedToast(container, ownerName) {
         if (container.querySelector('.day-blocked-toast')) return;
         const t = document.createElement('div');
         t.className = 'day-blocked-toast';
-        t.textContent = 'Hora bloquejada';
+        t.textContent = ownerName ? `🔒 ${ownerName} - Ocupat` : '🔒 Ocupat';
         container.appendChild(t);
         setTimeout(() => t.remove(), 1800);
       }
@@ -6767,8 +6768,10 @@
         // HTML de un evento individual
         const evHtml = (ev, i) => {
           const shouldMask = ev.private && ev.ownerId !== currentUser.id;
-          if (shouldMask)
-            return `<div class="cell-event blocked-private" title="Horari no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
+          if (shouldMask) {
+            const _on = (USERS.find(u=>u.id===ev.ownerId)||{}).name||'';
+            return `<div class="cell-event blocked-private" title="${safeHtml(_on)} - Ocupat" onclick="event.stopPropagation()">🔒 ${safeHtml(_on)} - Ocupat</div>`;
+          }
           const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
           return `<div class="cell-event ${colors[i%3]}${ev.private?' private-event':''}" onclick="showEventDetail(${ev.id},event)">${ev.private?'🔒 ':''}${ev.recurrenceMasterId||ev.isRecurringMaster?'🔁 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
         };
@@ -6800,9 +6803,10 @@
             const shouldMask = ev.private && ev.ownerId !== currentUser.id;
             const posStyle = `top:${topPx}px;height:${heightPx}px;`;
             if (shouldMask) {
-              return `<div class="day-event-block blocked" style="${posStyle}" title="Hora bloquejada">
+              const _on = (USERS.find(u=>u.id===ev.ownerId)||{}).name||'';
+              return `<div class="day-event-block blocked" style="${posStyle}" title="${safeHtml(_on)} - Ocupat">
                 <div class="day-event-block-time">${ev.time}${ev.timeEnd?' - '+ev.timeEnd:''}</div>
-                <div class="day-event-block-title" style="color:#999">🔒 Hora bloquejada</div>
+                <div class="day-event-block-title" style="color:#999">🔒 ${safeHtml(_on)} - Ocupat</div>
               </div>`;
             }
             const borderColor = ev.color ? ev.color : 'var(--accent)';
@@ -6901,7 +6905,7 @@
           <span style="font-size:10px;color:var(--text-muted);margin-top:2px;display:block">${ev.date}</span>
         </div>
         <div class="appt-info">
-          <div class="appt-client" style="color:var(--text-muted)">🔒 Franja reservada</div>
+          <div class="appt-client" style="color:var(--text-muted)">🔒 ${safeHtml((USERS.find(u=>u.id===ev.ownerId)||{}).name||'')} - Ocupat</div>
           <div class="appt-meta">${ev.time}${ev.timeEnd ? ' – ' + ev.timeEnd : ''}</div>
         </div>
       </div>`;
@@ -7734,8 +7738,10 @@
         // HTML d'event per dept (colors per empleat)
         const deptEvHtml = (ev) => {
           const shouldMask = ev.private && ev.ownerId !== currentUser.id;
-          if (shouldMask)
-            return `<div class="cell-event blocked-private" title="Horari no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
+          if (shouldMask) {
+            const _on = (USERS.find(u=>u.id===ev.ownerId)||{}).name||'';
+            return `<div class="cell-event blocked-private" title="${safeHtml(_on)} - Ocupat" onclick="event.stopPropagation()">🔒 ${safeHtml(_on)} - Ocupat</div>`;
+          }
           const emp = USERS.find(u => u.id === ev.assignedTo);
           const col = getUserColor(emp);
           const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
@@ -7760,7 +7766,7 @@
               const dur = ev.timeEnd ? calcDuration(ev.time, ev.timeEnd) : '';
               return `<div class="appt-item blocked">
                 <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd||'—'}</span>${dur?`<span class="appt-duration-badge" style="display:inline-block;margin-top:3px">${dur}</span>`:''}<span style="font-size:10px;color:var(--text-muted);margin-top:2px;display:block">${ev.date}</span></div>
-                <div class="appt-info"><div class="appt-client" style="color:var(--text-muted)">🔒 Franja reservada</div><div class="appt-meta">${ev.time}${ev.timeEnd?' – '+ev.timeEnd:''}</div></div>
+                <div class="appt-info"><div class="appt-client" style="color:var(--text-muted)">🔒 ${safeHtml((USERS.find(u=>u.id===ev.ownerId)||{}).name||'')} - Ocupat</div><div class="appt-meta">${ev.time}${ev.timeEnd?' – '+ev.timeEnd:''}</div></div>
               </div>`;
             }
             const emp = USERS.find(u => u.id === ev.assignedTo);
@@ -7805,11 +7811,12 @@
           cellsEl.innerHTML = _renderDayView(calId, evs, 'dept-'+calKey, (ev) => {
             const shouldMask = ev.private && ev.ownerId !== currentUser.id;
             if (shouldMask) {
+              { const _on = (USERS.find(u=>u.id===ev.ownerId)||{}).name||'';
               return `<div class="day-event-row" style="cursor:default">
                 <div class="day-event-time">${ev.time}${ev.timeEnd?'<br>→ '+ev.timeEnd:''}</div>
                 <div class="day-event-bar" style="background:#bbb"></div>
-                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloquejada</div></div>
-              </div>`;
+                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 ${safeHtml(_on)} - Ocupat</div></div>
+              </div>`; }
             }
             const emp = USERS.find(u => u.id === ev.assignedTo);
             const col = getUserColor(emp);
@@ -7936,8 +7943,10 @@
         // HTML de evento admin
         const adminEvHtml = (ev) => {
           const shouldMask = ev.private && ev.ownerId !== currentUser.id;
-          if (shouldMask)
-            return `<div class="cell-event blocked-private" title="Horari no disponible: ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}" onclick="event.stopPropagation()">🔒 ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}</div>`;
+          if (shouldMask) {
+            const _on = (USERS.find(u=>u.id===ev.ownerId)||{}).name||'';
+            return `<div class="cell-event blocked-private" title="${safeHtml(_on)} - Ocupat" onclick="event.stopPropagation()">🔒 ${safeHtml(_on)} - Ocupat</div>`;
+          }
           const emp = USERS.find(u => u.id === ev.assignedTo);
           const col = getUserColor(emp);
           const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
@@ -7973,11 +7982,12 @@
           cellsEl.innerHTML = _renderDayView(calId, evs, 'admin-view', (ev) => {
             const shouldMask = ev.private && ev.ownerId !== currentUser.id;
             if (shouldMask) {
+              { const _on = (USERS.find(u=>u.id===ev.ownerId)||{}).name||'';
               return `<div class="day-event-row" style="cursor:default">
                 <div class="day-event-time">${ev.time}${ev.timeEnd?'<br>→ '+ev.timeEnd:''}</div>
                 <div class="day-event-bar" style="background:#bbb"></div>
-                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 Hora bloquejada</div></div>
-              </div>`;
+                <div class="day-event-body"><div class="day-event-client" style="color:#999">🔒 ${safeHtml(_on)} - Ocupat</div></div>
+              </div>`; }
             }
             const emp = USERS.find(u => u.id === ev.assignedTo);
             const col = getUserColor(emp);
@@ -8050,7 +8060,7 @@
                 <span style="font-size:10px;color:var(--text-muted);margin-top:2px;display:block">${ev.date}</span>
               </div>
               <div class="appt-info">
-                <div class="appt-client" style="color:var(--text-muted)">🔒 Franja reservada</div>
+                <div class="appt-client" style="color:var(--text-muted)">🔒 ${safeHtml((USERS.find(u=>u.id===ev.ownerId)||{}).name||'')} - Ocupat</div>
                 <div class="appt-meta">${ev.time}${ev.timeEnd ? ' – ' + ev.timeEnd : ''}</div>
               </div>
             </div>`;
