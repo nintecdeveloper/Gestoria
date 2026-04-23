@@ -3136,9 +3136,7 @@
             onclick="showSection('messages')"
           >
             <span class="icon">&#10003;</span> Missatgeria
-            <span class="nav-badge" id="msg-badge" style="display: none"
-              >0</span
-            >
+            <span id="msg-badge" style="display:none"></span>
           </div>
         </div>
         <div class="sidebar-user">
@@ -4745,36 +4743,16 @@
 
       let _pollingTimer      = null;
       let _pollKnownIds      = {}; // convId → Set<msgId> — IDs ja vistos
-      let _serverUnreadCounts = {}; // convId → unread count (per display a llistes)
-      let _totalUnread = 0;         // total no llegits (font de veritat per al badge nav)
+      let _hasUnread = false; // hi ha missatges nous no vistos → mostra punt taronja
 
-      /** Consulta GET /api/messages/unread-count i actualitza el badge de nav. */
-      async function fetchUnreadCounts() {
+      /** Marca una conversa com a llegida al servidor (fire-and-forget). */
+      function markConvRead(convId) {
         if (!currentUser) return;
-        try {
-          const res = await fetch('/api/messages/unread-count');
-          if (!res.ok) return;
-          const data = await res.json();
-          _totalUnread = data.unread || 0;
-          updateBadge();
-          buildMsgList(document.getElementById('msg-search-inp')?.value || '');
-          if (document.getElementById('section-dashboard')?.classList.contains('active')) {
-            renderDashboard();
-          }
-        } catch(e) {}
-      }
-
-      /** Marca una conversa com a llegida al servidor i refresca el badge. */
-      async function markConvRead(convId) {
-        if (!currentUser) return;
-        try {
-          await fetch(`/api/messages/${encodeURIComponent(convId)}/read`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: currentUser.name })
-          });
-        } catch(e) {}
-        await fetchUnreadCounts();
+        fetch(`/api/messages/${encodeURIComponent(convId)}/read`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: currentUser.name })
+        }).catch(() => {});
       }
       let _calPollingTimer = null;
       let _calLastSig      = ''; // fingerprint de l'últim EVENTS per detectar canvis
@@ -4929,7 +4907,8 @@
 
           if (hasChanges) {
             saveMessagesToStorage();
-            updateBadge();
+            // Si l'usuari NO és a Missatgeria → mostrar punt taronja
+            if (!inMsgsSection) { _hasUnread = true; _updateMsgDot(); }
             buildMsgList(document.getElementById('msg-search-inp')?.value || '');
             if (document.getElementById('section-dashboard')?.classList.contains('active')) {
               renderDashboard();
@@ -4945,18 +4924,14 @@
         if (!currentUser) return;
         const ids = _getPollConvIds();
         await Promise.all(ids.map(id => _pollConv(id)));
-        // Actualitzar unread counts des del servidor (font de veritat)
-        await fetchUnreadCounts();
       }
 
       /** Inicia el polling cada 7 s. */
       function startPolling() {
         stopPolling();
         _pollKnownIds = {};
-        _serverUnreadCounts = {};
-        _totalUnread = 0;
+        _hasUnread = false;
         console.log('[Polling] Iniciant polling cada 7 s...');
-        fetchUnreadCounts(); // carregar unread counts immediatament al login
         _doPoll(); // primer cicle immediat
         _pollingTimer = setInterval(_doPoll, 7000);
       }
@@ -5241,12 +5216,6 @@
         return CONVS[k];
       }
       function unreadOf(otherId) {
-        // Usar server-side counts si disponibles; fallback a recompte local
-        const other = USERS.find(u => u.id === otherId);
-        if (other && currentUser) {
-          const cid = privConvId(currentUser.name, other.name);
-          if (cid in _serverUnreadCounts) return _serverUnreadCounts[cid] || 0;
-        }
         return convData(otherId).filter((m) => !m.mine && !m.read).length;
       }
       function totalUnread() {
@@ -5263,9 +5232,9 @@
           .replace(/"/g, "&quot;");
       }
 
-    function updateBadge() {
+      function _updateMsgDot() {
         const b = document.getElementById("msg-badge");
-        if (b) b.style.display = _totalUnread > 0 ? "" : "none";
+        if (b) b.style.display = _hasUnread ? "" : "none";
       }
       // Validació de solapament eliminada — l'usuari pot crear cites lliurement
 
@@ -5417,8 +5386,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         activeSedeChat = null;
         editingEvId = null;
         gchatUnreadCount = 0;
-        _serverUnreadCounts = {};
-        _totalUnread = 0;
+        _hasUnread = false;
         GENERAL_CHAT = [];
         CONVS = { sede_mataro: [], sede_vilassar: [] };
         
@@ -5563,7 +5531,6 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
           .querySelectorAll(".admin-only")
           .forEach((el) => (el.style.display = isAdmin ? "" : "none"));
         gchatUnreadCount = 0;
-        updateBadge();
         updateDeptCalNav();
         
         // ✅ CORRECCIÓN 2: Aplicar visibilidad de calendarios según permisos
@@ -5613,12 +5580,10 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         // ✅ FIX CRÍTICO: Validar separación de datos después de cargar
         validateDataSeparation();
         
-      // Actualitzar badges i llista de missatges després de carregar
-        updateBadge();
+      // Actualitzar llista de missatges després de carregar
         buildMsgList('');
-        // Tornar a actualitzar quan arribin els històrics del servidor (async)
-        setTimeout(() => { updateBadge(); buildMsgList(''); }, 1500);
-        setTimeout(() => { updateBadge(); buildMsgList(''); }, 3000);
+        setTimeout(() => { buildMsgList(''); }, 1500);
+        setTimeout(() => { buildMsgList(''); }, 3000);
         
         // Iniciar polling de missatgeria en temps real (substitueix SocketIO)
         setTimeout(() => {
@@ -5926,6 +5891,7 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
         }
         document.getElementById("topbar-title").textContent = titleText;
 
+        if (name === "messages") { _hasUnread = false; _updateMsgDot(); }
         if (name === "dashboard") renderDashboard();
         if (name === "my-calendar") renderCalendar("my");
         if (name === "global-calendar") {
@@ -6128,62 +6094,48 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
               .join("")
           : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">Sense cites pendents.</div>';
 
-      // Renderizar mensajes pendientes — privats, general i sede
-        const pendingMsgs = [];
+      // Renderitzar converses recents — sense comptadors, només nom i últim missatge
+        const recentMsgs = [];
 
-        // 1. PRIVATS — recompte del servidor, preview del missatge més recent local
-        USERS.filter(u => u.id !== currentUser.id && u.active).forEach(u => {
-          const cid   = privConvId(currentUser.name, u.name);
-          const count = _serverUnreadCounts[cid] || 0;
-          if (count > 0) {
-            const msgs = convData(u.id);
-            const last = msgs.length ? msgs[msgs.length - 1] : null;
-            pendingMsgs.push({
-              type: 'private', userId: u.id, name: u.name, count,
-              preview: last?.text ? last.text.slice(0, 60) : '📎 Adjunt',
-              time: last?.time || ''
-            });
-          }
-        });
-
-        // 2. GENERAL
-        const generalCount = _serverUnreadCounts['general'] || 0;
-        if (generalCount > 0) {
+        // 1. GENERAL
+        {
           const last = (GENERAL_CHAT || []).length ? GENERAL_CHAT[GENERAL_CHAT.length - 1] : null;
-          pendingMsgs.push({
-            type: 'general', userId: null, name: 'Chat General', count: generalCount,
-            preview: last?.text ? last.text.slice(0, 60) : '📎 Adjunt',
-            time: last?.time || ''
+          if (last) recentMsgs.push({
+            type: 'general', userId: null, name: 'Chat General',
+            preview: last.text ? last.text.slice(0, 60) : '📎 Adjunt',
+            time: last.time || '', date: last.date || ''
           });
         }
 
-        // 3. SEDE — recompte del servidor, preview local
-        Object.entries(CONVS).filter(([k]) => {
-          if (!k.startsWith('sede_')) return false;
-          if (currentUser.role === 'admin') return true;
-          const sedeKey = k.replace('sede_', '');
-          const sedeInfo = SEDE_CHATS[sedeKey];
-          return sedeInfo && sedeInfo.sede === currentUser.sede;
-        }).forEach(([key]) => {
-          const count = _serverUnreadCounts[key] || 0;
-          if (count > 0) {
-            const msgs = CONVS[key] || [];
-            const last = msgs.length ? msgs[msgs.length - 1] : null;
-            const sedeName = key === 'sede_mataro' ? 'Chat Mataró' : 'Chat Vilassar';
-            pendingMsgs.push({
-              type: 'sede', sedeKey: key.replace('sede_', ''), userId: null,
-              name: sedeName, count,
-              preview: last?.text ? last.text.slice(0, 60) : '📎 Adjunt',
-              time: last?.time || ''
-            });
-          }
+        // 2. SEDE
+        Object.entries(SEDE_CHATS).forEach(([sedeKey, sedeInfo]) => {
+          if (currentUser.role !== 'admin' && sedeInfo.sede !== currentUser.sede) return;
+          const msgs = CONVS[`sede_${sedeKey}`] || [];
+          const last = msgs.length ? msgs[msgs.length - 1] : null;
+          if (last) recentMsgs.push({
+            type: 'sede', sedeKey, userId: null,
+            name: sedeInfo.name,
+            preview: last.text ? last.text.slice(0, 60) : '📎 Adjunt',
+            time: last.time || '', date: last.date || ''
+          });
         });
 
-        // Ordenar per hora (més recent a dalt)
-        pendingMsgs.sort((a, b) => b.time > a.time ? 1 : -1);
+        // 3. PRIVATS
+        USERS.filter(u => u.id !== currentUser.id && u.active).forEach(u => {
+          const msgs = convData(u.id);
+          const last = msgs.length ? msgs[msgs.length - 1] : null;
+          if (last) recentMsgs.push({
+            type: 'private', userId: u.id, name: u.name,
+            preview: last.text ? last.text.slice(0, 60) : '📎 Adjunt',
+            time: last.time || '', date: last.date || ''
+          });
+        });
 
-        const pendingMsgsHtml = pendingMsgs.length > 0
-          ? pendingMsgs.map(msg => {
+        // Ordenar per data+hora descendent
+        recentMsgs.sort((a, b) => ((b.date + b.time) > (a.date + a.time) ? 1 : -1));
+
+        const pendingMsgsHtml = recentMsgs.length > 0
+          ? recentMsgs.slice(0, 5).map(msg => {
               const onclick = msg.type === 'private'
                 ? `showSection('messages'); openConv(${msg.userId})`
                 : msg.type === 'general'
@@ -6193,21 +6145,13 @@ else if (activeSedeChat !== null) renderMsgsFromArray(CONVS[`sede_${activeSedeCh
                 <div class="task-item" onclick="${onclick}" style="cursor:pointer">
                   <div class="t-dot amber"></div>
                   <div style="flex:1;min-width:0">
-                    <div class="t-title" style="display:flex;align-items:center;gap:6px">
-                      ${safeHtml(msg.name)}
-                      <span style="
-                        display:inline-flex;align-items:center;justify-content:center;
-                        min-width:18px;height:18px;padding:0 5px;border-radius:9px;
-                        background:var(--accent2);color:#fff;font-size:11px;font-weight:700;
-                        flex-shrink:0
-                      ">${msg.count}</span>
-                    </div>
+                    <div class="t-title">${safeHtml(msg.name)}</div>
                     <div class="t-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">${safeHtml(msg.preview)}</div>
                   </div>
                   <span class="tag tag-gray" style="white-space:nowrap;flex-shrink:0">${msg.time}</span>
                 </div>`;
             }).join("")
-          : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">No hi ha missatges pendents.</div>';
+          : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">No hi ha missatges recents.</div>';
 
         document.getElementById("pending-messages").innerHTML = pendingMsgsHtml;
       }
@@ -8820,8 +8764,6 @@ document.getElementById("nu-user").addEventListener("input", function() {
         // Guardar en localStorage para persistencia
         saveMessagesToStorage();
         renderDashboard();
-        
-        updateBadge();
         buildMsgList(document.getElementById("msg-search-inp").value);
         document.getElementById("msg-empty-state").style.display = "none";
         const chat = document.getElementById("msg-active-chat");
@@ -9166,9 +9108,8 @@ document.getElementById("nu-user").addEventListener("input", function() {
         // ✅ FIX CRÍTICO: Leer de GENERAL_CHAT, no de CONVS['general-chat']
         const generalMsgs = GENERAL_CHAT || [];
         const generalLast = generalMsgs.length ? generalMsgs[generalMsgs.length - 1] : null;
-        const generalUnread = _serverUnreadCounts['general'] || 0;
         const isGeneralActive = activeConvId === 'general-chat' ? 'active' : '';
-        
+
         generalChatHtml = `<div class="msg-conv ${isGeneralActive}" onclick="openGeneralChat()">
           <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:18px;flex-shrink:0">#</div>
           <div class="msg-conv-info">
@@ -9177,7 +9118,6 @@ document.getElementById("nu-user").addEventListener("input", function() {
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
             ${generalLast ? `<div class="msg-conv-time">${generalLast.time}</div>` : ""}
-            ${generalUnread > 0 ? `<div class="nav-badge">${generalUnread}</div>` : ""}
           </div>
         </div>`;
         
@@ -9193,9 +9133,8 @@ document.getElementById("nu-user").addEventListener("input", function() {
             const sedeConvId = `sede_${sedeKey}`;
             const msgs = CONVS[sedeConvId] || [];
             const last = msgs.length ? msgs[msgs.length - 1] : null;
-            const unread = _serverUnreadCounts[sedeConvId] || 0;
             const isActive = activeSedeChat === sedeKey ? 'active' : '';
-            
+
             sedeChatsHtml += `<div class="msg-conv ${isActive}" onclick="openSedeChat('${sedeKey}')">
               <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:18px;flex-shrink:0">${sedeInfo.icon}</div>
               <div class="msg-conv-info">
@@ -9204,7 +9143,6 @@ document.getElementById("nu-user").addEventListener("input", function() {
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                 ${last ? `<div class="msg-conv-time">${last.time}</div>` : ""}
-                ${unread > 0 ? `<div class="nav-badge">${unread}</div>` : ""}
               </div>
             </div>`;
           }
@@ -9236,7 +9174,6 @@ document.getElementById("nu-user").addEventListener("input", function() {
           .map((u) => {
             const msgs = convData(u.id);
             const last = msgs.length ? msgs[msgs.length - 1] : null;
-            const unread = _serverUnreadCounts[privConvId(currentUser.name, u.name)] || 0;
             return `<div class="msg-conv ${activeConvId === u.id ? "active" : ""}" onclick="openConv(${u.id})">
       <div class="s-avatar" style="width:34px;height:34px;background:var(--accent-light);color:var(--accent);font-size:12px;flex-shrink:0">${initials(u.name)}</div>
       <div class="msg-conv-info">
@@ -9245,7 +9182,6 @@ document.getElementById("nu-user").addEventListener("input", function() {
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         ${last ? `<div class="msg-conv-time">${last.time}</div>` : ""}
-        ${unread > 0 ? `<div class="nav-badge">${unread}</div>` : ""}
       </div>
     </div>`;
           })
@@ -9331,10 +9267,7 @@ document.getElementById("nu-user").addEventListener("input", function() {
 
         // Guardar en localStorage para persistencia
         saveMessagesToStorage();
-        renderDashboard();        
-       
-        
-        updateBadge();
+        renderDashboard();
         buildMsgList(document.getElementById("msg-search-inp").value);
         document.getElementById("msg-empty-state").style.display = "none";
         const chat = document.getElementById("msg-active-chat");
@@ -9385,9 +9318,8 @@ document.getElementById("nu-user").addEventListener("input", function() {
         markConvRead(`sede_${sedeKey}`);
         saveMessagesToStorage();
         renderDashboard();
-        updateBadge();
         buildMsgList(document.getElementById("msg-search-inp").value);
-        
+
         // Mostrar chat
         document.getElementById("msg-empty-state").style.display = "none";
         const chat = document.getElementById("msg-active-chat");
@@ -9903,7 +9835,6 @@ document.getElementById("nu-user").addEventListener("input", function() {
         msgPendingAttachments = [];
         msgRenderChips();
         buildMsgList(document.getElementById("msg-search-inp")?.value || '');
-        updateBadge();
       }
 
       // ══════════════════════════════════════════
