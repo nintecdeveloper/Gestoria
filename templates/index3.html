@@ -3230,6 +3230,7 @@
               </div>
             </div>
             <div class="appt-list" id="my-appt-list"></div>
+            <div id="my-service-legend" style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 4px;margin-top:4px"></div>
           </div>
 
           <!-- CALENDARIO GLOBAL -->
@@ -4663,37 +4664,34 @@
       let PINNED_ADMINS = [];
 
       let SERVICES = [
-        {
-          id: 1,
-          name: "Assessorament Fiscal",
-          desc: "Optimització fiscal i compliment normatiu per a particulars i empreses.",
-        },
-        {
-          id: 2,
-          name: "Gestió Laboral",
-          desc: "Nòmines, contractes, altes i baixes a la Seguretat Social.",
-        },
-        {
-          id: 3,
-          name: "Comptabilitat",
-          desc: "Comptabilitat general, balanços i comptes de resultats.",
-        },
-        {
-          id: 4,
-          name: "Auditoria",
-          desc: "Revisió independent d'estats financers i processos interns.",
-        },
-        {
-          id: 5,
-          name: "Consultoria Empresarial",
-          desc: "Estratègia, organització i millora de processos de negoci.",
-        },
-        {
-          id: 6,
-          name: "Assessorament Jurídic",
-          desc: "Suport legal en contractes mercantils i disputes empresarials.",
-        },
+        { id: 1, name: "Assessorament Fiscal",  desc: "Optimització fiscal i compliment normatiu per a particulars i empreses." },
+        { id: 2, name: "Gestió Laboral",         desc: "Nòmines, contractes, altes i baixes a la Seguretat Social." },
+        { id: 3, name: "Comptabilitat",          desc: "Comptabilitat general, balanços i comptes de resultats." },
+        { id: 4, name: "Auditoria",              desc: "Revisió independent d'estats financers i processos interns." },
+        { id: 5, name: "Consultoria Empresarial",desc: "Estratègia, organització i millora de processos de negoci." },
+        { id: 6, name: "Assessorament Jurídic",  desc: "Suport legal en contractes mercantils i disputes empresarials." },
+        { id: 7, name: "Gestió Mercantil",       desc: "Constitució de societats, estatuts i tràmits mercantils." },
+        { id: 8, name: "Altres serveis",         desc: "Altres gestions i assessoraments." },
+        { id: 9, name: "Altre",                  desc: "Tipus de servei no especificat." },
       ];
+
+      /**
+       * Retorna el color pastel associat a un tipus de servei.
+       * Valor de retorn: { bg, border, text }
+       */
+      function getServiceColor(service) {
+        const s = (service || '').trim().toLowerCase();
+        const MAP = {
+          'assessorament fiscal':  { bg: '#FFD6A5', border: '#c87022', text: '#6b3800' },
+          'gestió laboral':        { bg: '#CAFFBF', border: '#2a9200', text: '#1a5400' },
+          'gestió mercantil':      { bg: '#BDE0FE', border: '#1464b8', text: '#003570' },
+          'assessorament jurídic': { bg: '#FFAFCC', border: '#c4005e', text: '#70003a' },
+          'comptabilitat':         { bg: '#CDB4DB', border: '#7230b0', text: '#3a0a60' },
+          'altres serveis':        { bg: '#FFC8DD', border: '#c0006a', text: '#70003a' },
+          'altre':                 { bg: '#E2F0CB', border: '#529600', text: '#2b5000' },
+        };
+        return MAP[s] || { bg: 'var(--accent-light)', border: 'var(--accent)', text: 'var(--accent)' };
+      }
 
       let CLIENTS = [
         {
@@ -5698,6 +5696,20 @@
       /** No-op: badge de recordatoris eliminat de l'Inici. */
       function loadTodayReminderBadge() {}
 
+      /** Renderitza la llegenda de colors de serveis al calendari personal. */
+      function renderServiceLegend() {
+        const el = document.getElementById('my-service-legend');
+        if (!el) return;
+        const services = [
+          'Assessorament Fiscal', 'Gestió Laboral', 'Gestió Mercantil',
+          'Assessorament Jurídic', 'Comptabilitat', 'Altres serveis', 'Altre',
+        ];
+        el.innerHTML = services.map(s => {
+          const c = getServiceColor(s);
+          return `<span style="background:${c.bg};color:${c.text};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid ${c.border}30">${safeHtml(s)}</span>`;
+        }).join('');
+      }
+
       // ══════════════════════════════════════════
       //  PERSISTÈNCIA D'EVENTS — API
       // ══════════════════════════════════════════
@@ -5817,6 +5829,9 @@
 
         // Carregar admins i renderitzar calendaris fixats al menú lateral
         loadPinnedAdmins();
+
+        // Renderitzar llegenda de colors de serveis
+        renderServiceLegend();
 
         // Carregar events des de la base de dades i iniciar polling en temps real
         loadEvents();
@@ -6758,8 +6773,6 @@
           return;
         }
 
-        const colors = ["", "amber", "red"];
-
         // NUEVO: Función para obtener sede basada en which
         const getSedeFilter = () => {
           if (which === 'mataro') return 'Mataró';
@@ -6800,7 +6813,8 @@
             return `<div class="cell-event blocked-private" title="${safeHtml(_on)} - Ocupat" onclick="event.stopPropagation()">🔒 ${safeHtml(_on)} - Ocupat</div>`;
           }
           const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
-          return `<div class="cell-event ${colors[i%3]}${ev.private?' private-event':''}" onclick="showEventDetail(${ev.id},event)">${ev.private?'🔒 ':''}${ev.recurrenceMasterId||ev.isRecurringMaster?'🔁 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
+          const _svc = getServiceColor(ev.service);
+          return `<div class="cell-event${ev.private?' private-event':''}" style="background:${_svc.bg};color:${_svc.text};border-left-color:${_svc.border};" onclick="showEventDetail(${ev.id},event)">${ev.private?'🔒 ':''}${ev.recurrenceMasterId||ev.isRecurringMaster?'🔁 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
         };
 
         // ── VISTA SEMANA ──────────────────────────────────
@@ -6836,12 +6850,12 @@
                 <div class="day-event-block-title" style="color:#999">🔒 ${safeHtml(_on)} - Ocupat</div>
               </div>`;
             }
-            const borderColor = ev.color ? ev.color : 'var(--accent)';
-            return `<div class="day-event-block" style="${posStyle}border-left-color:${borderColor};"
+            const _dsvc = getServiceColor(ev.service);
+            return `<div class="day-event-block" style="${posStyle}background:${_dsvc.bg};border-left-color:${_dsvc.border};color:${_dsvc.text};"
                 onclick="showEventDetail(${ev.id},event);event.stopPropagation()">
-              <div class="day-event-block-time">${ev.time}${ev.timeEnd?' - '+ev.timeEnd:''}</div>
-              <div class="day-event-block-title">${ev.private?'🔒 ':''}${safeHtml(ev.client)}</div>
-              ${heightPx > 42 ? `<div class="day-event-block-service">${safeHtml(ev.service||'')}${ev.timeEnd?' · '+calcDuration(ev.time,ev.timeEnd):''}</div>` : ''}
+              <div class="day-event-block-time" style="color:${_dsvc.text};opacity:0.75">${ev.time}${ev.timeEnd?' - '+ev.timeEnd:''}</div>
+              <div class="day-event-block-title" style="color:${_dsvc.text}">${ev.private?'🔒 ':''}${safeHtml(ev.client)}</div>
+              ${heightPx > 42 ? `<div class="day-event-block-service" style="color:${_dsvc.text};opacity:0.8">${safeHtml(ev.service||'')}${ev.timeEnd?' · '+calcDuration(ev.time,ev.timeEnd):''}</div>` : ''}
             </div>`;
           });
           renderApptList(which, allEvs);
@@ -6945,11 +6959,13 @@
             const apptDurHtml = ev.timeEnd
               ? ` &middot; <span class="appt-duration-badge">${calcDuration(ev.time, ev.timeEnd)}</span>`
               : '';
+            const _asc = getServiceColor(ev.service);
+            const _asvcBadge = ev.service ? `<span style="background:${_asc.bg};color:${_asc.text};border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600;display:inline-block">${safeHtml(ev.service)}</span>` : '';
             return `<div class="appt-item">
       <div class="appt-time-col"><strong>${ev.time}</strong>${apptTimeEndHtml}<span>${ev.date}</span></div>
       <div class="appt-info">
         <div class="appt-client">${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privado</span>' : ''}</div>
-        <div class="appt-meta">${safeHtml(ev.service)}${emp && (isAdmin || which === 'global') ? " &middot; <strong>" + safeHtml(emp.name) + "</strong>" : ""}${apptDurHtml}</div>
+        <div class="appt-meta">${_asvcBadge}${emp && (isAdmin || which === 'global') ? " &middot; <strong>" + safeHtml(emp.name) + "</strong>" : ""}${apptDurHtml}</div>
       </div>
       <div class="action-btns">
         ${canEdit ? `
@@ -7805,11 +7821,13 @@
             const emp = USERS.find(u => u.id === ev.assignedTo);
             const canEdit = isAdmin || ev.assignedTo === currentUser.id || ev.ownerId === currentUser.id;
             const privBtn = isAdmin ? `<button class="btn-icon" title="${ev.private?'Fer pública':'Privatitzar'}" onclick="toggleEventPrivacy(${ev.id},event)">${ev.private?'🔓':'🔒'}</button>` : '';
+            const _dsc = getServiceColor(ev.service);
+            const _dsvcBadge = ev.service ? `<span style="background:${_dsc.bg};color:${_dsc.text};border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600;display:inline-block">${safeHtml(ev.service)}</span>` : '';
             return `<div class="appt-item">
               <div class="appt-time-col"><strong>${ev.time}</strong><span class="appt-time-end">&#8594; ${ev.timeEnd||'—'}</span><span>${ev.date}</span></div>
               <div class="appt-info">
                 <div class="appt-client">${safeHtml(ev.client)}${ev.private?' <span class="private-badge">🔒 Privado</span>':''}</div>
-                <div class="appt-meta">${safeHtml(ev.service)}${emp?' &middot; <strong>'+safeHtml(emp.name)+'</strong>':''}${ev.timeEnd?' &middot; <span class="appt-duration-badge">'+calcDuration(ev.time,ev.timeEnd)+'</span>':''}</div>
+                <div class="appt-meta">${_dsvcBadge}${emp?' &middot; <strong>'+safeHtml(emp.name)+'</strong>':''}${ev.timeEnd?' &middot; <span class="appt-duration-badge">'+calcDuration(ev.time,ev.timeEnd)+'</span>':''}</div>
               </div>
               <div class="action-btns">${canEdit?`${privBtn}<button class="btn-icon" onclick="editEventFromList(${ev.id},event)">Editar</button><button class="btn-icon red" onclick="deleteEventFromList(${ev.id},event)">Eliminar</button>`:''}</div>
             </div>`;
@@ -8110,11 +8128,13 @@
             : '';
           const apptTimeEndHtml = ev.timeEnd ? `<span class="appt-time-end">&#8594; ${ev.timeEnd}</span>` : '';
           const apptDurHtml = ev.timeEnd ? ` &middot; <span class="appt-duration-badge">${calcDuration(ev.time, ev.timeEnd)}</span>` : '';
+          const _avsc = getServiceColor(ev.service);
+          const _avsvcBadge = ev.service ? `<span style="background:${_avsc.bg};color:${_avsc.text};border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600;display:inline-block">${safeHtml(ev.service)}</span>` : '';
           return `<div class="appt-item">
             <div class="appt-time-col"><strong>${ev.time}</strong>${apptTimeEndHtml}<span>${ev.date}</span></div>
             <div class="appt-info">
               <div class="appt-client" style="display:flex;align-items:center">${colorDot}${safeHtml(ev.client)}${ev.private ? ' <span class="private-badge">🔒 Privado</span>' : ''}</div>
-              <div class="appt-meta">${safeHtml(ev.service)}${emp && multiAdmin ? ' &middot; <strong>' + safeHtml(emp.name) + '</strong>' : ''}${apptDurHtml}</div>
+              <div class="appt-meta">${_avsvcBadge}${emp && multiAdmin ? ' &middot; <strong>' + safeHtml(emp.name) + '</strong>' : ''}${apptDurHtml}</div>
             </div>
             <div class="action-btns">
               ${canEdit ? `
