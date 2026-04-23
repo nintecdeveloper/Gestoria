@@ -10709,50 +10709,60 @@ function generarPasswordUsername(username) {
       // incluso si el navegador está cerrado o minimizado
       // ══════════════════════════════════════════════════════════════
 
-      function registerServiceWorker() {
-        if ('serviceWorker' in navigator) {
-          // Crear un blob con el código del Service Worker
-          const swCode = `
-            self.addEventListener('push', event => {
-              const data = event.data ? event.data.json() : {};
-              const options = {
-                body: data.body || 'Recordatori de cita',
-                icon: '🔔',
-                badge: '🔔',
-                tag: 'gestionpro-reminder',
-                requireInteraction: true,
-                ...data
-              };
-              event.waitUntil(self.registration.showNotification(data.title || 'Recordatori', options));
-            });
+      // ── Helpers Web Push ──────────────────────────────────────
+      /** Converteix una base64url string a Uint8Array (per applicationServerKey). */
+      function _urlBase64ToUint8Array(b64) {
+        const padding = '='.repeat((4 - b64.length % 4) % 4);
+        const base64  = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw     = atob(base64);
+        return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+      }
 
-            self.addEventListener('notificationclick', event => {
-              event.notification.close();
-              event.waitUntil(
-                clients.matchAll({ type: 'window' }).then(clientList => {
-                  if (clientList.length > 0) {
-                    return clientList[0].focus();
-                  }
-                  return clients.openWindow('/');
-                })
-              );
-            });
-          `;
-          
-          const blob = new Blob([swCode], { type: 'application/javascript' });
-          const swUrl = URL.createObjectURL(blob);
-          
-          navigator.serviceWorker.register(swUrl)
-            .then(reg => {
-              console.log('✅ Service Worker registrado correctamente');
-              // Guardar referencia global para usar después
-              window._swRegistration = reg;
-            })
-            .catch(err => {
-              console.warn('⚠️ Error al registrar Service Worker:', err);
-              // No es crítico, las notificaciones seguirán funcionando sin SW
-            });
+      /** Envia la subscripció push al backend. */
+      async function subscribeToPush() {
+        if (!('PushManager' in window)) return;
+        if (Notification.permission !== 'granted') return;
+        const reg = window._swRegistration;
+        if (!reg) return;
+        try {
+          // Obtenir la VAPID public key del servidor
+          const r    = await fetch('/api/push/vapid-public-key');
+          const data = await r.json();
+          if (!data.ok || !data.public_key) return;
+
+          const appKey = _urlBase64ToUint8Array(data.public_key);
+          // Subscriure (o reutilitzar subscripció existent)
+          const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: appKey,
+          });
+          const subJson = sub.toJSON();
+          await fetch('/api/push/subscribe', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+              endpoint: subJson.endpoint,
+              p256dh:   subJson.keys.p256dh,
+              auth:     subJson.keys.auth,
+            }),
+          });
+          console.log('[Push] Subscripció push registrada ✅');
+        } catch (e) {
+          console.warn('[Push] Error en subscribeToPush:', e);
         }
+      }
+
+      /** Registra el Service Worker real (/sw.js) i subscriu al push si ja tenim permís. */
+      function registerServiceWorker() {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          .then(reg => {
+            console.log('✅ Service Worker registrat (scope:', reg.scope, ')');
+            window._swRegistration = reg;
+            // Si ja tenim permís, subscriure directament
+            if (Notification.permission === 'granted') subscribeToPush();
+          })
+          .catch(err => console.warn('⚠️ Error registrant Service Worker:', err));
       }
 
       function requestNotificationPermission() {
@@ -10762,8 +10772,8 @@ function generarPasswordUsername(username) {
         }
 
         if (Notification.permission === 'granted') {
-          // Ya tenemos permiso
-          console.log('✅ Permisos de notificación ya otorgados');
+          console.log('✅ Permisos de notificació ja atorgats');
+          subscribeToPush();
           return;
         }
 
@@ -10778,12 +10788,12 @@ function generarPasswordUsername(username) {
           Notification.requestPermission()
             .then(permission => {
               if (permission === 'granted') {
-                console.log('✅ Permisos de notificación otorgados');
-                // Mostrar notificación de prueba
+                console.log('✅ Permisos de notificació atorgats');
                 sendNotification('🔔 Notificacions activades!', {
-                  body: 'Els recordatoris de cites apareixeran a la teva pantalla',
+                  body: 'Els recordatoris i missatges nous apareixeran aquí',
                   tag: 'test-notification'
                 });
+                subscribeToPush();
               } else {
                 console.warn('⚠️ Usuario rechazó las notificaciones');
               }
@@ -11507,15 +11517,16 @@ ${dateStr} a les ${eventData.time}`,
       // INICIALIZAR SERVICE WORKER Y NOTIFICACIONES
       // ══════════════════════════════════════════════════════════════
       
-      // Registrar Service Worker tan pronto como carga la página
+      // Registrar Service Worker en carregar la pàgina
+      // (cal que estigui registrat abans de subscriure al push)
       if ('serviceWorker' in navigator) {
         registerServiceWorker();
       }
-      
-      // Pedir permiso de notificaciones cuando el usuario accede
-      // (Se pide después de 1 segundo para no ser intrusivo)
+
+      // Demanar permís de notificacions (1 s de delay per no ser intrusiu)
+      // La subscripció push s'activa automàticament si el permís s'atorga
       setTimeout(() => {
-        if (Notification.permission === 'default') {
+        if (Notification.permission !== 'denied') {
           requestNotificationPermission();
         }
       }, 1000);

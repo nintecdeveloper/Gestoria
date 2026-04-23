@@ -1,6 +1,6 @@
 import os
 import json
-from flask import Flask, render_template, jsonify, request, send_file, session
+from flask import Flask, render_template, jsonify, request, send_file, session, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
@@ -16,6 +16,38 @@ import smtplib, ssl, secrets
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
+
+# ═══════════════════════════════════════════════════════════════
+# WEB PUSH — pywebpush + VAPID keys
+# ═══════════════════════════════════════════════════════════════
+try:
+    from pywebpush import webpush, WebPushException
+    from py_vapid import Vapid
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+    _vapid_priv_env = os.environ.get('VAPID_PRIVATE_KEY', '')
+    _vapid_pub_env  = os.environ.get('VAPID_PUBLIC_KEY',  '')
+
+    if _vapid_priv_env and _vapid_pub_env:
+        VAPID_PRIVATE_KEY = _vapid_priv_env
+        VAPID_PUBLIC_KEY  = _vapid_pub_env
+    else:
+        # Auto-genera claus si no estan definides a l'entorn
+        _v = Vapid()
+        _v.generate_keys()
+        VAPID_PRIVATE_KEY = _v.private_pem().decode('utf-8')
+        _pub_bytes        = _v.public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+        VAPID_PUBLIC_KEY  = base64.urlsafe_b64encode(_pub_bytes).rstrip(b'=').decode('ascii')
+        print(f"\n⚠️  VAPID keys auto-generades (no persistents). Afegeix a l'entorn:\n"
+              f"  VAPID_PUBLIC_KEY={VAPID_PUBLIC_KEY}\n"
+              f"  VAPID_PRIVATE_KEY={VAPID_PRIVATE_KEY}\n", flush=True)
+
+    VAPID_SUBJECT    = os.environ.get('VAPID_SUBJECT', 'mailto:info.nexorasolutionsai@gmail.com')
+    WEBPUSH_AVAILABLE = True
+except ImportError:
+    WEBPUSH_AVAILABLE = False
+    VAPID_PUBLIC_KEY = VAPID_PRIVATE_KEY = VAPID_SUBJECT = None
+    print("⚠️  pywebpush no disponible. Web Push desactivat. Executa: pip install pywebpush", flush=True)
 # ═══════════════════════════════════════════════════════════════
 # LOGGING — CONFIGURACIÓN INMEDIATA
 # ═══════════════════════════════════════════════════════════════
@@ -366,6 +398,16 @@ class LastRead(db.Model):
     __table_args__ = (
         db.UniqueConstraint('username', 'conv_id', name='uq_lastread_user_conv'),
     )
+
+class PushSubscription(db.Model):
+    """Subscripcions Web Push per usuari (un usuari pot tenir múltiples dispositius)."""
+    __tablename__ = 'push_subscriptions'
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    endpoint   = db.Column(db.Text, nullable=False, unique=True)
+    p256dh     = db.Column(db.Text, nullable=False)
+    auth       = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -1344,6 +1386,23 @@ def send_message_api(conv_id):
         db.session.add(msg)
         db.session.commit()
 
+        # ── Web Push: notifica el destinatari en converses privades ──
+        try:
+            recipient_un = data.get('recipient_username', '').strip()
+            if recipient_un and norm_conv_id.startswith('private_'):
+                recipient_user = User.query.filter_by(username=recipient_un, active=True).first()
+                if recipient_user:
+                    preview = (text[:80] + '…') if len(text) > 80 else text
+                    send_push_notification(
+                        recipient_user.id,
+                        title=f'💬 Missatge de {sender}',
+                        body=preview or '📎 Adjunt',
+                        url='/',
+                        tag=f'msg-{norm_conv_id}',
+                    )
+        except Exception as _push_err:
+            logger.warning(f"[Push] Error en trigger de missatge: {_push_err}")
+
         logger.info(f"[Polling POST] {sender}: \"{text[:40]}\" -> {norm_conv_id}")
         return jsonify({'ok': True, 'message': msg.to_dict()}), 201
     except Exception as e:
@@ -2308,6 +2367,88 @@ def server_error(error):
     """Manejar errores 500"""
     logger.error(f"Error 500: {str(error)}")
     return jsonify({'error': 'Internal server error', 'details': str(error)}), 500
+
+# ═══════════════════════════════════════════════════════════════
+# WEB PUSH — Ruta per al Service Worker
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/sw.js')
+def serve_sw():
+    """Serveix el Service Worker des de l'arrel perquè tingui scope complet."""
+    return send_from_directory('static', 'sw.js', mimetype='application/javascript',
+                               max_age=0)
+
+# ═══════════════════════════════════════════════════════════════
+# WEB PUSH — Endpoints i funció d'enviament
+# ═══════════════════════════════════════════════════════════════
+
+def send_push_notification(user_id, title, body, url='/', tag='ra-push'):
+    """Envia una Web Push Notification a tots els dispositius d'un usuari."""
+    if not WEBPUSH_AVAILABLE:
+        return
+    subs = PushSubscription.query.filter_by(user_id=user_id).all()
+    payload = json.dumps({'title': title, 'body': body, 'url': url, 'tag': tag})
+    expired = []
+    for sub in subs:
+        try:
+            webpush(
+                subscription_info={
+                    'endpoint': sub.endpoint,
+                    'keys': {'p256dh': sub.p256dh, 'auth': sub.auth}
+                },
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={'sub': VAPID_SUBJECT},
+            )
+        except WebPushException as exc:
+            if exc.response is not None and exc.response.status_code in (404, 410):
+                expired.append(sub)  # Subscripció expirada o invàlida
+            else:
+                logger.warning(f"[Push] Error enviant a user {user_id}: {exc}")
+        except Exception as exc:
+            logger.warning(f"[Push] Error inesperat: {exc}")
+    # Netejar subscripcions expirades
+    for sub in expired:
+        try:
+            db.session.delete(sub)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+@app.route('/api/push/vapid-public-key', methods=['GET'])
+def get_vapid_public_key():
+    """Retorna la VAPID public key per al frontend."""
+    if not WEBPUSH_AVAILABLE:
+        return jsonify({'ok': False, 'error': 'Web Push no disponible'}), 503
+    return jsonify({'ok': True, 'public_key': VAPID_PUBLIC_KEY})
+
+@app.route('/api/push/subscribe', methods=['POST'])
+def push_subscribe():
+    """Desa o actualitza la subscripció push de l'usuari actual."""
+    if not WEBPUSH_AVAILABLE:
+        return jsonify({'ok': False, 'error': 'Web Push no disponible'}), 503
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'No autenticat'}), 401
+    data = request.get_json(silent=True) or {}
+    endpoint = (data.get('endpoint') or '').strip()
+    p256dh   = (data.get('p256dh')   or '').strip()
+    auth     = (data.get('auth')     or '').strip()
+    if not endpoint or not p256dh or not auth:
+        return jsonify({'ok': False, 'error': 'Falten camps (endpoint, p256dh, auth)'}), 400
+    # Actualitza si ja existeix l'endpoint, sinó crea nou
+    existing = PushSubscription.query.filter_by(endpoint=endpoint).first()
+    if existing:
+        existing.user_id = user_id
+        existing.p256dh  = p256dh
+        existing.auth    = auth
+    else:
+        db.session.add(PushSubscription(
+            user_id=user_id, endpoint=endpoint, p256dh=p256dh, auth=auth
+        ))
+    db.session.commit()
+    logger.info(f"[Push] Subscripció registrada per user_id={user_id}")
+    return jsonify({'ok': True})
 
 # ═══════════════════════════════════════════════════════════════
 # CREAR TAULES A LA BD (si no existeixen)
