@@ -554,12 +554,11 @@
       }
       .nav-badge {
         margin-left: auto;
-        background: var(--accent2);
-        color: #fff;
-        font-size: 10px;
-        font-weight: 600;
-        padding: 2px 7px;
-        border-radius: 10px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #e53935;
+        flex-shrink: 0;
       }
       /* ESTILOS PARA NAVEGACIÓN EXPANDIBLE */
       .nav-expandable {
@@ -3146,9 +3145,7 @@
             onclick="showSection('messages')"
           >
             <span class="icon">&#10003;</span> Missatgeria
-            <span class="nav-badge" id="msg-badge" style="display: none"
-              >0</span
-            >
+            <span class="nav-badge" id="msg-badge" style="display:none"></span>
           </div>
         </div>
         <div class="sidebar-user">
@@ -5292,23 +5289,10 @@
       }
 
     function updateBadge() {
-        // Usar _serverUnreadCounts com a font de veritat (persistent entre sessions)
-        let nGeneral = _serverUnreadCounts['general'] || 0;
-        let nResta   = 0;
-        Object.entries(_serverUnreadCounts).forEach(([cid, count]) => {
-          if (cid !== 'general') nResta += (count || 0);
-        });
-        const n = nGeneral + nResta;
+        let total = 0;
+        Object.values(_serverUnreadCounts).forEach(c => { total += (c || 0); });
         const b = document.getElementById("msg-badge");
-        if (b) {
-          b.textContent = n;
-          b.style.display = n > 0 ? "" : "none";
-        }
-        const g = document.getElementById("gchat-badge");
-        if (g) {
-          g.textContent = nGeneral;
-          g.style.display = nGeneral > 0 ? "" : "none";
-        }
+        if (b) b.style.display = total > 0 ? "" : "none";
       }
       // Validació de solapament eliminada — l'usuari pot crear cites lliurement
 
