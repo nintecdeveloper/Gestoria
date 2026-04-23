@@ -1975,6 +1975,8 @@
         border-radius: 14px;
         font-size: 13px;
         line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
       }
       .msg-bubble-wrap.me .msg-bubble {
         background: var(--accent);
@@ -2285,6 +2287,7 @@
         border-radius: 14px;
         font-size: 13px;
         line-height: 1.55;
+        white-space: pre-wrap;
         word-break: break-word;
       }
       .gchat-msg-group.me .gchat-bubble {
@@ -3924,7 +3927,7 @@
                   <div class="msg-composer">
                     <textarea
                       id="msg-input"
-                      placeholder="Escriu un missatge... (Enter per enviar)"
+                      placeholder="Escriu un missatge... (Enter per enviar, Shift+Enter per salt de línia)"
                       onkeydown="msgKeydown(event)"
                     ></textarea>
                     <button class="msg-send-btn" onclick="sendMsg()">
