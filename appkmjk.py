@@ -1386,6 +1386,47 @@ def mark_messages_read(conv_id):
         logger.error(f"[LastRead] Error: {str(e)}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
+@app.route('/api/messages/unread-count', methods=['GET'])
+def get_total_unread_count():
+    """Retorna el total de missatges no llegits per l'usuari de la sessió actual."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'unread': 0})
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'unread': 0})
+    username = user.username
+    try:
+        from sqlalchemy import func as sqlfunc
+        last_reads_rows = LastRead.query.filter_by(username=username).all()
+        if not last_reads_rows:
+            # Primera sessió: marcar tots els missatges actuals com a llegits → 0 no llegits
+            conv_max_pks = db.session.query(
+                Message.conv_id, sqlfunc.max(Message.pk)
+            ).group_by(Message.conv_id).all()
+            for conv_id, max_pk in conv_max_pks:
+                if max_pk is None:
+                    continue
+                db.session.add(LastRead(username=username, conv_id=conv_id, last_pk=max_pk))
+            db.session.commit()
+            return jsonify({'unread': 0})
+        last_reads = {lr.conv_id: lr.last_pk for lr in last_reads_rows}
+        conv_ids = [row[0] for row in db.session.query(Message.conv_id).distinct().all()]
+        total = 0
+        for cid in conv_ids:
+            last_pk = last_reads.get(cid)
+            if last_pk is None:
+                continue
+            total += Message.query.filter(
+                Message.conv_id == cid,
+                Message.pk > last_pk,
+                Message.sender_username != username
+            ).count()
+        return jsonify({'unread': total})
+    except Exception as e:
+        logger.error(f"[UnreadCount] Error: {str(e)}")
+        return jsonify({'unread': 0})
+
 @app.route('/api/unread-counts', methods=['GET'])
 def get_unread_counts():
     """Retorna el recompte de missatges no llegits per conv_id per a l'usuari indicat.
