@@ -3229,8 +3229,8 @@
                 <div class="cal-cells" id="my-cal-cells"></div>
               </div>
             </div>
+            <div id="my-service-legend" style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 8px"></div>
             <div class="appt-list" id="my-appt-list"></div>
-            <div id="my-service-legend" style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 4px;margin-top:4px"></div>
           </div>
 
           <!-- CALENDARIO GLOBAL -->
@@ -4672,7 +4672,6 @@
         { id: 6, name: "Assessorament Jurídic",  desc: "Suport legal en contractes mercantils i disputes empresarials." },
         { id: 7, name: "Gestió Mercantil",       desc: "Constitució de societats, estatuts i tràmits mercantils." },
         { id: 8, name: "Altres serveis",         desc: "Altres gestions i assessoraments." },
-        { id: 9, name: "Altre",                  desc: "Tipus de servei no especificat." },
       ];
 
       /**
@@ -4688,7 +4687,6 @@
           'assessorament jurídic': { bg: '#FFAFCC', border: '#c4005e', text: '#70003a' },
           'comptabilitat':         { bg: '#CDB4DB', border: '#7230b0', text: '#3a0a60' },
           'altres serveis':        { bg: '#FFC8DD', border: '#c0006a', text: '#70003a' },
-          'altre':                 { bg: '#E2F0CB', border: '#529600', text: '#2b5000' },
         };
         return MAP[s] || { bg: 'var(--accent-light)', border: 'var(--accent)', text: 'var(--accent)' };
       }
@@ -5702,7 +5700,7 @@
         if (!el) return;
         const services = [
           'Assessorament Fiscal', 'Gestió Laboral', 'Gestió Mercantil',
-          'Assessorament Jurídic', 'Comptabilitat', 'Altres serveis', 'Altre',
+          'Assessorament Jurídic', 'Comptabilitat', 'Altres serveis',
         ];
         el.innerHTML = services.map(s => {
           const c = getServiceColor(s);
