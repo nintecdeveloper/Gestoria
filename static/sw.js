@@ -1,60 +1,50 @@
 // ═══════════════════════════════════════════════════════════════
-// Service Worker — Rodonvergés Associats
-// Gestiona Web Push Notifications i notificationclick
+// Service Worker — Rodonvergés Associats  v3
 // ═══════════════════════════════════════════════════════════════
 
-console.log('[SW] Service Worker carregat, versió 2');
+console.log('[SW] v3 carregat');
 
 self.addEventListener('install', event => {
-  console.log('[SW] install — skipWaiting per activar immediatament');
   self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
-  console.log('[SW] activate — clients.claim()');
   event.waitUntil(clients.claim());
 });
 
 self.addEventListener('push', event => {
-  console.log('[SW] push event rebut', event);
+  console.log('[SW] push rebut');
 
-  let data = {};
+  let d = {};
   try {
-    data = event.data ? event.data.json() : {};
-    console.log('[SW] push data (json):', data);
+    d = event.data ? event.data.json() : {};
   } catch (_) {
-    const rawText = event.data ? event.data.text() : '(buit)';
-    console.warn('[SW] push data no és JSON, text brut:', rawText);
-    data = { title: 'Rodonvergés Associats', body: rawText };
+    d = { title: 'Rodonvergés Associats', body: event.data ? event.data.text() : '' };
   }
 
-  const title   = data.title || 'Rodonvergés Associats';
+  console.log('[SW] payload:', d);
+
+  const title   = d.title || 'Rodonvergés Associats';
   const options = {
-    body:               data.body  || '',
-    tag:                data.tag   || 'ra-push',
+    body:               d.body  || '',
+    icon:               d.icon  || '/static/icon.png',
+    tag:                d.tag   || 'ra-push',
     requireInteraction: false,
-    data:               { url: data.url || '/' },
+    data:               { url: d.url || '/' },
   };
 
-  console.log('[SW] showNotification:', title, options);
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-      .then(() => console.log('[SW] showNotification ✅ OK'))
-      .catch(err => console.error('[SW] showNotification ❌', err))
-  );
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', event => {
-  console.log('[SW] notificationclick:', event.notification.tag);
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  const url = (event.notification.data && event.notification.data.url) || '/';
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      for (const client of clientList) {
-        if (client.url === targetUrl && 'focus' in client) return client.focus();
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) {
+        if ('focus' in c) return c.focus();
       }
-      if (clientList.length > 0 && 'focus' in clientList[0]) return clientList[0].focus();
-      return clients.openWindow(targetUrl);
+      return clients.openWindow(url);
     })
   );
 });

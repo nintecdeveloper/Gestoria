@@ -1389,14 +1389,18 @@ def send_message_api(conv_id):
         # ── Web Push: notifica el destinatari en converses privades ──
         try:
             recipient_un = data.get('recipient_username', '').strip()
+            sender_id    = data.get('sender_id')
             logger.info(f"[Push] Trigger missatge: conv={norm_conv_id!r} recipient_un={recipient_un!r}")
             if recipient_un and norm_conv_id.startswith('private_'):
                 recipient_user = User.query.filter_by(username=recipient_un, active=True).first()
                 if recipient_user:
+                    # Nom visible del remitent (fallback al username si no es troba)
+                    sender_user = User.query.get(sender_id) if sender_id else None
+                    sender_name = sender_user.name if sender_user else (sender or recipient_un)
                     preview = (text[:80] + '…') if len(text) > 80 else text
                     send_push_notification(
                         recipient_user.id,
-                        title=f'💬 Missatge de {sender}',
+                        title=sender_name,
                         body=preview or '📎 Adjunt',
                         url='/',
                         tag=f'msg-{norm_conv_id}',
@@ -2397,7 +2401,13 @@ def send_push_notification(user_id, title, body, url='/', tag='ra-push'):
     if not subs:
         logger.warning(f"[Push] ⚠️  Cap subscripció trobada per user_id={user_id}")
         return
-    payload = json.dumps({'title': title, 'body': body, 'url': url, 'tag': tag})
+    payload = json.dumps({
+        'title': title,
+        'body':  body,
+        'url':   url,
+        'tag':   tag,
+        'icon':  '/static/icon.png',
+    })
     logger.info(f"[Push] VAPID public_key (primeres 20c): {(VAPID_PUBLIC_KEY or '')[:20]}…")
     expired = []
     for sub in subs:
