@@ -2313,23 +2313,52 @@ def create_event():
 
 @app.route('/api/events/<int:ev_id>', methods=['PUT'])
 def update_event(ev_id):
-    """Actualitza un event existent."""
+    """Actualitza un event existent.
+    Body param scope:
+      'this' (default) → actualitza únicament aquest event.
+      'all'            → actualitza aquest event + tots els fills de la sèrie.
+    """
     try:
         ev = Event.query.get(ev_id)
         if not ev:
             return jsonify({'ok': False, 'error': 'Event no trobat'}), 404
-        data = request.get_json(force=True) or {}
-        ev.date          = data.get('date', ev.date)
-        ev.start_time    = data.get('time', ev.start_time)
-        ev.end_time      = data.get('timeEnd') if 'timeEnd' in data else ev.end_time
-        ev.client_name   = data.get('client') or ev.client_name
-        ev.client_phone  = data.get('clientPhone') if 'clientPhone' in data else ev.client_phone
-        ev.assigned_to   = int(data['assignedTo']) if 'assignedTo' in data else ev.assigned_to
-        ev.service_type  = data.get('service') if 'service' in data else ev.service_type
-        ev.notes         = data.get('notes') if 'notes' in data else ev.notes
-        ev.is_private    = bool(data['private']) if 'private' in data else ev.is_private
-        ev.wa_reminder   = json.dumps(data['waReminder']) if data.get('waReminder') else (None if 'waReminder' in data else ev.wa_reminder)
-        ev.pr_reminder   = json.dumps(data['prReminders']) if data.get('prReminders') else (None if 'prReminders' in data else ev.pr_reminder)
+        data  = request.get_json(force=True) or {}
+        scope = data.get('scope', 'this')
+
+        def _apply_fields(target, src):
+            """Aplica els camps editables del payload src a l'objecte target."""
+            target.start_time  = src.get('time',        target.start_time)
+            target.end_time    = src.get('timeEnd')      if 'timeEnd'    in src else target.end_time
+            target.client_name = src.get('client')    or target.client_name
+            target.client_phone= src.get('clientPhone') if 'clientPhone' in src else target.client_phone
+            target.assigned_to = int(src['assignedTo']) if 'assignedTo'  in src else target.assigned_to
+            target.service_type= src.get('service')     if 'service'     in src else target.service_type
+            target.notes       = src.get('notes')        if 'notes'       in src else target.notes
+            target.is_private  = bool(src['private'])    if 'private'     in src else target.is_private
+            target.wa_reminder = json.dumps(src['waReminder'])  if src.get('waReminder')  else (None if 'waReminder'  in src else target.wa_reminder)
+            target.pr_reminder = json.dumps(src['prReminders']) if src.get('prReminders') else (None if 'prReminders' in src else target.pr_reminder)
+
+        # Sempre actualitzem la data de l'event clicat (pot variar per a scope='this')
+        ev.date = data.get('date', ev.date)
+        _apply_fields(ev, data)
+
+        if scope == 'all':
+            # Determinar l'id del mestre
+            master_id = ev.recurrence_master_id if ev.recurrence_master_id else ev_id
+            # Actualitzar tots els fills (excepte el propi event ja actualitzat)
+            siblings = Event.query.filter(
+                Event.recurrence_master_id == master_id,
+                Event.id != ev_id
+            ).all()
+            for sib in siblings:
+                # Els fills mantenen la seva data — només es copien els camps de contingut
+                _apply_fields(sib, data)
+            # Si l'event clicat és un fill, actualitzar també el pare
+            if ev.recurrence_master_id:
+                master = Event.query.get(master_id)
+                if master and master.id != ev_id:
+                    _apply_fields(master, data)
+
         db.session.commit()
         return jsonify({'ok': True, 'event': ev.to_dict()})
     except Exception as e:
@@ -2340,9 +2369,11 @@ def update_event(ev_id):
 @app.route('/api/events/<int:ev_id>', methods=['DELETE'])
 def delete_event(ev_id):
     """Esborra un event.
-    Query param scope='all'      → esborra el pare + tots els fills de la sèrie.
-    Query param scope='following' → (per simplificar, igual que 'all' per ara).
-    Per defecte (scope='this')   → esborra només aquest event.
+    Query param scope:
+      'this'      (default) → esborra únicament aquest event.
+      'all'                 → esborra el pare + TOTS els fills.
+      'following'           → esborra aquest event + tots els fills amb date >= data_clicada.
+                              El pare i els fills anteriors es conserven.
     """
     try:
         ev = Event.query.get(ev_id)
@@ -2351,16 +2382,30 @@ def delete_event(ev_id):
 
         scope = request.args.get('scope', 'this')
 
-        if scope in ('all', 'following'):
-            # Determinar l'id del mestre: si aquest és un fill, usar master_id; si és el pare, usar el seu id
+        if scope == 'all':
             master_id = ev.recurrence_master_id if ev.recurrence_master_id else ev_id
             # Esborrar tots els fills
-            Event.query.filter_by(recurrence_master_id=master_id).delete()
+            Event.query.filter(Event.recurrence_master_id == master_id).delete()
             # Esborrar el mestre
             master = Event.query.get(master_id)
             if master:
                 db.session.delete(master)
-        else:
+
+        elif scope == 'following':
+            # Esborrar l'event clicat + tots els fills amb date >= data d'aquest event
+            cutoff_date = ev.date   # string 'YYYY-MM-DD', ordre lexicogràfic correcte
+            master_id   = ev.recurrence_master_id if ev.recurrence_master_id else ev_id
+            # Fills a partir de la data de tall (inclou l'event clicat si és fill)
+            Event.query.filter(
+                Event.recurrence_master_id == master_id,
+                Event.date >= cutoff_date
+            ).delete()
+            # Si l'event clicat és el pare (is_recurring_master), eliminar-lo també
+            if ev.is_recurring_master:
+                db.session.delete(ev)
+            # Si l'event clicat és un fill, ja l'hem eliminat amb el filtre anterior
+
+        else:  # scope == 'this'
             db.session.delete(ev)
 
         db.session.commit()

@@ -7082,6 +7082,13 @@
       }
       async function deleteEventFromList(evId, e) {
         if (e) e.stopPropagation();
+        const ev = EVENTS.find(x => x.id === evId);
+        // Events recurrents: redirigir al modal de scope (igual que des del calendari)
+        if (ev && (ev.recurrenceMasterId || ev.isRecurringMaster)) {
+          currentDetailId = evId;
+          showRecurrenceScopeModal('delete', evId);
+          return;
+        }
         if (!confirm("Vols eliminar aquesta cita?")) return;
         EVENTS = EVENTS.filter((x) => x.id !== evId);
         refreshCals();
@@ -7590,6 +7597,7 @@
           }
 
           // Persistir nou event a la BD
+          const _rruleStr = buildRRule('ev'); // BUG 6: calcular una sola vegada
           try {
             const res = await fetch('/api/events', {
               method: 'POST',
@@ -7609,22 +7617,29 @@
                 calendarType:         eventObj.calendarType || null,
                 waReminders:          eventObj.waReminders || [],
                 prReminders:          eventObj.prReminders || [],
-                recurrence_rule:      buildRRule('ev'),
-                is_recurring_master:  !!(buildRRule('ev')),
+                recurrence_rule:      _rruleStr,
+                is_recurring_master:  !!_rruleStr,
               }),
             });
             const resData = await res.json();
             if (resData.ok && resData.event) {
               eventObj.id = resData.event.id;
+              if ((resData.children_count || 0) > 0) {
+                // Hi ha fills creats al backend: recarregar tots els events
+                // per tenir-los immediatament al calendari sense esperar el poll
+                await loadEvents();
+              } else {
+                EVENTS.push(eventObj);
+              }
             } else {
               eventObj.id = nextEventId++;
+              EVENTS.push(eventObj);
             }
           } catch (e) {
             console.error('❌ [saveEvent POST] Error:', e);
             eventObj.id = nextEventId++;
+            EVENTS.push(eventObj);
           }
-
-          EVENTS.push(eventObj);
 
           // Desar recordatoris personals al backend
           if (prReminders.length > 0 && eventObj.id) {
@@ -10357,8 +10372,15 @@ function generarPasswordUsername(username) {
 
       function _loadRecurrenceFromEvent(ev, prefix) {
         _resetRecurrenceUI(prefix);
-        if (!ev.recurrenceRule && !ev.isRecurringMaster) return;
-        const rrule = ev.recurrenceRule || '';
+
+        // Si l'event és un fill, recuperar la regla del pare
+        let rrule = ev.recurrenceRule || '';
+        if (!rrule && ev.recurrenceMasterId) {
+          const master = EVENTS.find(x => x.id === ev.recurrenceMasterId);
+          if (master) rrule = master.recurrenceRule || '';
+        }
+
+        if (!rrule && !ev.isRecurringMaster) return;
         if (!rrule) return;
         const cb = document.getElementById(prefix + '-recurrent');
         if (cb) cb.checked = true;
