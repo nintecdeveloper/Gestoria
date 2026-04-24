@@ -4,6 +4,8 @@ from flask import Flask, render_template, jsonify, request, send_file, session, 
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
+from dateutil.rrule import rrulestr
+from sqlalchemy import text
 from io import BytesIO
 import io
 import requests
@@ -309,28 +311,35 @@ class Event(db.Model):
     service_type  = db.Column(db.String(100), nullable=True)
     notes         = db.Column(db.String(1000),nullable=True)
     is_private    = db.Column(db.Boolean,     default=False)
-    wa_reminder   = db.Column(db.String(500), nullable=True)   # JSON string
-    pr_reminder   = db.Column(db.String(1000),nullable=True)   # JSON string
-    created_at    = db.Column(db.DateTime,    default=datetime.utcnow)
+    wa_reminder          = db.Column(db.String(500),  nullable=True)   # JSON string
+    pr_reminder          = db.Column(db.String(1000), nullable=True)   # JSON string
+    created_at           = db.Column(db.DateTime,     default=datetime.utcnow)
+    # Recurrència
+    recurrence_rule      = db.Column(db.String(500),  nullable=True)   # RRULE string, p.ex. FREQ=WEEKLY;BYDAY=MO
+    recurrence_master_id = db.Column(db.Integer,      nullable=True)   # FK manual a l'event pare
+    is_recurring_master  = db.Column(db.Boolean,      default=False)   # True si és el pare
 
     def to_dict(self):
         return {
-            'id':           self.id,
-            'ownerId':      self.created_by,
-            'assignedTo':   self.assigned_to,
-            'date':         self.date,
-            'time':         self.start_time,
-            'timeEnd':      self.end_time,
-            'client':       self.client_name or '',
-            'service':      self.service_type or '',
-            'notes':        self.notes or '',
-            'private':      bool(self.is_private),
-            'clientPhone':  self.client_phone,
-            'calendarType': self.calendar_type,
-            'sede':         self.sede,
-            'department':   self.department,
-            'waReminder':   json.loads(self.wa_reminder) if self.wa_reminder else None,
-            'prReminders':  json.loads(self.pr_reminder) if self.pr_reminder else [],
+            'id':                  self.id,
+            'ownerId':             self.created_by,
+            'assignedTo':          self.assigned_to,
+            'date':                self.date,
+            'time':                self.start_time,
+            'timeEnd':             self.end_time,
+            'client':              self.client_name or '',
+            'service':             self.service_type or '',
+            'notes':               self.notes or '',
+            'private':             bool(self.is_private),
+            'clientPhone':         self.client_phone,
+            'calendarType':        self.calendar_type,
+            'sede':                self.sede,
+            'department':          self.department,
+            'waReminder':          json.loads(self.wa_reminder) if self.wa_reminder else None,
+            'prReminders':         json.loads(self.pr_reminder) if self.pr_reminder else [],
+            'recurrenceRule':      self.recurrence_rule,
+            'recurrenceMasterId':  self.recurrence_master_id,
+            'isRecurringMaster':   bool(self.is_recurring_master) if self.is_recurring_master is not None else False,
         }
 
 class PersonalReminder(db.Model):
@@ -2229,32 +2238,74 @@ def get_events():
 
 @app.route('/api/events', methods=['POST'])
 def create_event():
-    """Crea un nou event i el retorna amb l'id assignat per la BD."""
+    """Crea un nou event (o sèrie recurrent) i el retorna amb l'id assignat per la BD."""
     try:
         data = request.get_json(force=True) or {}
         # client_id és informatiu (prové del frontend si el client existeix a la BD)
         # però NO es persiste a Event — el nom s'emmagatzema sempre com a text a client_name
         # data.get('client_id') s'ignora intencionadament
+
+        rrule_str          = (data.get('recurrence_rule') or '').strip() or None
+        is_master          = bool(rrule_str)
+
         ev = Event(
-            date          = data.get('date', ''),
-            start_time    = data.get('time', ''),
-            end_time      = data.get('timeEnd') or None,
-            client_name   = data.get('client') or None,
-            client_phone  = data.get('clientPhone') or None,
-            assigned_to   = int(data.get('assignedTo', 0)),
-            created_by    = int(data.get('ownerId', 0)),
-            calendar_type = data.get('calendarType') or None,
-            sede          = data.get('sede') or None,
-            department    = data.get('department') or None,
-            service_type  = data.get('service') or None,
-            notes         = data.get('notes') or None,
-            is_private    = bool(data.get('private', False)),
-            wa_reminder   = json.dumps(data['waReminder']) if data.get('waReminder') else None,
-            pr_reminder   = json.dumps(data['prReminders']) if data.get('prReminders') else None,
+            date                 = data.get('date', ''),
+            start_time           = data.get('time', ''),
+            end_time             = data.get('timeEnd') or None,
+            client_name          = data.get('client') or None,
+            client_phone         = data.get('clientPhone') or None,
+            assigned_to          = int(data.get('assignedTo', 0)),
+            created_by           = int(data.get('ownerId', 0)),
+            calendar_type        = data.get('calendarType') or None,
+            sede                 = data.get('sede') or None,
+            department           = data.get('department') or None,
+            service_type         = data.get('service') or None,
+            notes                = data.get('notes') or None,
+            is_private           = bool(data.get('private', False)),
+            wa_reminder          = json.dumps(data['waReminder']) if data.get('waReminder') else None,
+            pr_reminder          = json.dumps(data['prReminders']) if data.get('prReminders') else None,
+            recurrence_rule      = rrule_str,
+            is_recurring_master  = is_master,
         )
         db.session.add(ev)
+        db.session.flush()   # assigna ev.id sense tancar la transacció
+
+        children_count = 0
+        if rrule_str:
+            try:
+                # dtstart des de la data de l'event pare
+                dtstart = datetime.strptime(ev.date, '%Y-%m-%d')
+                rule    = rrulestr(rrule_str, dtstart=dtstart, ignoretz=True)
+                dates   = list(rule)[:365]   # màxim 365 instàncies
+                # Saltem la primera data (és el propi event pare)
+                for occ_dt in dates[1:]:
+                    child = Event(
+                        date                 = occ_dt.strftime('%Y-%m-%d'),
+                        start_time           = ev.start_time,
+                        end_time             = ev.end_time,
+                        client_name          = ev.client_name,
+                        client_phone         = ev.client_phone,
+                        assigned_to          = ev.assigned_to,
+                        created_by           = ev.created_by,
+                        calendar_type        = ev.calendar_type,
+                        sede                 = ev.sede,
+                        department           = ev.department,
+                        service_type         = ev.service_type,
+                        notes                = ev.notes,
+                        is_private           = ev.is_private,
+                        recurrence_master_id = ev.id,
+                        is_recurring_master  = False,
+                    )
+                    db.session.add(child)
+                    children_count += 1
+            except Exception as rrule_err:
+                logger.warning(f"⚠️ [Events POST] Error generant recurrència: {rrule_err}")
+                # Continuem: l'event pare es desa igualment
+
         db.session.commit()
-        return jsonify({'ok': True, 'event': ev.to_dict()}), 201
+        logger.info(f"✅ [Events POST] Event {ev.id} creat"
+                    + (f" amb {children_count} fills recurrents" if children_count else ""))
+        return jsonify({'ok': True, 'event': ev.to_dict(), 'children_count': children_count}), 201
     except Exception as e:
         db.session.rollback()
         logger.error(f"❌ [Events POST] {str(e)}")
@@ -2288,14 +2339,32 @@ def update_event(ev_id):
 
 @app.route('/api/events/<int:ev_id>', methods=['DELETE'])
 def delete_event(ev_id):
-    """Esborra un event."""
+    """Esborra un event.
+    Query param scope='all'      → esborra el pare + tots els fills de la sèrie.
+    Query param scope='following' → (per simplificar, igual que 'all' per ara).
+    Per defecte (scope='this')   → esborra només aquest event.
+    """
     try:
         ev = Event.query.get(ev_id)
         if not ev:
             return jsonify({'ok': False, 'error': 'Event no trobat'}), 404
-        db.session.delete(ev)
+
+        scope = request.args.get('scope', 'this')
+
+        if scope in ('all', 'following'):
+            # Determinar l'id del mestre: si aquest és un fill, usar master_id; si és el pare, usar el seu id
+            master_id = ev.recurrence_master_id if ev.recurrence_master_id else ev_id
+            # Esborrar tots els fills
+            Event.query.filter_by(recurrence_master_id=master_id).delete()
+            # Esborrar el mestre
+            master = Event.query.get(master_id)
+            if master:
+                db.session.delete(master)
+        else:
+            db.session.delete(ev)
+
         db.session.commit()
-        return jsonify({'ok': True, 'deleted': ev_id})
+        return jsonify({'ok': True, 'deleted': ev_id, 'scope': scope})
     except Exception as e:
         db.session.rollback()
         logger.error(f"❌ [Events DELETE {ev_id}] {str(e)}")
@@ -2504,13 +2573,21 @@ with app.app_context():
     try:
         db.create_all()
         logger.info("✅ Taules de BD creades/verificades correctament")
-        try:
-            db.session.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(100)"))
-            db.session.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP"))
-            db.session.commit()
-        except Exception as e:
-            logger.error(f"Error migració reset_token: {e}")
-            db.session.rollback()
+        # ── Migracions addicients (ADD COLUMN IF NOT EXISTS és idempotent a PostgreSQL) ──
+        migrations = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(100)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP",
+            "ALTER TABLE events ADD COLUMN IF NOT EXISTS recurrence_rule VARCHAR(500)",
+            "ALTER TABLE events ADD COLUMN IF NOT EXISTS recurrence_master_id INTEGER",
+            "ALTER TABLE events ADD COLUMN IF NOT EXISTS is_recurring_master BOOLEAN DEFAULT FALSE",
+        ]
+        for sql in migrations:
+            try:
+                db.session.execute(text(sql))
+            except Exception as mig_e:
+                logger.warning(f"⚠️ Migració ignorada ({sql[:60]}…): {mig_e}")
+                db.session.rollback()
+        db.session.commit()
         seed_users()
     except Exception as _e:
         logger.error(f"❌ Error creant taules o seed: {_e}")
