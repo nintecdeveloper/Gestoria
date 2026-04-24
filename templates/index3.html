@@ -5896,19 +5896,16 @@
       function renderCalendarsUserList() {
         const container = document.getElementById('calendars-user-list');
         if (!container) return;
-        
-        // ✅ CAMBIO 1: Obtener TODOS los usuarios activos del array USERS (dinámico)
-        // ✅ ARREGLO 1: Excluir admins de la lista (los admins ven su propio calendario, no aparecen aquí)
-        let activeUsers = USERS.filter(u => u.active && u.id !== currentUser.id && u.role !== 'admin').sort((a, b) => {
-          // Ordenar por sede primero, luego por nombre
-          if (a.sede !== b.sede) return a.sede.localeCompare(b.sede);
-          return a.name.localeCompare(b.name);
-        });
-        
-        // ✅ CAMBIO 7.1: Restricción de acceso según sede
-        // No-admins solo ven usuarios de su propia sede
-        const isAdmin = currentUser.role === 'admin';
-        if (!isAdmin) {
+
+        // Tots els usuaris actius (inclou admins), excloent l'usuari actual
+        let activeUsers = USERS.filter(u => u.active && u.id !== currentUser.id)
+          .sort((a, b) => {
+            if (a.sede !== b.sede) return (a.sede || '').localeCompare(b.sede || '');
+            return a.name.localeCompare(b.name);
+          });
+
+        // No-admins: nomes veuen usuaris de la seva seu
+        if (currentUser.role !== 'admin') {
           activeUsers = activeUsers.filter(u => u.sede === currentUser.sede);
         }
         
