@@ -4988,7 +4988,13 @@
                 u.username.trim() === senderName ||
                 u.name.trim().toLowerCase() === senderName.toLowerCase()
               );
-              if (!senderUser) return;
+              // BUG 2: si senderUser no es troba, mostrar toast+notificació igualment
+              // en lloc de silenciar el missatge
+              if (!senderUser) {
+                showChatToast(senderName || 'Missatge privat', msg.text || '');
+                showMsgNotification(senderName || 'Missatge privat', msg.text, 'general', null);
+                return;
+              }
               const cid = convKey(currentUser.id, senderUser.id);
               if (!CONVS[cid]) CONVS[cid] = [];
               if (!CONVS[cid].some(m => m.id === msg.id)) {
@@ -5765,12 +5771,13 @@
         }
       }
 
-      function initApp() {
+      async function initApp() {
         const isAdmin = currentUser.role === "admin";
 
-        // Demanar permís de notificació nativa (Notification API)
+        // Demanar permís de notificació nativa (Notification API) — awaited per garantir
+        // que Notification.permission estigui actualitzat abans de continuar
         if ('Notification' in window && Notification.permission === 'default') {
-          Notification.requestPermission();
+          await Notification.requestPermission();
         }
 
         // ✅ NUEVO: Limpiar el calendario personal cuando se inicia sesión
@@ -10833,13 +10840,17 @@ function generarPasswordUsername(username) {
        */
       function showMsgNotification(senderName, text, convType, convArg) {
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
-        if (!document.hidden) return; // pestanya visible: el toast ja és suficient
+        if (document.hasFocus()) return; // usuari actiu a la pestanya: el toast ja és suficient
         const body = (text || '📎 Fitxer adjunt').slice(0, 100);
         try {
           const n = new Notification(senderName, {
             body,
             icon: '/static/logo.png',
-            tag:  'ra-msg-' + convType + (convArg !== null && convArg !== undefined ? '-' + convArg : ''),
+            // BUG 3: general usa timestamp per evitar que múltiples missatges col·lapsin en un;
+          // private/sede usen tag estable per conv (agrupa per conversa, no per missatge)
+          tag:  convType === 'general'
+                  ? 'ra-msg-general-' + Date.now()
+                  : 'ra-msg-' + convType + (convArg !== null && convArg !== undefined ? '-' + convArg : ''),
           });
           n.onclick = function () {
             window.focus();
