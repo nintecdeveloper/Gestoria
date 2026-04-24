@@ -4899,6 +4899,7 @@
                   renderGeneralChat();
                 } else if (!norm.mine) {
                   showChatToast(msg.sender_username || 'Chat General', msg.text || '');
+                  showMsgNotification(msg.sender_username || 'Chat General', msg.text, 'general', null);
                 }
               }
               return;
@@ -4918,6 +4919,7 @@
                   renderMsgsFromArray(CONVS[convId]);
                 } else if (!norm.mine) {
                   showChatToast(msg.sender_username || 'Xat de seu', msg.text || '');
+                  showMsgNotification(msg.sender_username || 'Xat de seu', msg.text, 'sede', sedeKey);
                 }
               }
               return;
@@ -4944,6 +4946,7 @@
                   renderMsgs(senderUser.id);
                 } else {
                   showChatToast(senderName, msg.text || '');
+                  showMsgNotification(senderName, msg.text, 'private', senderUser.id);
                 }
               }
             }
@@ -5052,22 +5055,6 @@
       }
 
 
-      // ✅ MOSTRAR NOTIFICACIONES
-      function showNotification(title, message) {
-        console.log(`🔔 [NOTIFICACIÓN] ${title}: ${message}`);
-        if ('Notification' in window && Notification.permission === 'granted') {
-          try {
-            new Notification(title, {
-              body: message,
-              icon: '📢'
-            });
-          } catch(e) {
-            console.log('Notificació del navegador no suportada');
-          }
-        }
-      }
-      
-
       /** Mostra un toast discret a la cantonada inferior dreta durant 4 s. */
       function showChatToast(fromName, text) {
         const container = document.getElementById('chat-toast-container');
@@ -5091,11 +5078,6 @@
           setTimeout(function() { toast.remove(); }, 300);
         }, 4000);
       }
-      // Solicitar permiso para notificaciones
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-
       // ══════════════════════════════════════════
       //  DEPARTAMENTOS Y PERMISOS
       // ══════════════════════════════════════════
@@ -5731,7 +5713,12 @@
 
       function initApp() {
         const isAdmin = currentUser.role === "admin";
-        
+
+        // Demanar permís de notificació nativa (Notification API)
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+
         // ✅ NUEVO: Limpiar el calendario personal cuando se inicia sesión
         viewingUserIdForCalendar = null;
         selectedCalendarUserId = null;
@@ -7518,7 +7505,6 @@
             // Recordatoris personals
             if (prReminders.length > 0) {
               ev.prReminders = prReminders;
-              requestNotificationPermission();
               prReminders.forEach(reminder => scheduleReminder(ev, reminder.timing));
             } else {
               delete ev.prReminders;
@@ -7592,7 +7578,6 @@
           // Recordatoris personals
           if (prReminders.length > 0) {
             eventObj.prReminders = prReminders;
-            requestNotificationPermission();
             prReminders.forEach(reminder => scheduleReminder(eventObj, reminder.timing));
           }
 
@@ -8314,7 +8299,6 @@
         // Recordatoris personals
         if (prReminders.length > 0) {
           eventObj.prReminders = prReminders;
-          requestNotificationPermission();
           prReminders.forEach(reminder => scheduleReminder(eventObj, reminder.timing));
         }
 
@@ -10726,185 +10710,58 @@ function generarPasswordUsername(username) {
         if (dropdown) dropdown.querySelectorAll('.pr-dropdown-opt').forEach(o => o.classList.remove('selected'));
       }
 
-      // Notificaciones del navegador
       // ══════════════════════════════════════════════════════════════
-      // NOTIFICACIONES — MEJORADA CON SERVICE WORKER
-      // Asegura que las notificaciones aparezcan SIEMPRE en el PC,
-      // incluso si el navegador está cerrado o minimizado
+      // NOTIFICACIÓ NATIVA DE MISSATGE NOU — Notification API
+      // Funciona a macOS, Windows i tots els navegadors moderns.
+      // No requereix Service Worker ni VAPID keys.
       // ══════════════════════════════════════════════════════════════
 
-      // ── Helpers Web Push ──────────────────────────────────────
-      /** Converteix una base64url string a Uint8Array (per applicationServerKey). */
-      function _urlBase64ToUint8Array(b64) {
-        const padding = '='.repeat((4 - b64.length % 4) % 4);
-        const base64  = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
-        const raw     = atob(base64);
-        return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
-      }
-
-      /** Envia la subscripció push al backend amb logs de diagnòstic. */
-      async function subscribeToPush() {
-        console.log('[Push] subscribeToPush() — inici');
-        if (!('PushManager' in window)) {
-          console.warn('[Push] PushManager no suportat en aquest navegador');
-          return;
-        }
-        if (Notification.permission !== 'granted') {
-          console.warn('[Push] Permís no atorgat:', Notification.permission);
-          return;
-        }
-        const reg = window._swRegistration;
-        if (!reg) {
-          console.warn('[Push] window._swRegistration és null — SW no registrat encara');
-          return;
-        }
-        console.log('[Push] SW state:', reg.active ? reg.active.state : 'no active');
+      /**
+       * Mostra una Notification API nativa quan arriba un missatge nou
+       * i la pestanya no té el focus. En clicar, enfoca la pestanya i
+       * obre la conversa corresponent.
+       *
+       * @param {string} senderName  Nom del remitent (títol de la notificació)
+       * @param {string} text        Text del missatge (cos, màx 100 car.)
+       * @param {string} convType    'general' | 'sede' | 'private'
+       * @param {*}      convArg     sedeKey (string) o userId (number); null per a general
+       */
+      function showMsgNotification(senderName, text, convType, convArg) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        if (!document.hidden) return; // pestanya visible: el toast ja és suficient
+        const body = (text || '📎 Fitxer adjunt').slice(0, 100);
         try {
-          // 1) Obtenir VAPID public key
-          const r    = await fetch('/api/push/vapid-public-key');
-          const kd   = await r.json();
-          if (!kd.ok || !kd.public_key) {
-            console.error('[Push] No s\'ha pogut obtenir VAPID public key:', kd);
-            return;
-          }
-          console.log('[Push] VAPID public_key (primeres 20c):', kd.public_key.slice(0, 20), '…');
-
-          const appKey = _urlBase64ToUint8Array(kd.public_key);
-
-          // 2) Subscriure al PushManager (retorna subscripció existent si ja existeix)
-          const sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: appKey,
+          const n = new Notification(senderName, {
+            body,
+            icon: '/static/logo.png',
+            tag:  'ra-msg-' + convType + (convArg !== null && convArg !== undefined ? '-' + convArg : ''),
           });
-          const subJson = sub.toJSON();
-          console.log('[Push] Subscripció obtinguda, endpoint (últims 40c):',
-                      subJson.endpoint.slice(-40));
-
-          // 3) Enviar subscripció al backend
-          const res  = await fetch('/api/push/subscribe', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-              endpoint: subJson.endpoint,
-              p256dh:   subJson.keys.p256dh,
-              auth:     subJson.keys.auth,
-            }),
-          });
-          const resData = await res.json();
-          if (resData.ok) {
-            console.log('[Push] Subscripció registrada al backend ✅');
-          } else {
-            console.error('[Push] El backend ha rebutjat la subscripció:', resData);
-          }
+          n.onclick = function () {
+            window.focus();
+            n.close();
+            showSection('messages');
+            if (convType === 'general')      openGeneralChat();
+            else if (convType === 'sede')    openSedeChat(convArg);
+            else if (convType === 'private') openConv(convArg);
+          };
         } catch (e) {
-          console.error('[Push] ❌ Error en subscribeToPush:', e);
+          console.warn('[Notif] Error creant notificació de missatge:', e);
         }
       }
 
-      /** Envia un push de prova cridant POST /api/push/test (útil des de la consola). */
-      async function testPushNotification() {
-        console.log('[Push] Enviant push de prova…');
-        const res  = await fetch('/api/push/test', { method: 'POST' });
-        const data = await res.json();
-        console.log('[Push] Resposta /api/push/test:', data);
-      }
-
-      /** Registra el Service Worker real (/sw.js) i subscriu al push si ja tenim permís. */
-      function registerServiceWorker() {
-        if (!('serviceWorker' in navigator)) {
-          console.warn('[Push] serviceWorker no suportat');
-          return;
-        }
-        console.log('[Push] Registrant /sw.js…');
-        navigator.serviceWorker.register('/sw.js', { scope: '/' })
-          .then(reg => {
-            console.log('[Push] SW registrat — scope:', reg.scope,
-                        '| installing:', !!reg.installing,
-                        '| waiting:', !!reg.waiting,
-                        '| active:', !!reg.active);
-            window._swRegistration = reg;
-            if (Notification.permission === 'granted') subscribeToPush();
-          })
-          .catch(err => console.error('[Push] ❌ Error registrant SW:', err));
-      }
-
-      function requestNotificationPermission() {
-        if (!('Notification' in window)) {
-          console.warn('Notificaciones no soportadas en este navegador');
-          return;
-        }
-
-        if (Notification.permission === 'granted') {
-          console.log('✅ Permisos de notificació ja atorgats');
-          subscribeToPush();
-          return;
-        }
-
-        if (Notification.permission === 'denied') {
-          // El usuario rechazó previamente
-          console.warn('⚠️ Notificaciones rechazadas por el usuario. Abre Configuración del navegador para habilitarlas.');
-          return;
-        }
-
-        // Permiso no definido aún, solicitar
-        if (Notification.permission === 'default') {
-          Notification.requestPermission()
-            .then(permission => {
-              if (permission === 'granted') {
-                console.log('✅ Permisos de notificació atorgats');
-                sendNotification('🔔 Notificacions activades!', {
-                  body: 'Els recordatoris i missatges nous apareixeran aquí',
-                  tag: 'test-notification'
-                });
-                subscribeToPush();
-              } else {
-                console.warn('⚠️ Usuario rechazó las notificaciones');
-              }
-            })
-            .catch(err => {
-              console.error('❌ Error al solicitar permisos:', err);
-            });
-        }
-      }
-
+      /**
+       * Mostra una notificació de recordatori de cita.
+       * S'usa des de scheduleReminder() — sempre és visible (requireInteraction).
+       */
       function sendNotification(title, options = {}) {
-        if (!('Notification' in window)) {
-          console.warn('Notificaciones no soportadas en este navegador');
-          return;
-        }
-
-        // Si no tenemos permiso, pedirlo
-        if (Notification.permission === 'denied') {
-          console.warn('Notificaciones rechazadas. Revisa la configuración del navegador.');
-          return;
-        }
-
-        if (Notification.permission === 'default') {
-          requestNotificationPermission();
-          return;
-        }
-
-        // Permiso otorgado: enviar notificación
-        if (Notification.permission === 'granted') {
-          try {
-            const notification = new Notification(title, {
-              icon: '🔔',
-              requireInteraction: true,  // ← IMPORTANTE: Mantiene la notificación visible
-              tag: 'gestionpro-reminder',  // Evita duplicados
-              ...options
-            });
-
-            // Hacer sonido si es posible
-            try {
-              const audio = new Audio('data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==');
-              audio.play().catch(() => {});
-            } catch(e) {}
-
-            console.log(`✅ Notificación enviada: "${title}"`);
-            return notification;
-          } catch(err) {
-            console.error('❌ Error al crear notificación:', err);
-          }
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        try {
+          new Notification(title, {
+            icon: '/static/logo.png',
+            ...options,
+          });
+        } catch (e) {
+          console.warn('[Notif] Error creant notificació de recordatori:', e);
         }
       }
 
@@ -11575,24 +11432,7 @@ ${dateStr} a les ${eventData.time}`,
           document.querySelectorAll('.pr-dropdown.open').forEach(d => d.classList.remove('open'));
         }
       });
-// DEMANAR PERMÍS DE NOTIFICACIONS (movido a initApp)
-      // ══════════════════════════════════════════════════════════════
-      // INICIALIZAR SERVICE WORKER Y NOTIFICACIONES
-      // ══════════════════════════════════════════════════════════════
-      
-      // Registrar Service Worker en carregar la pàgina
-      // (cal que estigui registrat abans de subscriure al push)
-      if ('serviceWorker' in navigator) {
-        registerServiceWorker();
-      }
-
-      // Demanar permís de notificacions (1 s de delay per no ser intrusiu)
-      // La subscripció push s'activa automàticament si el permís s'atorga
-      setTimeout(() => {
-        if (Notification.permission !== 'denied') {
-          requestNotificationPermission();
-        }
-      }, 1000);
+// El permís de notificació es demana a initApp(), just després del login.
       
     </script>
     <div id="chat-toast-container"></div>
