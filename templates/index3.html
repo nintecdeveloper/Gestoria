@@ -886,6 +886,60 @@
         color: var(--text-muted);
         margin-top: 2px;
       }
+
+      /* ── Properes cites — format Google Calendar ── */
+      .upcoming-day-group {
+        margin-bottom: 18px;
+      }
+      .upcoming-day-header {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--text-muted);
+        padding: 0 0 6px 0;
+        margin-bottom: 4px;
+        border-bottom: 1px solid var(--border);
+      }
+      .upcoming-day-header.today-header {
+        color: var(--accent);
+      }
+      .upcoming-ev-card {
+        display: flex;
+        align-items: stretch;
+        gap: 0;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.06);
+        cursor: pointer;
+        transition: opacity .15s, transform .15s;
+      }
+      .upcoming-ev-card:hover {
+        opacity: .88;
+        transform: translateY(-1px);
+      }
+      .upcoming-ev-stripe {
+        width: 5px;
+        flex-shrink: 0;
+      }
+      .upcoming-ev-body {
+        flex: 1;
+        padding: 8px 11px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .upcoming-ev-client {
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+      .upcoming-ev-meta {
+        font-size: 11px;
+        opacity: .75;
+      }
+
       .tag {
         display: inline-block;
         padding: 2px 8px;
@@ -6326,26 +6380,55 @@
           .filter((e) => e.date >= today)
           .sort((a, b) =>
             a.date === b.date
-              ? a.time.localeCompare(b.time)
+              ? (a.time || '').localeCompare(b.time || '')
               : a.date.localeCompare(b.date),
           )
-          .slice(0, 6);
-        const dotCls = ["", "amber", "red"];
-        document.getElementById("upcoming-events").innerHTML = upcoming.length
-          ? upcoming
-              .map((ev, i) => {
-                const emp = USERS.find((u) => u.id === ev.assignedTo);
-                return `<div class="task-item">
-          <div class="t-dot ${dotCls[i % 3]}"></div>
-          <div style="flex:1">
-            <div class="t-title">${safeHtml(ev.client)}</div>
-            <div class="t-meta">${fmtDate(ev.date)} &middot; ${ev.time} &middot; ${safeHtml(ev.service)}${isAdmin && emp ? " &middot; <strong>" + safeHtml(emp.name) + "</strong>" : ""}</div>
-          </div>
-          <span class="tag tag-gray" style="white-space:nowrap">${ev.time}</span>
-        </div>`;
-              })
-              .join("")
-          : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">Sense cites pendents.</div>';
+          .slice(0, 10);
+
+        let upcomingHtml = '';
+        if (upcoming.length === 0) {
+          upcomingHtml = '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">Sense cites pendents.</div>';
+        } else {
+          // Agrupar per data
+          const byDay = {};
+          upcoming.forEach(ev => {
+            if (!byDay[ev.date]) byDay[ev.date] = [];
+            byDay[ev.date].push(ev);
+          });
+          const todayS = todayStr();
+          Object.keys(byDay).sort().forEach(dateKey => {
+            const isToday = dateKey === todayS;
+            // Capçalera: "Avui" o "Dij, 24 d'abril"
+            let headerLabel;
+            if (isToday) {
+              headerLabel = 'Avui';
+            } else {
+              const d = new Date(dateKey + 'T00:00:00');
+              headerLabel = d.toLocaleDateString('ca-ES', { weekday: 'short', day: 'numeric', month: 'long' });
+              // Capitalitzar primera lletra
+              headerLabel = headerLabel.charAt(0).toUpperCase() + headerLabel.slice(1);
+            }
+            upcomingHtml += `<div class="upcoming-day-group">
+              <div class="upcoming-day-header${isToday ? ' today-header' : ''}">${safeHtml(headerLabel)}</div>`;
+            byDay[dateKey].forEach(ev => {
+              const svc   = getServiceColor(ev.service);
+              const time  = ev.time  || '';
+              const timeE = ev.timeEnd || '';
+              const timeStr = (time && timeE) ? `${time} – ${timeE}` : time;
+              const emp   = isAdmin ? USERS.find(u => u.id === ev.assignedTo) : null;
+              const empStr = (emp && emp.id !== currentUser.id) ? ` · ${safeHtml(emp.name)}` : '';
+              upcomingHtml += `<div class="upcoming-ev-card" onclick="showEventDetail(${ev.id}, event)" title="${safeHtml(ev.client)}">
+                <div class="upcoming-ev-stripe" style="background:${svc.border}"></div>
+                <div class="upcoming-ev-body" style="background:${svc.bg}">
+                  <div class="upcoming-ev-client" style="color:${svc.text}">${safeHtml(ev.client || '—')}${ev.private ? ' 🔒' : ''}</div>
+                  <div class="upcoming-ev-meta" style="color:${svc.text}">${safeHtml(ev.service)}${timeStr ? ' · ' + timeStr : ''}${empStr}</div>
+                </div>
+              </div>`;
+            });
+            upcomingHtml += `</div>`;
+          });
+        }
+        document.getElementById("upcoming-events").innerHTML = upcomingHtml;
 
       // Renderizar mensajes pendientes — privats, general i sede
         const pendingMsgs = [];
