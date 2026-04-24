@@ -5897,8 +5897,8 @@
         const container = document.getElementById('calendars-user-list');
         if (!container) return;
 
-        // Tots els usuaris actius (inclou admins), excloent l'usuari actual
-        let activeUsers = USERS.filter(u => u.active && u.id !== currentUser.id)
+        // Només empleats actius (role !== 'admin'), excloent l'usuari actual
+        let activeUsers = USERS.filter(u => u.active && u.id !== currentUser.id && u.role !== 'admin')
           .sort((a, b) => {
             if (a.sede !== b.sede) return (a.sede || '').localeCompare(b.sede || '');
             return a.name.localeCompare(b.name);
@@ -5908,18 +5908,26 @@
         if (currentUser.role !== 'admin') {
           activeUsers = activeUsers.filter(u => u.sede === currentUser.sede);
         }
-        
-        // Agrupar usuarios por sede
+
+        // Agrupar per sede
         const usersBysede = {};
         activeUsers.forEach(u => {
           const sede = u.sede || 'Sense seu';
           if (!usersBysede[sede]) usersBysede[sede] = [];
           usersBysede[sede].push(u);
         });
-        
-        // Construir HTML agrupado por sede
+
+        // Llista de seus dinàmica: primer Mataró i Vilassar (si existeixen), la resta ordenades, Sense seu al final
+        const PRIORITY_SEDES = ['Mataró', 'Vilassar'];
+        const allSedes = Object.keys(usersBysede);
+        const sedesOrdenadas = [
+          ...PRIORITY_SEDES.filter(s => allSedes.includes(s)),
+          ...allSedes.filter(s => !PRIORITY_SEDES.includes(s) && s !== 'Sense seu').sort((a, b) => a.localeCompare(b)),
+          ...( allSedes.includes('Sense seu') ? ['Sense seu'] : [] )
+        ];
+
+        // Construir HTML agrupat per seu
         let html = '';
-        const sedesOrdenadas = ['Mataró', 'Vilassar', 'Sense seu'];
         sedesOrdenadas.forEach(sede => {
           if (!usersBysede[sede] || usersBysede[sede].length === 0) return;
           
