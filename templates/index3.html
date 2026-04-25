@@ -11002,16 +11002,27 @@ ${dateStr} a les ${eventData.time}`,
       }
 
       /**
-       * Construye el texto del recordatorio WhatsApp.
+       * Construeix el text del recordatori WhatsApp amb el format oficial.
        */
       function buildWaMessage(eventData) {
-        const dateStr = eventData.date
-          ? new Date(eventData.date + 'T12:00:00').toLocaleDateString('ca-ES', { weekday:'long', day:'numeric', month:'long' })
-          : eventData.date;
+        const DIES = ['Diumenge','Dilluns','Dimarts','Dimecres','Dijous','Divendres','Dissabte'];
+        const dateObj = eventData.date ? new Date(eventData.date + 'T12:00:00') : null;
+        const diaSemana = dateObj ? DIES[dateObj.getDay()] : '';
+        const dd   = dateObj ? String(dateObj.getDate()).padStart(2, '0') : '';
+        const mm   = dateObj ? String(dateObj.getMonth() + 1).padStart(2, '0') : '';
+        const yyyy = dateObj ? dateObj.getFullYear() : '';
+        const dateFmt = dateObj ? `${dd}/${mm}/${yyyy}` : (eventData.date || '');
+        const seu = eventData.sede
+          || (USERS.find(u => u.id === eventData.assignedTo) || {}).sede
+          || (currentUser && currentUser.sede)
+          || 'Mataró';
         return (
-          `Hola ${eventData.client}, li recordem la seva cita a Rodonvergés Associats el ${dateStr} a les ${eventData.time}` +
-          (eventData.service ? ` (${eventData.service})` : '') +
-          `. L'esperem!`
+          `Hola ${eventData.client},\n\n` +
+          `Et recordem la teva cita a la nostra oficina:\n\n` +
+          `📅 ${diaSemana} ${dateFmt} a les ${eventData.time}h\n` +
+          `📍 Gestoria Rodon Vergés Associats (Oficina de ${seu})\n\n` +
+          `📞 Per a dubtes o canvis en la teva cita, contacta'ns al 93 798 45 25 o a info@rodonverges.com\n\n` +
+          `Gràcies per confiar en nosaltres.`
         );
       }
 
@@ -11056,7 +11067,7 @@ ${dateStr} a les ${eventData.time}`,
                 date: eventData.date,
                 time: eventData.time,
                 sede: sede,
-                message: `Hola ${eventData.client}, li recordem la seva cita el ${eventData.date} a les ${eventData.time} a la seu de ${eventData.sede || sede || 'Rodonvergés Associats'}.`
+                message: message
               })
             });
             const data = await res.json();

@@ -202,9 +202,25 @@ def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str
             phone = '+34' + phone.lstrip('0')
 
         client  = Client(account_sid, auth_token)
+
+        # Formatar data: YYYY-MM-DD → DD/MM/YYYY + dia de la setmana en català
+        DIES_CA = ['Dilluns','Dimarts','Dimecres','Dijous','Divendres','Dissabte','Diumenge']
+        try:
+            from datetime import datetime as _dt
+            _d = _dt.strptime(data, '%Y-%m-%d')
+            dia_setmana = DIES_CA[_d.weekday()]
+            data_fmt    = _d.strftime('%d/%m/%Y')
+        except Exception:
+            dia_setmana = ''
+            data_fmt    = data
+
         missatge = (
-            f"Hola {nom}, li recordem la seva cita el {data} a les {hora} "
-            f"a la seu de {seu}. Rodonvergés Associats."
+            f"Hola {nom},\n\n"
+            f"Et recordem la teva cita a la nostra oficina:\n\n"
+            f"📅 {dia_setmana} {data_fmt} a les {hora}h\n"
+            f"📍 Gestoria Rodon Vergés Associats (Oficina de {seu})\n\n"
+            f"📞 Per a dubtes o canvis en la teva cita, contacta'ns al 93 798 45 25 o a info@rodonverges.com\n\n"
+            f"Gràcies per confiar en nosaltres."
         )
 
         message = client.messages.create(
