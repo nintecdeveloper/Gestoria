@@ -156,79 +156,110 @@ def generar_password_username(username: str) -> str:
 # WHATSAPP — FUNCIONES DE ENVÍO
 # ═══════════════════════════════════════════════════════════════
 
-def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
-    """Envía un mensaje de WhatsApp via Meta Cloud API."""
-    if not META_PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
-        return {
-            'ok': False,
-            'error': 'Credenciales Meta no configuradas en variables de entorno.',
-            'configured': False
-        }
-    
-    phone = to_phone.strip()
-    if not phone.startswith('+'):
-        phone = '+34' + phone.lstrip('0')
-    
-    if message_type == "text":
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": phone.replace('+', ''),
-            "type": "text",
-            "text": {
-                "preview_url": False,
-                "body": message
-            }
-        }
-    else:
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": phone.replace('+', ''),
-            "type": "template",
-            "template": {
-                "name": message_type,
-                "language": {
-                    "code": "es_ES"
-                }
-            }
-        }
-    
-    headers = {
-        "Authorization": f"Bearer {META_ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    
-    url = META_API_URL.format(phone_id=META_PHONE_NUMBER_ID)
-    
+# ── Meta Cloud API (comentada per rollback) ───────────────────
+# def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
+#     """Envía un mensaje de WhatsApp via Meta Cloud API."""
+#     if not META_PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
+#         return {'ok': False, 'error': 'Credenciales Meta no configuradas.', 'configured': False}
+#     phone = to_phone.strip()
+#     if not phone.startswith('+'): phone = '+34' + phone.lstrip('0')
+#     if message_type == "text":
+#         payload = {"messaging_product": "whatsapp", "to": phone.replace('+', ''),
+#                    "type": "text", "text": {"preview_url": False, "body": message}}
+#     else:
+#         payload = {"messaging_product": "whatsapp", "to": phone.replace('+', ''),
+#                    "type": "template", "template": {"name": message_type, "language": {"code": "es_ES"}}}
+#     headers = {"Authorization": f"Bearer {META_ACCESS_TOKEN}", "Content-Type": "application/json"}
+#     url = META_API_URL.format(phone_id=META_PHONE_NUMBER_ID)
+#     try:
+#         response = requests.post(url, json=payload, headers=headers, timeout=10)
+#         response.raise_for_status()
+#         result = response.json()
+#         logger.info(f"✅ [Meta API] Mensaje enviado a {phone}")
+#         return {'ok': True, 'message_id': result.get('messages', [{}])[0].get('id'), 'phone': phone}
+#     except Exception as e:
+#         logger.error(f"❌ [Meta API] Error: {str(e)}")
+#         return {'ok': False, 'error': str(e)}
+# ─────────────────────────────────────────────────────────────
+
+def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str) -> bool:
+    """Envia un recordatori WhatsApp via Twilio.
+    Retorna True si l'enviament ha tingut èxit, False en cas d'error.
+    """
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        result = response.json()
-        logger.info(f"✅ [Meta API] Mensaje enviado a {phone} · ID: {result.get('messages', [{}])[0].get('id')}")
-        
-        return {
-            'ok': True,
-            'message_id': result.get('messages', [{}])[0].get('id'),
-            'phone': phone
-        }
+        from twilio.rest import Client
+        account_sid  = os.environ.get('TWILIO_ACCOUNT_SID')
+        auth_token   = os.environ.get('TWILIO_AUTH_TOKEN')
+        from_number  = os.environ.get('TWILIO_WHATSAPP_NUMBER', '+14155238886')
+
+        if not account_sid or not auth_token:
+            logger.error("❌ [Twilio] TWILIO_ACCOUNT_SID o TWILIO_AUTH_TOKEN no configurats")
+            return False
+
+        # Normalitzar telèfon: assegurar prefix internacional
+        phone = to_phone.strip()
+        if not phone.startswith('+'):
+            phone = '+34' + phone.lstrip('0')
+
+        client  = Client(account_sid, auth_token)
+        missatge = (
+            f"Hola {nom}, li recordem la seva cita el {data} a les {hora} "
+            f"a la seu de {seu}. Rodonvergés Associats."
+        )
+
+        message = client.messages.create(
+            body    = missatge,
+            from_   = f'whatsapp:{from_number}',
+            to      = f'whatsapp:{phone}',
+        )
+
+        logger.info(f"✅ [Twilio] WhatsApp enviat a {phone}: {message.sid}")
+        return True
     except Exception as e:
-        logger.error(f"❌ [Meta API] Error: {str(e)}")
-        return {
-            'ok': False,
-            'error': str(e)
-        }
+        logger.error(f"❌ [Twilio] Error enviant WhatsApp: {e}")
+        return False
+
+
+def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
+    """Adaptor de compatibilitat: crida send_whatsapp_twilio amb el missatge ja format.
+    Manté la mateixa signatura que l'antiga funció Meta per no trencar les crides existents.
+    """
+    try:
+        from twilio.rest import Client
+        account_sid  = os.environ.get('TWILIO_ACCOUNT_SID')
+        auth_token   = os.environ.get('TWILIO_AUTH_TOKEN')
+        from_number  = os.environ.get('TWILIO_WHATSAPP_NUMBER', '+14155238886')
+
+        if not account_sid or not auth_token:
+            return {'ok': False, 'error': 'Credencials Twilio no configurades.', 'configured': False}
+
+        phone = to_phone.strip()
+        if not phone.startswith('+'):
+            phone = '+34' + phone.lstrip('0')
+
+        client  = Client(account_sid, auth_token)
+        msg_obj = client.messages.create(
+            body  = message,
+            from_ = f'whatsapp:{from_number}',
+            to    = f'whatsapp:{phone}',
+        )
+        logger.info(f"✅ [Twilio/compat] WhatsApp enviat a {phone}: {msg_obj.sid}")
+        return {'ok': True, 'message_id': msg_obj.sid, 'phone': phone}
+    except Exception as e:
+        logger.error(f"❌ [Twilio/compat] Error: {e}")
+        return {'ok': False, 'error': str(e)}
 
 # ═══════════════════════════════════════════════════════════════
 # SCHEDULER — FUNCIONES
 # ═══════════════════════════════════════════════════════════════
 
 def send_whatsapp_job(to_phone: str, message: str):
-    """Trabajo del scheduler para enviar WhatsApp"""
-    result = send_whatsapp_meta(to_phone, message)
+    """Trabajo del scheduler para enviar WhatsApp (via Twilio)"""
+    result = send_whatsapp_meta(to_phone, message)   # usa l'adaptor Twilio
     if result['ok']:
-        logger.info(f"✅ [Scheduler/Meta] Recordatorio enviado a {to_phone}")
+        logger.info(f"✅ [Scheduler/Twilio] Recordatori enviat a {to_phone}")
     else:
-        logger.error(f"❌ [Scheduler/Meta] Error: {result.get('error')}")
+        logger.error(f"❌ [Scheduler/Twilio] Error: {result.get('error')}")
     
     # Notificar a usuarios conectados
     socketio.emit(
@@ -2060,23 +2091,23 @@ def cancel_whatsapp(job_id):
 
 @app.route('/api/whatsapp/status', methods=['GET'])
 def whatsapp_status():
-    """Comprueba si Meta API y el Scheduler están listos"""
-    meta_ok = bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN)
+    """Comprova si Twilio i el Scheduler estan a punt."""
+    twilio_ok    = bool(os.environ.get('TWILIO_ACCOUNT_SID') and os.environ.get('TWILIO_AUTH_TOKEN'))
     scheduler_ok = SCHEDULER_AVAILABLE and scheduler is not None
 
     reasons = []
-    if not meta_ok:
-        reasons.append("Variables de entorno Meta no configuradas (META_PHONE_NUMBER_ID, META_ACCESS_TOKEN)")
+    if not twilio_ok:
+        reasons.append("Variables d'entorn Twilio no configurades (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)")
     if not SCHEDULER_AVAILABLE:
-        reasons.append("APScheduler no instalado (pip install apscheduler)")
+        reasons.append("APScheduler no instal·lat (pip install apscheduler)")
     elif not scheduler_ok:
-        reasons.append("Scheduler no inicializado")
+        reasons.append("Scheduler no inicialitzat")
 
     return jsonify({
-        'meta_ready': meta_ok,
+        'twilio_ready':  twilio_ok,
         'scheduler_ready': scheduler_ok,
-        'fully_ready': meta_ok and scheduler_ok,
-        'reason': ' · '.join(reasons) if reasons else 'Todo configurado correctamente'
+        'fully_ready': twilio_ok and scheduler_ok,
+        'reason': ' · '.join(reasons) if reasons else 'Tot configurat correctament'
     })
 
 @app.route('/api/whatsapp/webhook', methods=['GET'])
@@ -2143,7 +2174,7 @@ def api_status():
         'version': '3.0',
         'timestamp': datetime.now().isoformat(),
         'environment': app.config['ENV'],
-        'meta_ready': bool(META_PHONE_NUMBER_ID and META_ACCESS_TOKEN),
+        'twilio_ready': bool(os.environ.get('TWILIO_ACCOUNT_SID') and os.environ.get('TWILIO_AUTH_TOKEN')),
         'scheduler_ready': SCHEDULER_AVAILABLE and scheduler is not None,
         'websocket_ready': True,
         'connected_users': len(connected_users)
