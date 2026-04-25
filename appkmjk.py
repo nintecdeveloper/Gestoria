@@ -2003,15 +2003,22 @@ def import_clients_db():
 def send_whatsapp():
     """Envía un mensaje de WhatsApp"""
     data = request.get_json(silent=True) or {}
+    print(f"[WA] Rebut: {data}", flush=True)
+
     to_phone = data.get('to', '').strip()
     message = data.get('message', '').strip()
-    
+
+    print(f"[WA] Telèfon: {to_phone}", flush=True)
+    print(f"[WA] Twilio SID: {os.environ.get('TWILIO_ACCOUNT_SID', 'NO TROBAT')}", flush=True)
+    print(f"[WA] Twilio Token exists: {bool(os.environ.get('TWILIO_AUTH_TOKEN'))}", flush=True)
+
     if not to_phone:
         return jsonify({'ok': False, 'error': 'Falta el campo "to"'}), 400
     if not message:
         return jsonify({'ok': False, 'error': 'Falta el campo "message"'}), 400
-    
+
     result = send_whatsapp_meta(to_phone, message)
+    print(f"[WA] Resultat: {result}", flush=True)
     return jsonify(result)
 
 @app.route('/api/whatsapp/schedule', methods=['POST'])
