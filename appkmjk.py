@@ -2327,12 +2327,24 @@ def create_event():
         children_count = 0
         if rrule_str:
             try:
+                import itertools
                 # dtstart des de la data de l'event pare
                 dtstart = datetime.strptime(ev.date, '%Y-%m-%d')
-                rule    = rrulestr(rrule_str, dtstart=dtstart, ignoretz=True)
-                dates   = list(rule)[:365]   # màxim 365 instàncies
-                # Saltem la primera data (és el propi event pare)
-                for occ_dt in dates[1:]:
+
+                # BUG 3 fix: si no hi ha COUNT ni UNTIL afegim UNTIL=1 any
+                # per evitar que rrulestr generi una seqüència infinita
+                effective_rule = rrule_str
+                if 'COUNT' not in rrule_str and 'UNTIL' not in rrule_str:
+                    until_date = dtstart + timedelta(weeks=52)
+                    effective_rule = rrule_str + f';UNTIL={until_date.strftime("%Y%m%d")}'
+
+                rule  = rrulestr(effective_rule, dtstart=dtstart, ignoretz=True)
+                # BUG 1 fix: islice evita exhaurir un generador infinit
+                dates = list(itertools.islice(rule, 365))
+                # BUG 2 fix: no saltar cegament dates[0]; comparar per data
+                for occ_dt in dates:
+                    if occ_dt.strftime('%Y-%m-%d') == ev.date:
+                        continue  # és el propi event pare, no crear fill
                     child = Event(
                         date                 = occ_dt.strftime('%Y-%m-%d'),
                         start_time           = ev.start_time,

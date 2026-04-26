@@ -5179,6 +5179,7 @@
 
       let nextEventId = 100;
       let nextUserId = 100;
+      let _isSaving = false; // guard contra clics múltiples a saveEvent()
       let nextServiceId = 100;
       let nextClientId = 200;
       let currentUser = null;
@@ -7528,6 +7529,14 @@
       }
 
       async function saveEvent() {
+        // Guard contra clics múltiples (evita duplicats en cites recurrents)
+        if (_isSaving) return;
+        const _saveBtn = document.getElementById('ev-save-btn');
+        _isSaving = true;
+        if (_saveBtn) _saveBtn.disabled = true;
+
+        try {
+
         const date = document.getElementById("ev-date").value;
         const time = document.getElementById("ev-time").value;
         const client = document.getElementById("ev-client").value.trim();
@@ -7744,6 +7753,12 @@
           renderCalendar("my");
         }
         renderDashboard();
+
+        } finally {
+          // Alliberar el guard sempre, tant si té èxit com si falla
+          _isSaving = false;
+          if (_saveBtn) _saveBtn.disabled = false;
+        }
       }
 
       function populateGlobalFilter() {
