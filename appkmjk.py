@@ -1380,18 +1380,24 @@ def get_messages(conv_id):
             if len(parts) == 2:
                 norm_id = private_conv_id(parts[0], parts[1])
 
-        msgs = (Message.query
+        msgs = list(reversed(
+            Message.query
                 .filter_by(conv_id=norm_id)
-                .order_by(Message.msg_timestamp.asc(), Message.created_at.asc())
-                .all())
+                .order_by(Message.created_at.desc())
+                .limit(100)
+                .all()
+        ))
 
         # Safety net: si no hi ha missatges al conv_id normalitzat,
         # provar l'ordre invers per compatibilitat amb missatges antics
         if not msgs and norm_id != conv_id:
-            msgs = (Message.query
+            msgs = list(reversed(
+                Message.query
                     .filter_by(conv_id=conv_id)
-                    .order_by(Message.msg_timestamp.asc(), Message.created_at.asc())
-                    .all())
+                    .order_by(Message.created_at.desc())
+                    .limit(100)
+                    .all()
+            ))
             norm_id = conv_id if msgs else norm_id
 
         return jsonify({'ok': True, 'conv_id': norm_id, 'messages': [m.to_dict() for m in msgs]})
