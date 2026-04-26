@@ -3944,6 +3944,9 @@
                       </div>
                     </div>
                   </div>
+                  <div id="msg-pagination-bar" style="display:none;text-align:center;padding:8px 0;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border);flex-shrink:0">
+                    ⏳ Carregant missatges anteriors...
+                  </div>
                   <div class="msg-messages" id="msg-messages"></div>
                   <!-- Adjuntos: barra + chips de previsualización -->
                   <div class="msg-attach-bar" id="msg-attach-bar">
@@ -4792,6 +4795,7 @@
       let _pollingTimer      = null;
       let _pollKnownIds      = {}; // convId → Set<msgId> — IDs ja vistos
       let _serverUnreadCounts = {}; // convId → unread count (font de veritat del servidor)
+      let _paginationState   = {}; // convId → { hasMore: bool, isLoading: bool }
 
       /**
        * Consulta GET /api/unread-counts per a l'usuari actual i
@@ -4912,6 +4916,103 @@
         };
       }
 
+      // ── Paginació (infinite scroll cap amunt) ────────────────────────────────
+
+      /** Retorna el conv_id de backend per a la conversa activa. */
+      function _activeConvKey() {
+        if (activeConvId === 'general-chat') return 'general';
+        if (activeSedeChat) return `sede_${activeSedeChat}`;
+        if (activeConvId !== null) {
+          const other = USERS.find(u => u.id === activeConvId);
+          if (other) return privConvId(currentUser.name, other.name);
+        }
+        return null;
+      }
+
+      /** Retorna l'array en memòria de la conversa activa. */
+      function _activeConvMsgsArr() {
+        if (activeConvId === 'general-chat') return GENERAL_CHAT;
+        if (activeSedeChat) return CONVS[`sede_${activeSedeChat}`] || [];
+        if (activeConvId !== null) return convData(activeConvId);
+        return [];
+      }
+
+      /** Genera l'HTML del botó "Carrega missatges anteriors" si escau. */
+      function _loadMoreBarHtml(convKey) {
+        const s = _paginationState[convKey];
+        if (!s || !s.hasMore) return '';
+        return `<div id="msg-load-more-btn"
+          onclick="loadMoreMessages()"
+          style="text-align:center;padding:10px 0 6px;cursor:pointer;font-size:12px;
+                 color:var(--accent);user-select:none;border-bottom:1px solid var(--border)">
+          ↑ Carrega missatges anteriors
+        </div>`;
+      }
+
+      /** Carrega els 50 missatges anteriors al primer missatge visible. */
+      async function loadMoreMessages() {
+        const convKey = _activeConvKey();
+        if (!convKey) return;
+        const state = _paginationState[convKey];
+        if (!state || !state.hasMore || state.isLoading) return;
+
+        const arr = _activeConvMsgsArr();
+        const firstId = arr[0]?.id;
+        if (!firstId) return;
+
+        state.isLoading = true;
+        document.getElementById('msg-pagination-bar').style.display = '';
+        const btn = document.getElementById('msg-load-more-btn');
+        if (btn) btn.style.pointerEvents = 'none';
+
+        const container = document.getElementById('msg-messages');
+        const prevScrollHeight = container.scrollHeight;
+
+        try {
+          const res = await fetch(
+            `/api/messages/${encodeURIComponent(convKey)}?before_id=${encodeURIComponent(firstId)}`
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data.ok) return;
+
+          state.hasMore = data.has_more === true;
+
+          const newNorm = (data.messages || [])
+            .map(m => _normMsg(m))
+            .filter(m => !arr.some(x => x.id === m.id));
+
+          if (newNorm.length) {
+            if (activeConvId === 'general-chat') {
+              GENERAL_CHAT.unshift(...newNorm);
+            } else if (activeSedeChat) {
+              const k = `sede_${activeSedeChat}`;
+              if (!CONVS[k]) CONVS[k] = [];
+              CONVS[k].unshift(...newNorm);
+            } else if (activeConvId !== null) {
+              convData(activeConvId).unshift(...newNorm);
+            }
+          }
+
+          // Re-render sense scroll al final
+          if (activeConvId === 'general-chat')       renderGeneralChat(true);
+          else if (activeSedeChat)                   renderMsgsFromArray(CONVS[`sede_${activeSedeChat}`] || [], true);
+          else if (activeConvId !== null)            renderMsgs(activeConvId, true);
+
+          // Restaurar posició de scroll
+          requestAnimationFrame(() => {
+            container.scrollTop = container.scrollHeight - prevScrollHeight;
+          });
+        } catch(e) {
+          console.warn('[Pagination] Error carregant missatges anteriors:', e);
+        } finally {
+          state.isLoading = false;
+          document.getElementById('msg-pagination-bar').style.display = 'none';
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+
       /** Fa poll d'una conversa i processa els missatges nous. */
       async function _pollConv(convId) {
         try {
@@ -4922,9 +5023,19 @@
 
           const msgs = data.messages;
 
-          // Primera vegada: inicialitzar Set i sortir (historial ja carregat per loadMessageHistory)
+          // Primera vegada: inicialitzar Set, guardar has_more, re-renderitzar si escau
           if (!_pollKnownIds[convId]) {
             _pollKnownIds[convId] = new Set(msgs.map(m => m.id));
+            _paginationState[convId] = { hasMore: data.has_more === true, isLoading: false };
+            // Si la conversa és oberta i té missatges antics, re-renderitzar per mostrar el botó
+            if (data.has_more) {
+              const inMsgs = !!document.getElementById('section-messages')?.classList.contains('active');
+              if (inMsgs) {
+                if (convId === 'general' && activeConvId === 'general-chat') renderGeneralChat(true);
+                else if (convId.startsWith('sede_') && activeSedeChat === convId.replace('sede_', ''))
+                  renderMsgsFromArray(CONVS[convId] || [], true);
+              }
+            }
             return;
           }
 
@@ -5039,6 +5150,7 @@
         stopPolling();
         _pollKnownIds = {};
         _serverUnreadCounts = {};
+        _paginationState = {};
         console.log('[Polling] Iniciant polling cada 7 s...');
         fetchUnreadCounts(); // carregar unread counts immediatament al login
         _doPoll(); // primer cicle immediat
@@ -5889,6 +6001,14 @@
 
         // Recuperar recordatoris pendents del localStorage (browser-side fallback)
         recoverReminders();
+
+        // Infinite scroll cap amunt per a paginació de missatges
+        const _msgsEl = document.getElementById('msg-messages');
+        if (_msgsEl) {
+          _msgsEl.addEventListener('scroll', function() {
+            if (this.scrollTop < 50) loadMoreMessages();
+          });
+        }
       }
 
       // ══════════════════════════════════════════
@@ -9326,11 +9446,11 @@ function generarPasswordUsername(username) {
         }, 50);
       }
 
-      function renderGeneralChat() {
+      function renderGeneralChat(noScroll = false) {
         const el = document.getElementById("msg-messages");
         if (!el) return;
         if (!GENERAL_CHAT || !GENERAL_CHAT.length) {
-          el.innerHTML =
+          el.innerHTML = _loadMoreBarHtml('general') +
             '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:40px 0">Encara no hi ha missatges. Sigues el primer a escriure!</div>';
           return;
         }
@@ -9389,8 +9509,10 @@ function generarPasswordUsername(username) {
     </div>`;
         });
 
-        el.innerHTML = html;
-        requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+        el.innerHTML = _loadMoreBarHtml('general') + html;
+        if (!noScroll) {
+          requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+        }
       }
 
       // ── Adjuntos Chat General ──────────────────────
@@ -9897,11 +10019,11 @@ function generarPasswordUsername(username) {
         document.getElementById("msg-empty-state").style.display = "flex";
       }
 
-       function renderMsgs(otherId) {
+       function renderMsgs(otherId, noScroll = false) {
         const msgs = convData(otherId);
         // Recalcular mine en temps real per a l'usuari actual
         msgs.forEach(m => { m.mine = isMe_for(m); });
-        renderMsgsFromArray(msgs);
+        renderMsgsFromArray(msgs, noScroll);
       }
       
       // ❌ ELIMINADO: Esta función causaba confusión porque leía de CONVS['general-chat'] que no debería existir
@@ -9935,15 +10057,16 @@ function generarPasswordUsername(username) {
         return 'Desconegut';
       }
 
-      function renderMsgsFromArray(msgs) {
+      function renderMsgsFromArray(msgs, noScroll = false) {
         // ✅ FIX CRÍTICO: Validar que msgs no es null/undefined
         if (!msgs || !Array.isArray(msgs)) {
           console.error('❌ renderMsgsFromArray: msgs inválido ->', msgs);
           msgs = [];
         }
-        
+
         const el = document.getElementById("msg-messages");
-        el.innerHTML = msgs.length
+        const _lmBar = _loadMoreBarHtml(_activeConvKey());
+        el.innerHTML = (_lmBar + (msgs.length
           ? msgs
               .map((m, idx) => {
                 const isMe = isMe_for(m);
@@ -9991,11 +10114,11 @@ function generarPasswordUsername(username) {
       </div>`;
               })
               .join("")
-          : '<div style="text-align:center;color:var(--text-muted);font-size:13px;margin:auto">Inicia la conversa</div>';
-        // Scroll suave al final compatible con todos los navegadores
-        requestAnimationFrame(() => {
-          el.scrollTop = el.scrollHeight;
-        });
+          : '<div style="text-align:center;color:var(--text-muted);font-size:13px;margin:auto">Inicia la conversa</div>'));
+        // Scroll suave al final (omès si noScroll per preservar posició en paginació)
+        if (!noScroll) {
+          requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+        }
       }
 
       function msgKeydown(e) {
@@ -11319,15 +11442,20 @@ ${dateStr} a les ${eventData.time}`,
         const normKey = privConvId(currentUser.name, other.name);
         let allMsgs = [];
 
+        let _hasMore = false;
         try {
           const res = await fetch(`/api/messages/${encodeURIComponent(normKey)}`);
           if (res.ok) {
             const data = await res.json();
             if (data.ok && Array.isArray(data.messages)) {
               allMsgs = data.messages;
+              _hasMore = data.has_more === true;
             }
           }
         } catch(e) {}
+
+        // Guardar has_more per a paginació (sempre, fins i tot si no hi ha msgs nous)
+        _paginationState[normKey] = { hasMore: _hasMore, isLoading: false };
 
         if (!allMsgs.length) return;
 

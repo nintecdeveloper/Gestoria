@@ -1369,10 +1369,16 @@ def serve_upload(filename):
     return send_file(os.path.join(UPLOAD_FOLDER, filename), as_attachment=True)
 @app.route('/api/messages/<conv_id>', methods=['GET'])
 def get_messages(conv_id):
-    """Recupera missatges d'una conversa des de PostgreSQL."""
+    """Recupera missatges d'una conversa des de PostgreSQL.
+    Suporta paginació via ?before_id=<msg_id> (carrega 50 missatges anteriors a aquell ID).
+    Retorna has_more: true si hi ha missatges més antics.
+    """
     if not conv_id:
-        return jsonify({'ok': False, 'error': 'conv_id requerit', 'messages': []}), 400
+        return jsonify({'ok': False, 'error': 'conv_id requerit', 'messages': [], 'has_more': False}), 400
     try:
+        LIMIT = 50
+        before_id = request.args.get('before_id', '').strip() or None
+
         # Normalitzar conv_id privat per ordre alfabètic
         norm_id = conv_id
         if conv_id.startswith('private_'):
@@ -1380,30 +1386,39 @@ def get_messages(conv_id):
             if len(parts) == 2:
                 norm_id = private_conv_id(parts[0], parts[1])
 
-        msgs = list(reversed(
-            Message.query
-                .filter_by(conv_id=norm_id)
-                .order_by(Message.created_at.desc())
-                .limit(100)
-                .all()
-        ))
+        def _fetch(cid):
+            q = Message.query.filter_by(conv_id=cid)
+            if before_id:
+                ref = Message.query.filter_by(msg_id=before_id).first()
+                if ref:
+                    q = q.filter(Message.pk < ref.pk)
+            return list(reversed(q.order_by(Message.created_at.desc()).limit(LIMIT).all()))
 
-        # Safety net: si no hi ha missatges al conv_id normalitzat,
-        # provar l'ordre invers per compatibilitat amb missatges antics
+        msgs = _fetch(norm_id)
+
+        # Safety net: compatibilitat amb missatges antics guardats amb conv_id no normalitzat
         if not msgs and norm_id != conv_id:
-            msgs = list(reversed(
-                Message.query
-                    .filter_by(conv_id=conv_id)
-                    .order_by(Message.created_at.desc())
-                    .limit(100)
-                    .all()
-            ))
+            msgs = _fetch(conv_id)
             norm_id = conv_id if msgs else norm_id
 
-        return jsonify({'ok': True, 'conv_id': norm_id, 'messages': [m.to_dict() for m in msgs]})
+        # Calcular has_more: hi ha missatges més antics que el primer de la pàgina actual?
+        has_more = False
+        if msgs:
+            oldest_pk = msgs[0].pk
+            has_more = Message.query.filter(
+                Message.conv_id == norm_id,
+                Message.pk < oldest_pk
+            ).count() > 0
+
+        return jsonify({
+            'ok':       True,
+            'conv_id':  norm_id,
+            'messages': [m.to_dict() for m in msgs],
+            'has_more': has_more,
+        })
     except Exception as e:
         logger.error(f"[Messages GET] Error: {str(e)}")
-        return jsonify({'ok': False, 'error': str(e), 'messages': []}), 500
+        return jsonify({'ok': False, 'error': str(e), 'messages': [], 'has_more': False}), 500
 
 @app.route('/api/messages/<conv_id>', methods=['POST'])
 def send_message_api(conv_id):
