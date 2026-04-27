@@ -658,11 +658,7 @@ def auth_login():
     if not username or not password:
         return jsonify({'error': 'Credencials incorrectes'}), 401
 
-    print(f"LOGIN attempt: {username}", flush=True)
     user = User.query.filter_by(username=username, active=True).first()
-    print(f"User found: {user is not None}", flush=True)
-    if user:
-        print(f"Password check: {check_password_hash(user.password_hash, password)}", flush=True)
 
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({'error': 'Credencials incorrectes'}), 401
@@ -1929,10 +1925,11 @@ def delete_client(client_id):
 def import_clients_db():
     """Importa clients des d'Excel o CSV a PostgreSQL. Només admins."""
 
-    # Seguretat: només admins
-    user_role = request.headers.get('X-User-Role', '')
-    if user_role != 'admin':
-        return jsonify({'ok': False, 'error': 'Accés denegat. Només administradors.'}), 403
+    # Seguretat: només admins (verificació via sessió, no via capçalera forjable)
+    _uid = session.get('user_id')
+    _u   = User.query.get(_uid) if _uid else None
+    if not _u or _u.role != 'admin':
+        return jsonify({'ok': False, 'error': 'No autoritzat'}), 403
 
     if 'file' not in request.files:
         return jsonify({'ok': False, 'error': 'Cap fitxer rebut.'}), 400
@@ -2255,9 +2252,11 @@ def admin_reset_data():
     Només accessible per usuaris amb rol 'admin'.
     NO esborra: usuaris, clients ni serveis.
     """
-    user_role = request.headers.get('X-User-Role', '')
-    if user_role != 'admin':
-        return jsonify({'ok': False, 'error': 'Accés denegat. Nomes administradors.'}), 403
+    # Seguretat: només admins (verificació via sessió, no via capçalera forjable)
+    _uid = session.get('user_id')
+    _u   = User.query.get(_uid) if _uid else None
+    if not _u or _u.role != 'admin':
+        return jsonify({'ok': False, 'error': 'No autoritzat'}), 403
 
     try:
         deleted_events    = Event.query.delete()
