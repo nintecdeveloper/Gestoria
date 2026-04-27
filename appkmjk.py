@@ -199,19 +199,19 @@ def send_whatsapp_meta(to_phone: str, message: str = '',
 
     headers = {"Authorization": f"Bearer {META_ACCESS_TOKEN}", "Content-Type": "application/json"}
     url = META_API_URL.format(phone_id=META_PHONE_NUMBER_ID)
+    response = requests.post(url, json=payload, headers=headers, timeout=10)
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
         response.raise_for_status()
-        result = response.json()
-        logger.info(f"✅ [Meta API] Mensaje enviado a {phone}")
-        return {'ok': True, 'message_id': result.get('messages', [{}])[0].get('id'), 'phone': phone}
     except requests.exceptions.HTTPError as e:
-        error_detail = e.response.json() if e.response else str(e)
+        try:
+            error_detail = response.json()
+        except Exception:
+            error_detail = response.text
         logger.error(f"❌ [Meta API] Error: {e} | Detall: {error_detail}")
         return {'ok': False, 'error': str(e), 'detail': error_detail}
-    except Exception as e:
-        logger.error(f"❌ [Meta API] Error: {str(e)}")
-        return {'ok': False, 'error': str(e)}
+    result = response.json()
+    logger.info(f"✅ [Meta API] Mensaje enviado a {phone}")
+    return {'ok': True, 'message_id': result.get('messages', [{}])[0].get('id'), 'phone': phone}
 
 
 def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str) -> bool:
