@@ -156,18 +156,47 @@ def generar_password_username(username: str) -> str:
 # WHATSAPP — FUNCIONES DE ENVÍO
 # ═══════════════════════════════════════════════════════════════
 
-def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
-    """Envía un mensaje de WhatsApp via Meta Cloud API."""
+def send_whatsapp_meta(to_phone: str, message: str = '',
+                       message_type: str = "text",
+                       use_template: bool = False,
+                       nom: str = '', data: str = '', hora: str = '', seu: str = ''):
+    """Envía un mensaje de WhatsApp via Meta Cloud API.
+
+    Si use_template=True usa la plantilla aprovada 'nom_recordatori_cita' (ca)
+    amb 4 variables: {{1}}=nom, {{2}}=data, {{3}}=hora, {{4}}=seu.
+    Si use_template=False (per defecte) envia text lliure.
+    """
     if not META_PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
         return {'ok': False, 'error': 'Credenciales Meta no configuradas.', 'configured': False}
     phone = to_phone.strip()
     if not phone.startswith('+'): phone = '+34' + phone.lstrip('0')
-    if message_type == "text":
+
+    if use_template:
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": phone.replace('+', ''),
+            "type": "template",
+            "template": {
+                "name": "nom_recordatori_cita",
+                "language": {"code": "ca"},
+                "components": [{
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": nom},
+                        {"type": "text", "text": data},
+                        {"type": "text", "text": hora},
+                        {"type": "text", "text": seu},
+                    ]
+                }]
+            }
+        }
+    elif message_type == "text":
         payload = {"messaging_product": "whatsapp", "to": phone.replace('+', ''),
                    "type": "text", "text": {"preview_url": False, "body": message}}
     else:
         payload = {"messaging_product": "whatsapp", "to": phone.replace('+', ''),
                    "type": "template", "template": {"name": message_type, "language": {"code": "es_ES"}}}
+
     headers = {"Authorization": f"Bearer {META_ACCESS_TOKEN}", "Content-Type": "application/json"}
     url = META_API_URL.format(phone_id=META_PHONE_NUMBER_ID)
     try:
@@ -182,7 +211,7 @@ def send_whatsapp_meta(to_phone: str, message: str, message_type: str = "text"):
 
 
 def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str) -> bool:
-    """Adaptador: construeix el missatge formatat i crida send_whatsapp_meta().
+    """Adaptador: prepara les 4 variables de la plantilla i crida send_whatsapp_meta().
     Retorna True si l'enviament ha tingut èxit, False en cas d'error.
     """
     # Normalitzar telèfon: assegurar prefix internacional
@@ -190,7 +219,7 @@ def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str
     if not phone.startswith('+'):
         phone = '+34' + phone.lstrip('0')
 
-    # Formatar data: YYYY-MM-DD → DD/MM/YYYY + dia de la setmana en català
+    # Formatar data: YYYY-MM-DD → "Dilluns 28/04/2026" per a la variable {{2}}
     DIES_CA = ['Dilluns','Dimarts','Dimecres','Dijous','Divendres','Dissabte','Diumenge']
     try:
         _d = datetime.strptime(data, '%Y-%m-%d')
@@ -200,16 +229,16 @@ def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str
         dia_setmana = ''
         data_fmt    = data
 
-    missatge = (
-        f"Hola {nom},\n\n"
-        f"Et recordem la teva cita a la nostra oficina:\n\n"
-        f"📅 {dia_setmana} {data_fmt} a les {hora}h\n"
-        f"📍 Gestoria Rodon Vergés Associats (Oficina de {seu})\n\n"
-        f"📞 Per a dubtes o canvis en la teva cita, contacta'ns al 93 798 45 25 o a info@rodonverges.com\n\n"
-        f"Gràcies per confiar en nosaltres."
-    )
+    data_var = f"{dia_setmana} {data_fmt}".strip()
 
-    result = send_whatsapp_meta(phone, missatge)
+    result = send_whatsapp_meta(
+        phone,
+        use_template = True,
+        nom  = nom,
+        data = data_var,
+        hora = hora,
+        seu  = seu,
+    )
     if result.get('ok'):
         logger.info(f"✅ [WA] Recordatori enviat a {phone}")
         return True
@@ -1990,24 +2019,51 @@ def import_clients_db():
     })
 @app.route('/api/whatsapp/send', methods=['POST'])
 def send_whatsapp():
-    """Envía un mensaje de WhatsApp"""
+    """Envía un mensaje de WhatsApp.
+    Si use_template=True usa la plantilla 'nom_recordatori_cita' amb client/date/time/sede.
+    Si use_template=False (per defecte) envia el camp 'message' com a text lliure.
+    """
     data = request.get_json(silent=True) or {}
-    print(f"[WA] Rebut: {data}", flush=True)
+    logger.info(f"[WA /send] Rebut: {data}")
 
-    to_phone = data.get('to', '').strip()
-    message = data.get('message', '').strip()
-
-    print(f"[WA] Telèfon: {to_phone}", flush=True)
-    print(f"[WA] Twilio SID: {os.environ.get('TWILIO_ACCOUNT_SID', 'NO TROBAT')}", flush=True)
-    print(f"[WA] Twilio Token exists: {bool(os.environ.get('TWILIO_AUTH_TOKEN'))}", flush=True)
+    to_phone     = data.get('to', '').strip()
+    use_template = bool(data.get('use_template', False))
 
     if not to_phone:
         return jsonify({'ok': False, 'error': 'Falta el campo "to"'}), 400
-    if not message:
-        return jsonify({'ok': False, 'error': 'Falta el campo "message"'}), 400
 
-    result = send_whatsapp_meta(to_phone, message)
-    print(f"[WA] Resultat: {result}", flush=True)
+    if use_template:
+        nom  = data.get('client', '') or ''
+        date = data.get('date',   '') or ''
+        hora = data.get('time',   '') or ''
+        seu  = data.get('sede',   '') or ''
+
+        # Formatar data: YYYY-MM-DD → "Dilluns 28/04/2026"
+        DIES_CA = ['Dilluns','Dimarts','Dimecres','Dijous','Divendres','Dissabte','Diumenge']
+        try:
+            _d = datetime.strptime(date, '%Y-%m-%d')
+            dia_setmana = DIES_CA[_d.weekday()]
+            data_fmt    = _d.strftime('%d/%m/%Y')
+        except Exception:
+            dia_setmana = ''
+            data_fmt    = date
+        data_var = f"{dia_setmana} {data_fmt}".strip()
+
+        result = send_whatsapp_meta(
+            to_phone,
+            use_template = True,
+            nom  = nom,
+            data = data_var,
+            hora = hora,
+            seu  = seu,
+        )
+    else:
+        message = data.get('message', '').strip()
+        if not message:
+            return jsonify({'ok': False, 'error': 'Falta el campo "message"'}), 400
+        result = send_whatsapp_meta(to_phone, message=message)
+
+    logger.info(f"[WA /send] Resultat: {result}")
     return jsonify(result)
 
 @app.route('/api/whatsapp/schedule', methods=['POST'])
