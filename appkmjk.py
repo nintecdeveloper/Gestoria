@@ -78,7 +78,7 @@ META_BUSINESS_ACCOUNT_ID = os.environ.get('META_BUSINESS_ACCOUNT_ID', None)
 GMAIL_USER         = os.environ.get('GMAIL_USER')
 GMAIL_APP_PASSWORD = os.environ.get('GMAIL_APP_PASSWORD')
 META_API_VERSION = "v18.0"
-META_API_URL = f"https://graph.instagram.com/{META_API_VERSION}/{{phone_id}}/messages"
+META_API_URL = f"https://graph.facebook.com/{META_API_VERSION}/{{phone_id}}/messages"
 
 # ═══════════════════════════════════════════════════════════════
 # EMAIL — GMAIL SMTP
