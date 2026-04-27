@@ -205,6 +205,10 @@ def send_whatsapp_meta(to_phone: str, message: str = '',
         result = response.json()
         logger.info(f"✅ [Meta API] Mensaje enviado a {phone}")
         return {'ok': True, 'message_id': result.get('messages', [{}])[0].get('id'), 'phone': phone}
+    except requests.exceptions.HTTPError as e:
+        error_detail = e.response.json() if e.response else str(e)
+        logger.error(f"❌ [Meta API] Error: {e} | Detall: {error_detail}")
+        return {'ok': False, 'error': str(e), 'detail': error_detail}
     except Exception as e:
         logger.error(f"❌ [Meta API] Error: {str(e)}")
         return {'ok': False, 'error': str(e)}
