@@ -256,25 +256,102 @@ def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str
 # SCHEDULER — FUNCIONES
 # ═══════════════════════════════════════════════════════════════
 
-def send_whatsapp_job(to_phone: str, message: str):
-    """Trabajo del scheduler para enviar WhatsApp (via Twilio)"""
-    result = send_whatsapp_meta(to_phone, message)   # usa l'adaptor Twilio
-    if result['ok']:
-        logger.info(f"✅ [Scheduler/Twilio] Recordatori enviat a {to_phone}")
-    else:
-        logger.error(f"❌ [Scheduler/Twilio] Error: {result.get('error')}")
-    
-    # Notificar a usuarios conectados
-    socketio.emit(
-        'notification_received',
-        {
-            'type': 'reminder',
-            'title': 'Recordatori de cita',
-            'message': message,
-            'timestamp': datetime.now().isoformat()
-        },
-        broadcast=True
-    )
+def send_whatsapp_job(to_phone: str, nom: str, data: str, hora: str, seu: str, job_id: str):
+    """Envia un recordatori WhatsApp via plantilla aprovada i marca el job com a enviat a la BD."""
+    with app.app_context():
+        ok = send_whatsapp_twilio(to_phone, nom=nom, data=data, hora=hora, seu=seu)
+
+        # Marcar sent=True a la BD
+        try:
+            job_rec = WaScheduledJob.query.filter_by(job_id=job_id).first()
+            if job_rec:
+                job_rec.sent = True
+                db.session.commit()
+        except Exception as _db_err:
+            logger.error(f"[WaJob] Error marcant sent=True job {job_id}: {_db_err}")
+            db.session.rollback()
+
+        if ok:
+            logger.info(f"✅ [Scheduler] Recordatori WA enviat a {to_phone} (job: {job_id})")
+        else:
+            logger.error(f"❌ [Scheduler] Error enviant recordatori WA a {to_phone} (job: {job_id})")
+
+        # Notificar usuaris connectats
+        socketio.emit(
+            'notification_received',
+            {
+                'type':      'reminder',
+                'title':     'Recordatori de cita',
+                'message':   f'Recordatori enviat a {nom}',
+                'timestamp': datetime.now().isoformat(),
+            },
+            broadcast=True
+        )
+
+def recover_pending_jobs():
+    """Recupera i re-programa els jobs WA pendents (sent=False) després d'un restart.
+    - send_at > ara  → re-afegeix a APScheduler amb DateTrigger
+    - send_at <= ara → envia immediatament en thread separat
+    """
+    if not SCHEDULER_AVAILABLE or not scheduler:
+        return
+    with app.app_context():
+        try:
+            madrid   = pytz.timezone('Europe/Madrid')
+            now_utc  = datetime.utcnow()
+            pending  = WaScheduledJob.query.filter_by(sent=False).all()
+            if not pending:
+                logger.info("🔄 [Recover] Cap job WA pendent.")
+                return
+
+            recovered  = 0
+            sent_now   = 0
+
+            for job_rec in pending:
+                send_at_naive = job_rec.send_at   # TIMESTAMP sense tz a la BD
+                # Comparar en UTC (la BD guarda UTC per defecte amb datetime.utcnow)
+                if send_at_naive > now_utc:
+                    # Job futur: re-programar
+                    send_at_tz = madrid.localize(send_at_naive) if send_at_naive.tzinfo is None else send_at_naive
+                    try:
+                        scheduler.add_job(
+                            func         = send_whatsapp_job,
+                            trigger      = DateTrigger(run_date=send_at_tz),
+                            args         = [job_rec.phone, job_rec.nom, job_rec.data,
+                                            job_rec.hora, job_rec.seu, job_rec.job_id],
+                            id           = job_rec.job_id,
+                            replace_existing = True,
+                        )
+                        recovered += 1
+                        logger.info(f"🔄 [Recover] Re-programat: {job_rec.job_id} → {send_at_naive.isoformat()}")
+                    except Exception as _sched_err:
+                        logger.error(f"❌ [Recover] Error re-programant {job_rec.job_id}: {_sched_err}")
+                else:
+                    # Job passat no enviat: enviar ara en thread separat
+                    def _send_missed(rec):
+                        ok = send_whatsapp_twilio(rec.phone, nom=rec.nom, data=rec.data,
+                                                  hora=rec.hora, seu=rec.seu)
+                        with app.app_context():
+                            try:
+                                r = WaScheduledJob.query.filter_by(job_id=rec.job_id).first()
+                                if r:
+                                    r.sent = True
+                                    db.session.commit()
+                            except Exception as _e:
+                                logger.error(f"[Recover] Error marcant sent job {rec.job_id}: {_e}")
+                                db.session.rollback()
+                        if ok:
+                            logger.info(f"✅ [Recover] Enviat (retardat): {rec.job_id}")
+                        else:
+                            logger.error(f"❌ [Recover] Error enviant (retardat): {rec.job_id}")
+
+                    threading.Thread(target=_send_missed, args=(job_rec,), daemon=True).start()
+                    sent_now += 1
+
+            logger.info(f"🔄 [Recover] {recovered} jobs re-programats, {sent_now} enviats immediatament.")
+        except Exception as _e:
+            logger.error(f"❌ [Recover] Error en recover_pending_jobs: {_e}")
+
 
 def create_seat_chats(user_id, user_name, user_sede):
     """Crea automáticamente los chats de sede cuando se añade un usuario."""
@@ -451,6 +528,21 @@ class PushSubscription(db.Model):
     p256dh     = db.Column(db.Text, nullable=False)
     auth       = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class WaScheduledJob(db.Model):
+    """Persisteix els recordatoris WhatsApp programats per poder-los recuperar en restart."""
+    __tablename__ = 'wa_scheduled_jobs'
+    id         = db.Column(db.Integer, primary_key=True)
+    job_id     = db.Column(db.String(100), unique=True, nullable=False)
+    event_id   = db.Column(db.Integer, nullable=True)
+    phone      = db.Column(db.String(20),  nullable=False)
+    nom        = db.Column(db.String(200), nullable=False)
+    data       = db.Column(db.String(20),  nullable=False)
+    hora       = db.Column(db.String(10),  nullable=False)
+    seu        = db.Column(db.String(100), nullable=False)
+    send_at    = db.Column(db.DateTime,    nullable=False)
+    sent       = db.Column(db.Boolean,     default=False)
+    created_at = db.Column(db.DateTime,    default=datetime.utcnow)
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -2086,7 +2178,10 @@ def send_whatsapp():
 
 @app.route('/api/whatsapp/schedule', methods=['POST'])
 def schedule_whatsapp():
-    """Programa el envío de un WhatsApp en una fecha/hora futura"""
+    """Programa el envío de un WhatsApp en una fecha/hora futura.
+    Desa el job a WaScheduledJob (sent=False) per poder recuperar-lo en restart.
+    Camps nous: nom, data, hora, seu, event_id (a més dels clàssics to/send_at/job_id).
+    """
     if not SCHEDULER_AVAILABLE or not scheduler:
         return jsonify({
             'ok': False,
@@ -2094,53 +2189,93 @@ def schedule_whatsapp():
             'configured': False
         }), 503
 
-    data = request.get_json(silent=True) or {}
-    to_phone = data.get('to', '').strip()
-    message = data.get('message', '').strip()
-    send_at = data.get('send_at', '').strip()
-    job_id = data.get('job_id', '').strip()
+    payload  = request.get_json(silent=True) or {}
+    to_phone = payload.get('to', '').strip()
+    send_at  = payload.get('send_at', '').strip()
+    job_id   = payload.get('job_id', '').strip()
 
-    if not to_phone or not message or not send_at or not job_id:
-        return jsonify({'ok': False, 'error': 'Faltan campos: to, message, send_at, job_id'}), 400
+    # Camps de la plantilla (obligatoris per al nou flux)
+    nom      = (payload.get('nom')    or payload.get('client') or '').strip()
+    data_cita= (payload.get('data')   or payload.get('date')   or '').strip()
+    hora     = (payload.get('hora')   or payload.get('time')   or '').strip()
+    seu      = (payload.get('seu')    or payload.get('sede')   or '').strip()
+    event_id = payload.get('event_id') or None
 
-    # Parsear la fecha de envío
+    if not to_phone or not send_at or not job_id:
+        return jsonify({'ok': False, 'error': 'Falten camps: to, send_at, job_id'}), 400
+    if not nom or not data_cita or not hora or not seu:
+        return jsonify({'ok': False, 'error': 'Falten camps de plantilla: nom, data, hora, seu'}), 400
+
+    # Parsear la data d'enviament
     try:
         send_dt = datetime.fromisoformat(send_at)
+        madrid  = pytz.timezone('Europe/Madrid')
         if send_dt.tzinfo is None:
-            madrid = pytz.timezone('Europe/Madrid')
             send_dt = madrid.localize(send_dt)
     except ValueError:
-        return jsonify({'ok': False, 'error': f'Formato de send_at inválido: {send_at}'}), 400
+        return jsonify({'ok': False, 'error': f'Format de send_at invàlid: {send_at}'}), 400
 
-    # Si la fecha ya pasó, no programar
+    # Si la data ja ha passat, no programar
     now_tz = datetime.now(pytz.timezone('Europe/Madrid'))
     if send_dt <= now_tz:
-        return jsonify({'ok': False, 'error': 'La fecha de envío ya ha pasado'}), 400
+        return jsonify({'ok': False, 'error': 'La data d\'enviament ja ha passat'}), 400
 
-    # Eliminar job anterior con el mismo ID si existe
+    # Desar (o actualitzar) el registre persistent a la BD
+    try:
+        send_at_utc = send_dt.astimezone(pytz.utc).replace(tzinfo=None)  # guardar UTC naive
+        existing_rec = WaScheduledJob.query.filter_by(job_id=job_id).first()
+        if existing_rec:
+            existing_rec.phone   = to_phone
+            existing_rec.nom     = nom
+            existing_rec.data    = data_cita
+            existing_rec.hora    = hora
+            existing_rec.seu     = seu
+            existing_rec.send_at = send_at_utc
+            existing_rec.sent    = False
+            if event_id:
+                existing_rec.event_id = int(event_id)
+        else:
+            db.session.add(WaScheduledJob(
+                job_id   = job_id,
+                event_id = int(event_id) if event_id else None,
+                phone    = to_phone,
+                nom      = nom,
+                data     = data_cita,
+                hora     = hora,
+                seu      = seu,
+                send_at  = send_at_utc,
+                sent     = False,
+            ))
+        db.session.commit()
+    except Exception as _db_err:
+        db.session.rollback()
+        logger.error(f"❌ [Scheduler] Error desant WaScheduledJob {job_id}: {_db_err}")
+        # Continuem igualment per programar el job en memòria
+
+    # Eliminar job anterior amb el mateix ID si existeix
     try:
         if scheduler.get_job(job_id):
             scheduler.remove_job(job_id)
     except Exception:
         pass
 
-    # Programar el trabajo
+    # Programar el job
     try:
         scheduler.add_job(
-            func=send_whatsapp_job,
-            trigger=DateTrigger(run_date=send_dt),
-            args=[to_phone, message],
-            id=job_id,
-            replace_existing=True
+            func             = send_whatsapp_job,
+            trigger          = DateTrigger(run_date=send_dt),
+            args             = [to_phone, nom, data_cita, hora, seu, job_id],
+            id               = job_id,
+            replace_existing = True,
         )
-        logger.info(f"📅 [Scheduler] Meta WA programado para {send_dt.isoformat()} → {to_phone} (job: {job_id})")
+        logger.info(f"📅 [Scheduler] WA programat per {send_dt.isoformat()} → {to_phone} (job: {job_id})")
         return jsonify({
-            'ok': True,
-            'job_id': job_id,
-            'scheduled_for': send_dt.isoformat()
+            'ok':           True,
+            'job_id':       job_id,
+            'scheduled_for': send_dt.isoformat(),
         })
     except Exception as e:
-        logger.error(f"❌ [Scheduler] Error al programar job {job_id}: {str(e)}")
+        logger.error(f"❌ [Scheduler] Error programant job {job_id}: {str(e)}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 @app.route('/api/whatsapp/cancel/<job_id>', methods=['DELETE'])
@@ -2740,6 +2875,7 @@ with app.app_context():
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS recurrence_rule VARCHAR(500)",
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS recurrence_master_id INTEGER",
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS is_recurring_master BOOLEAN DEFAULT FALSE",
+            "CREATE TABLE IF NOT EXISTS wa_scheduled_jobs (id SERIAL PRIMARY KEY, job_id VARCHAR(100) UNIQUE NOT NULL, event_id INTEGER, phone VARCHAR(20) NOT NULL, nom VARCHAR(200) NOT NULL, data VARCHAR(20) NOT NULL, hora VARCHAR(10) NOT NULL, seu VARCHAR(100) NOT NULL, send_at TIMESTAMP NOT NULL, sent BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW())",
         ]
         for sql in migrations:
             try:
@@ -2761,6 +2897,7 @@ if SCHEDULER_AVAILABLE:
     scheduler = BackgroundScheduler()
     scheduler.start()
     logger.info("✅ APScheduler iniciado")
+    recover_pending_jobs()
 
 # ═══════════════════════════════════════════════════════════════
 # MAIN
