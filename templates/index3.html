@@ -4324,7 +4324,7 @@
           <span id="nu-reset-ok" style="display:none;margin-left:8px;font-size:13px;color:var(--success);">✓ Link enviat per email</span>
         </div>
         <div class="form-group">
-          <label>Email</label
+          <label>Email <span style="color:var(--danger)">*</span></label
           ><input type="email" id="nu-email" placeholder="correu@empresa.com" />
         </div>
         <div class="form-group">
@@ -8863,6 +8863,10 @@ function generarPasswordUsername(username) {
         }
         if (editingUserId === null && !pass) {
           errEl.textContent = "La contrasenya és obligatoria.";
+          errEl.style.display = ""; return;
+        }
+        if (!email) {
+          errEl.textContent = "El camp email és obligatori.";
           errEl.style.display = ""; return;
         }
         errEl.style.display = "none";

@@ -3,6 +3,8 @@ import json
 from flask import Flask, render_template, jsonify, request, send_file, session, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from datetime import datetime, timedelta
 from dateutil.rrule import rrulestr
 from sqlalchemy import text
@@ -595,6 +597,14 @@ socketio = SocketIO(
     async_mode='threading'
 )
 
+# Rate limiting — protecció contra brute force
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=[],          # sense límit global; s'aplica per endpoint
+    storage_uri="memory://",
+)
+
 # ═══════════════════════════════════════════════════════════════
 # ALMACENAMIENTO GLOBAL — ESTRUCTURA CLARA
 # ═══════════════════════════════════════════════════════════════
@@ -650,6 +660,7 @@ message_storage = load_message_storage()
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/api/auth/login', methods=['POST'])
+@limiter.limit("5 per 2 minutes")
 def auth_login():
     data     = request.get_json(silent=True) or {}
     username = data.get('username', '').strip()
@@ -671,6 +682,10 @@ def auth_login():
     session.permanent = True
     logger.info(f"✅ [Login] {username} autenticat (id={user.id})")
     return jsonify({'ok': True, 'user': user.to_dict()})
+
+@app.errorhandler(429)
+def rate_limit_exceeded(e):
+    return jsonify({'error': 'Massa intents. Torna a provar en 2 minuts.'}), 429
 
 @app.route('/api/auth/logout', methods=['POST'])
 def auth_logout():
@@ -1687,6 +1702,8 @@ def crear_usuario():
 
     if not username or not nombre or not departamento or not sede:
         return jsonify({'ok': False, 'error': 'Falten camps obligatoris: username, nombre, departamento, sede'}), 400
+    if not email:
+        return jsonify({'ok': False, 'error': 'El camp email és obligatori'}), 400
     if not password_raw:
         return jsonify({'ok': False, 'error': 'La contrasenya es obligatoria'}), 400
 
