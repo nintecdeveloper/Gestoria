@@ -10976,7 +10976,7 @@ function generarPasswordUsername(username) {
        */
       function showMsgNotification(senderName, text, convType, convArg) {
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
-        if (document.hasFocus()) return; // usuari actiu a la pestanya: el toast ja és suficient
+        if (!document.hidden && document.hasFocus()) return; // usuari actiu a la pestanya: el toast ja és suficient
         const body = (text || '📎 Fitxer adjunt').slice(0, 100);
         try {
           const n = new Notification(senderName, {
