@@ -10976,7 +10976,14 @@ function generarPasswordUsername(username) {
        */
       function showMsgNotification(senderName, text, convType, convArg) {
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
-        if (!document.hidden && document.hasFocus()) return; // usuari actiu a la pestanya: el toast ja és suficient
+        // Suprimir NOMÉS si l'usuari està llegint activament aquella conversa concreta.
+        // En qualsevol altre cas (altra secció, altra conversa, finestra sense focus) mostrar la notificació.
+        const _inMsgs = !!document.getElementById('section-messages')?.classList.contains('active');
+        if (_inMsgs && (
+            (convType === 'general' && activeConvId === 'general-chat') ||
+            (convType === 'sede'    && activeSedeChat === convArg) ||
+            (convType === 'private' && activeConvId === convArg)
+        )) return;
         const body = (text || '📎 Fitxer adjunt').slice(0, 100);
         try {
           const n = new Notification(senderName, {
