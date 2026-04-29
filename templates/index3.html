@@ -5023,6 +5023,8 @@
 
           const msgs = data.messages;
 
+          console.log('[Poll]', convId, 'msgs:', msgs.length, 'known:', _pollKnownIds[convId] ? _pollKnownIds[convId].size : 'NOU');
+
           // Primera vegada: inicialitzar Set, guardar has_more, re-renderitzar si escau
           if (!_pollKnownIds[convId]) {
             _pollKnownIds[convId] = new Set(msgs.map(m => m.id));
@@ -5064,6 +5066,7 @@
                   renderGeneralChat();
                 } else if (!norm.mine) {
                   showChatToast(msg.sender_username || 'Chat General', msg.text || '');
+                  console.log('[Poll] NOTIFICANT: general', msg.sender_username, (msg.text || '').substring(0, 30));
                   showMsgNotification(msg.sender_username || 'Chat General', msg.text, 'general', null);
                 }
               }
@@ -5084,6 +5087,7 @@
                   renderMsgsFromArray(CONVS[convId]);
                 } else if (!norm.mine) {
                   showChatToast(msg.sender_username || 'Xat de seu', msg.text || '');
+                  console.log('[Poll] NOTIFICANT: sede', msg.sender_username, (msg.text || '').substring(0, 30));
                   showMsgNotification(msg.sender_username || 'Xat de seu', msg.text, 'sede', sedeKey);
                 }
               }
@@ -5103,6 +5107,7 @@
               // en lloc de silenciar el missatge
               if (!senderUser) {
                 showChatToast(senderName || 'Missatge privat', msg.text || '');
+                console.log('[Poll] NOTIFICANT: private(fallback)', senderName, (msg.text || '').substring(0, 30));
                 showMsgNotification(senderName || 'Missatge privat', msg.text, 'general', null);
                 return;
               }
@@ -5117,6 +5122,7 @@
                   renderMsgs(senderUser.id);
                 } else {
                   showChatToast(senderName, msg.text || '');
+                  console.log('[Poll] NOTIFICANT: private', senderName, (msg.text || '').substring(0, 30));
                   showMsgNotification(senderName, msg.text, 'private', senderUser.id);
                 }
               }
@@ -10976,6 +10982,8 @@ function generarPasswordUsername(username) {
        */
       function showMsgNotification(senderName, text, convType, convArg) {
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        const _dbgSec = document.querySelector('.section.active')?.id?.replace('section-', '') || 'none';
+        console.log('[Notif] convType:', convType, 'hidden:', document.hidden, 'focus:', document.hasFocus(), 'activeSection:', _dbgSec, 'activeConvId:', activeConvId, 'activeSedeChat:', activeSedeChat);
         // Suprimir NOMÉS si l'usuari està llegint activament aquella conversa concreta.
         // En qualsevol altre cas (altra secció, altra conversa, finestra sense focus) mostrar la notificació.
         const _inMsgs = !!document.getElementById('section-messages')?.classList.contains('active');
