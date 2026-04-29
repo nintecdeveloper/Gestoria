@@ -6135,18 +6135,12 @@
         const isAdmin   = currentUser.role === 'admin';
         const userSede  = currentUser.sede || '';
 
-        // Determinar quins admins ha de veure l'usuari actual
-        let visible = [];
-        if (isAdmin) {
-          // Admin veu TOTS els altres admins (no ell mateix)
-          // Ordre: mateixa seu primer, després les altres
-          const sameSede  = PINNED_ADMINS.filter(a => a.id !== currentUser.id && a.sede === userSede);
-          const otherSede = PINNED_ADMINS.filter(a => a.id !== currentUser.id && a.sede !== userSede);
-          visible = [...sameSede, ...otherSede];
-        } else {
-          // Empleat veu els admins de la SEVA seu
-          visible = PINNED_ADMINS.filter(a => a.sede === userSede);
-        }
+        // Tots els usuaris (admins i empleats) veuen TOTS els admins actius.
+        // Ordre: mateixa seu primer, després les altres seus.
+        // Els admins no es veuen a ells mateixos.
+        const sameSede  = PINNED_ADMINS.filter(a => a.id !== currentUser.id && a.sede === userSede);
+        const otherSede = PINNED_ADMINS.filter(a => a.id !== currentUser.id && a.sede !== userSede);
+        const visible   = [...sameSede, ...otherSede];
 
         container.innerHTML = visible.map(a => {
           const firstName = a.name.split(' ')[0];
