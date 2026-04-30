@@ -5995,6 +5995,9 @@
         // Carregar admins i renderitzar calendaris fixats al menú lateral
         loadPinnedAdmins();
 
+        // Carregar permisos departamentals des de la BD
+        loadDeptPermissions();
+
         // Renderitzar llegenda de colors de serveis
         renderServiceLegend();
 
@@ -7687,9 +7690,13 @@
         
       // Si el dropdown és visible però no s'ha seleccionat
         if (hasEmployeeDropdown && !assignedTo) {
-          // Si hi ha filterParam de departament, intentar agafar el primer usuari del departament
-          if (currentEventFilterParam && ['laboral','fiscal','mercantil'].includes(currentEventFilterParam)) {
-            const firstDeptUser = USERS.find(u => u.active && u.departamento === currentEventFilterParam);
+          // Extreure la part de departament del filterParam (pot ser compost: 'laboral-mataro')
+          if (currentEventFilterParam) {
+            const deptPart = (currentEventFilterParam || '').split('-')[0];
+            const firstDeptUser = USERS.find(u =>
+              u.active && u.departamento &&
+              u.departamento.toLowerCase() === deptPart.toLowerCase()
+            );
             assignedTo = firstDeptUser ? firstDeptUser.id : currentUser.id;
           } else {
             assignedTo = currentUser.id;
@@ -7977,7 +7984,10 @@
         const isAdmin = currentUser.role === "admin";
 
         // Filter dept users; if sede provided, filter by that sede
-        let deptUsers = USERS.filter(u => u.active && (u.departamento === dept || (isAdmin && u.id === currentUser.id)));
+        let deptUsers = USERS.filter(u => u.active && (
+          (u.departamento && u.departamento.toLowerCase() === dept.toLowerCase()) ||
+          (isAdmin && u.id === currentUser.id)
+        ));
 
         if (sede) {
           const sedeCapitalized = sede === 'mataro' ? 'Mataró' : 'Vilassar';
@@ -8650,6 +8660,7 @@
         const accessEl = document.getElementById("perm-access-" + dept);
         if (accessEl) accessEl.style.display = level == 3 ? "" : "none";
         updateDeptCalNav();
+        saveDeptPermissions();
       }
 
       function updateDeptAccess(dept, targetDept, checked) {
@@ -8661,6 +8672,7 @@
           DEPT_PERMISSIONS[dept].accessToDepts = DEPT_PERMISSIONS[dept].accessToDepts.filter(d => d !== targetDept);
         }
         updateDeptCalNav();
+        saveDeptPermissions();
       }
 
       function updateDeptCalNav() {
@@ -8669,6 +8681,40 @@
           const dept = el.getAttribute("data-dept");
           el.style.display = canAccessDeptCalendar(dept) ? "" : "none";
         });
+      }
+
+      /** Carrega els permisos departamentals des del servidor i actualitza DEPT_PERMISSIONS. */
+      async function loadDeptPermissions() {
+        try {
+          const res  = await fetch('/api/dept-permissions');
+          const data = await res.json();
+          if (data.ok && data.permissions) {
+            ['laboral', 'fiscal', 'mercantil'].forEach(dept => {
+              if (data.permissions[dept]) {
+                DEPT_PERMISSIONS[dept].level          = data.permissions[dept].level          ?? 2;
+                DEPT_PERMISSIONS[dept].accessToDepts  = data.permissions[dept].accessToDepts  ?? [];
+              }
+            });
+            updateDeptCalNav();
+            updateCalendarVisibility();
+            if (currentUser.role === 'admin') renderPermissionsPanel();
+          }
+        } catch (e) {
+          console.warn('[DeptPerms] Error carregant permisos:', e);
+        }
+      }
+
+      /** Desa l'estat actual de DEPT_PERMISSIONS al servidor (només admins). */
+      async function saveDeptPermissions() {
+        try {
+          await fetch('/api/dept-permissions', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ permissions: DEPT_PERMISSIONS }),
+          });
+        } catch (e) {
+          console.warn('[DeptPerms] Error desant permisos:', e);
+        }
       }
 
       // ══════════════════════════════════════════

@@ -544,6 +544,13 @@ class WaScheduledJob(db.Model):
     sent       = db.Column(db.Boolean,     default=False)
     created_at = db.Column(db.DateTime,    default=datetime.utcnow)
 
+class DeptPermission(db.Model):
+    """Persisteix els permisos d'accés als calendaris departamentals (laboral/fiscal/mercantil)."""
+    __tablename__ = 'dept_permissions'
+    dept            = db.Column(db.String(50), primary_key=True)
+    level           = db.Column(db.Integer, nullable=False, default=2)
+    access_to_depts = db.Column(db.Text, nullable=False, default='[]')  # JSON array
+
 class User(db.Model):
     __tablename__ = 'users'
     id                   = db.Column(db.Integer, primary_key=True)
@@ -1870,6 +1877,59 @@ def get_admin_users():
     ]})
 
 # ═══════════════════════════════════════════════════════════════
+# API DEPT PERMISSIONS
+# ═══════════════════════════════════════════════════════════════
+
+DEPT_NAMES = ['laboral', 'fiscal', 'mercantil']
+
+@app.route('/api/dept-permissions', methods=['GET'])
+def get_dept_permissions():
+    """Retorna els permisos departamentals. Qualsevol usuari autenticat pot llegir-los."""
+    if not session.get('user_id'):
+        return jsonify({'ok': False, 'error': 'Autenticació requerida'}), 401
+    result = {}
+    for dept in DEPT_NAMES:
+        row = DeptPermission.query.get(dept)
+        if row:
+            try:
+                access = json.loads(row.access_to_depts) if row.access_to_depts else []
+            except Exception:
+                access = []
+            result[dept] = {'level': row.level, 'accessToDepts': access}
+        else:
+            result[dept] = {'level': 2, 'accessToDepts': []}
+    return jsonify({'ok': True, 'permissions': result})
+
+@app.route('/api/dept-permissions', methods=['POST'])
+def save_dept_permissions():
+    """Desa els permisos departamentals. Només admins."""
+    if not session.get('user_id'):
+        return jsonify({'ok': False, 'error': 'Autenticació requerida'}), 401
+    user = User.query.get(session['user_id'])
+    if not user or user.role != 'admin':
+        return jsonify({'ok': False, 'error': 'Accés restringit a administradors'}), 403
+    data = request.get_json(silent=True) or {}
+    permissions = data.get('permissions', {})
+    try:
+        for dept in DEPT_NAMES:
+            perm = permissions.get(dept, {})
+            level  = int(perm.get('level', 2))
+            access = json.dumps(perm.get('accessToDepts', []))
+            row = DeptPermission.query.get(dept)
+            if row:
+                row.level           = level
+                row.access_to_depts = access
+            else:
+                db.session.add(DeptPermission(dept=dept, level=level, access_to_depts=access))
+        db.session.commit()
+        logger.info(f"✅ [DeptPerms] Permisos desats per {user.username}")
+        return jsonify({'ok': True})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ [DeptPerms] Error desant permisos: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════════════
 # API WHATSAPP — ENVÍO AUTOMÁTICO
 # ═══════════════════════════════════════════════════════════════
 # ═══════════════════════════════════════════════════════════════
@@ -2876,6 +2936,7 @@ with app.app_context():
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS recurrence_master_id INTEGER",
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS is_recurring_master BOOLEAN DEFAULT FALSE",
             "CREATE TABLE IF NOT EXISTS wa_scheduled_jobs (id SERIAL PRIMARY KEY, job_id VARCHAR(100) UNIQUE NOT NULL, event_id INTEGER, phone VARCHAR(20) NOT NULL, nom VARCHAR(200) NOT NULL, data VARCHAR(20) NOT NULL, hora VARCHAR(10) NOT NULL, seu VARCHAR(100) NOT NULL, send_at TIMESTAMP NOT NULL, sent BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW())",
+            "CREATE TABLE IF NOT EXISTS dept_permissions (dept VARCHAR(50) PRIMARY KEY, level INTEGER DEFAULT 2 NOT NULL, access_to_depts TEXT DEFAULT '[]' NOT NULL)",
         ]
         for sql in migrations:
             try:
