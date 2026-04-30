@@ -6888,7 +6888,14 @@
         let filterParam = null;
         if (SEDE_LIST.includes(which)) filterParam = which === 'mataro' ? 'Mataró' : 'Vilassar';
         else if (DEPT_LIST.includes(which)) filterParam = which;
-        else if (which.startsWith('dept-')) { const dn = which.replace('dept-',''); if (DEPT_LIST.includes(dn)) filterParam = dn; }
+        else if (which.startsWith('dept-')) {
+          // Clau composta: 'dept-laboral-mataro' → filterParam = 'laboral-mataro'
+          const rest  = which.replace('dept-', '');
+          const parts = rest.split('-');
+          const deptPart = parts[0];
+          const sedePart = parts.slice(1).join('-');
+          if (DEPT_LIST.includes(deptPart)) filterParam = sedePart ? deptPart + '-' + sedePart : deptPart;
+        }
         openEventModal((which === 'global') || filterParam !== null, ds, filterParam);
       }
 
@@ -7198,8 +7205,14 @@
         } else if (DEPT_LIST.includes(which)) {
           filterParam = which;
         } else if (which.startsWith('dept-')) {
-          const deptName = which.replace('dept-', '');
-          if (DEPT_LIST.includes(deptName)) filterParam = deptName;
+          // Clau composta: 'dept-laboral-mataro' → filterParam = 'laboral-mataro'
+          const rest  = which.replace('dept-', '');   // 'laboral-mataro'
+          const parts = rest.split('-');
+          const deptPart = parts[0];                  // 'laboral'
+          const sedePart = parts.slice(1).join('-');  // 'mataro' (o 'vilassar')
+          if (DEPT_LIST.includes(deptPart)) {
+            filterParam = sedePart ? deptPart + '-' + sedePart : deptPart;
+          }
         }
 
         const isGlobal = (which === 'global') || filterParam !== null;
