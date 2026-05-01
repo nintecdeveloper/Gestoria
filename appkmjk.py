@@ -678,6 +678,7 @@ EXEMPTED_PATHS = {
     '/api/health',
     '/api/status',
     '/api/whatsapp/webhook',
+    '/api/push/vapid-public-key',
 }
 
 @app.before_request

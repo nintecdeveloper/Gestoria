@@ -2997,13 +2997,6 @@
     </script>
   </head>
   <body>
-    <!-- BANNER DE MISSATGE NOU (sense permís, sempre visible) -->
-    <div id="msg-banner" style="display:none; position:fixed; top:0; left:0; right:0;
-      background:#1a5276; color:white; padding:12px 20px; z-index:9999;
-      cursor:pointer; font-family:Arial; font-size:14px; text-align:center;
-      box-shadow:0 2px 8px rgba(0,0,0,0.3); transition:opacity .3s;">
-    </div>
-
     <!-- LOGIN -->
     <div id="login-screen">
       <div class="login-shell">
@@ -5073,9 +5066,6 @@
                   renderGeneralChat();
                 } else if (!norm.mine) {
                   showChatToast(msg.sender_username || 'Chat General', msg.text || '');
-                  showMsgBanner(msg.sender_username || 'Chat General', msg.text, 'general', null);
-                  _unreadCount++;
-                  updateTabTitle();
                 }
               }
               return;
@@ -5095,9 +5085,6 @@
                   renderMsgsFromArray(CONVS[convId]);
                 } else if (!norm.mine) {
                   showChatToast(msg.sender_username || 'Xat de seu', msg.text || '');
-                  showMsgBanner(msg.sender_username || 'Xat de seu', msg.text, 'sede', sedeKey);
-                  _unreadCount++;
-                  updateTabTitle();
                 }
               }
               return;
@@ -5116,9 +5103,6 @@
               // en lloc de silenciar el missatge
               if (!senderUser) {
                 showChatToast(senderName || 'Missatge privat', msg.text || '');
-                showMsgBanner(senderName || 'Missatge privat', msg.text, 'general', null);
-                _unreadCount++;
-                updateTabTitle();
                 return;
               }
               const cid = convKey(currentUser.id, senderUser.id);
@@ -5132,9 +5116,6 @@
                   renderMsgs(senderUser.id);
                 } else {
                   showChatToast(senderName, msg.text || '');
-                  showMsgBanner(senderName, msg.text, 'private', senderUser.id);
-                  _unreadCount++;
-                  updateTabTitle();
                 }
               }
             }
@@ -5272,9 +5253,6 @@
       // ══════════════════════════════════════════
 
       const DEPARTAMENTOS = ['laboral', 'fiscal', 'mercantil'];
-
-      // Comptador de missatges no llegits per al títol de la pestanya
-      let _unreadCount = 0;
 
       let DEPT_PERMISSIONS = {
         laboral:   { level: 2, accessToDepts: [] },
@@ -5907,10 +5885,6 @@
       async function initApp() {
         const isAdmin = currentUser.role === "admin";
 
-        // Reseteja el comptador de no llegits en iniciar sessió
-        _unreadCount = 0;
-        updateTabTitle();
-
         // ✅ NUEVO: Limpiar el calendario personal cuando se inicia sesión
         viewingUserIdForCalendar = null;
         selectedCalendarUserId = null;
@@ -6030,6 +6004,9 @@
             if (this.scrollTop < 50) loadMoreMessages();
           });
         }
+
+        // Iniciar Web Push (subscripció automàtica amb renovació)
+        initPushNotifications();
       }
 
       // ══════════════════════════════════════════
@@ -6436,8 +6413,6 @@
         if (name === "clients") renderClients();
         if (name === "general-chat") openGeneralChat();
         if (name === "messages") {
-          _unreadCount = 0;
-          updateTabTitle();
           renderMessages();
         }
       }
@@ -9479,9 +9454,7 @@ function generarPasswordUsername(username) {
       function openGeneralChat() {
         activeConvId = 'general-chat';
         activeSedeChat = null;
-        _unreadCount = 0;
-        updateTabTitle();
-        
+
         // ✅ FIX: Asegurar que GENERAL_CHAT está inicializado
         if (!GENERAL_CHAT || !Array.isArray(GENERAL_CHAT)) {
           console.warn('⚠️ GENERAL_CHAT no está inicializado, usando array vacío');
@@ -9998,8 +9971,6 @@ function generarPasswordUsername(username) {
         }
         activeConvId = otherId;
         activeSedeChat = null;
-        _unreadCount = 0;
-        updateTabTitle();
         const other = USERS.find((u) => u.id === otherId);
         if (!other) return;
 
@@ -10062,8 +10033,6 @@ function generarPasswordUsername(username) {
         
         activeSedeChat = sedeKey;
         activeConvId = null;
-        _unreadCount = 0;
-        updateTabTitle();
 
         // Marcar com llegit localment i al servidor
         CONVS[`sede_${sedeKey}`].forEach(m => { if (!m.mine) m.read = true; });
@@ -11045,61 +11014,6 @@ function generarPasswordUsername(username) {
         if (dropdown) dropdown.querySelectorAll('.pr-dropdown-opt').forEach(o => o.classList.remove('selected'));
       }
 
-      // ══════════════════════════════════════════════════════════════
-      // SISTEMA DE NOTIFICACIÓ DE MISSATGES — Títol + Banner
-      // Funciona sense cap permís del navegador.
-      // ══════════════════════════════════════════════════════════════
-
-      /** Actualitza el títol de la pestanya amb el comptador de no llegits. */
-      function updateTabTitle() {
-        document.title = _unreadCount > 0
-          ? '(' + _unreadCount + ') Gestoria Rodonverges'
-          : 'Gestoria Rodonverges';
-      }
-
-      /**
-       * Mostra un banner fix a dalt de la pàgina quan arriba un missatge nou.
-       * Desapareix automàticament als 5 s o en clicar.
-       * NO apareix si l'usuari ja llegeix aquella conversa concreta.
-       *
-       * @param {string} senderName  Nom del remitent
-       * @param {string} text        Text del missatge
-       * @param {string} convType    'general' | 'sede' | 'private'
-       * @param {*}      convArg     sedeKey (string) o userId (number); null per a general
-       */
-      function showMsgBanner(senderName, text, convType, convArg) {
-        const banner = document.getElementById('msg-banner');
-        if (!banner) return;
-
-        // Cancel·lar timer anterior si el banner estava pendent
-        if (banner._hideTimer) { clearTimeout(banner._hideTimer); banner._hideTimer = null; }
-
-        const preview = (text || '📎 Fitxer adjunt').slice(0, 60);
-        banner.textContent = '💬 ' + senderName + ': ' + preview;
-
-        // Acció en clicar: obre la conversa i amaga el banner
-        banner.onclick = function () {
-          hideMsgBanner();
-          showSection('messages');
-          if (convType === 'general')      openGeneralChat();
-          else if (convType === 'sede')    openSedeChat(convArg);
-          else if (convType === 'private') openConv(convArg);
-        };
-
-        banner.style.display = 'block';
-        banner.style.opacity = '1';
-
-        // Auto-amagar als 5 s
-        banner._hideTimer = setTimeout(hideMsgBanner, 5000);
-      }
-
-      function hideMsgBanner() {
-        const banner = document.getElementById('msg-banner');
-        if (!banner) return;
-        if (banner._hideTimer) { clearTimeout(banner._hideTimer); banner._hideTimer = null; }
-        banner.style.display = 'none';
-      }
-
       /**
        * Mostra una notificació de recordatori de cita.
        * S'usa des de scheduleReminder() — sempre és visible (requireInteraction).
@@ -11800,8 +11714,97 @@ ${dateStr} a les ${eventData.time}`,
           document.querySelectorAll('.pr-dropdown.open').forEach(d => d.classList.remove('open'));
         }
       });
+      // ══════════════════════════════════════════════════════════════
+      // WEB PUSH — subscripció automàtica amb renovació
+      // ══════════════════════════════════════════════════════════════
+
+      /**
+       * Converteix una VAPID public key en format base64url a Uint8Array
+       * tal com exigeix PushManager.subscribe().
+       */
+      function _urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw     = window.atob(base64);
+        const output  = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i);
+        return output;
+      }
+
+      /**
+       * Inicia (o renova) la subscripció Web Push per a l'usuari actual.
+       * Passos:
+       *  1. Comprova suport (serviceWorker + PushManager).
+       *  2. Demana permís si encara no s'ha donat.
+       *  3. Elimina subscripció vella (forçar renovació).
+       *  4. Obté la VAPID public key del backend.
+       *  5. Crea nova subscripció i la registra via POST /api/push/subscribe.
+       */
+      async function initPushNotifications() {
+        try {
+          if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            console.info('[Push] Web Push no suportat en aquest navegador.');
+            return;
+          }
+
+          // Demana permís si cal
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+            console.info('[Push] Permís de notificació denegat:', permission);
+            return;
+          }
+
+          // Registra (o obté) el service worker
+          const reg = await navigator.serviceWorker.register('/static/sw.js');
+          await navigator.serviceWorker.ready;
+
+          // Elimina subscripció existent per forçar renovació amb claus actuals
+          const existing = await reg.pushManager.getSubscription();
+          if (existing) {
+            await existing.unsubscribe();
+            console.info('[Push] Subscripció anterior eliminada.');
+          }
+
+          // Obté la VAPID public key del backend
+          const resp = await fetch('/api/push/vapid-public-key');
+          const json = await resp.json();
+          if (!json.ok) {
+            console.warn('[Push] No s\'ha pogut obtenir la VAPID public key:', json.error);
+            return;
+          }
+          const applicationServerKey = _urlBase64ToUint8Array(json.public_key);
+
+          // Crea nova subscripció
+          const subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+          });
+
+          // Envia la subscripció al backend
+          const sub    = subscription.toJSON();
+          const keys   = sub.keys || {};
+          const postResp = await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              endpoint: sub.endpoint,
+              p256dh:   keys.p256dh  || '',
+              auth:     keys.auth    || '',
+            }),
+          });
+          const postJson = await postResp.json();
+          if (postJson.ok) {
+            console.info('[Push] ✅ Subscripció Web Push registrada correctament.');
+          } else {
+            console.warn('[Push] Error en registrar subscripció:', postJson.error);
+          }
+        } catch (err) {
+          console.error('[Push] ❌ Error en initPushNotifications:', err);
+        }
+      }
+
 // El permís de notificació es demana a initApp(), just després del login.
-      
+
     </script>
     <div id="chat-toast-container"></div>
   </body>
