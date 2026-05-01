@@ -1559,29 +1559,63 @@ def send_message_api(conv_id):
         db.session.add(msg)
         db.session.commit()
 
-        # ── Web Push: notifica el destinatari en converses privades ──
+        # ── Web Push: notifica destinataris SEMPRE (privat / seu / general) ──
         try:
-            recipient_un = data.get('recipient_username', '').strip()
-            sender_id    = data.get('sender_id')
-            logger.info(f"[Push] Trigger missatge: conv={norm_conv_id!r} recipient_un={recipient_un!r}")
-            if recipient_un and norm_conv_id.startswith('private_'):
-                recipient_user = User.query.filter_by(username=recipient_un, active=True).first()
-                if recipient_user:
-                    # Nom visible del remitent (fallback al username si no es troba)
-                    sender_user = User.query.get(sender_id) if sender_id else None
-                    sender_name = sender_user.name if sender_user else (sender or recipient_un)
-                    preview = (text[:80] + '…') if len(text) > 80 else text
+            sender_id   = data.get('sender_id')
+            sender_user = User.query.get(sender_id) if sender_id else None
+            sender_name = sender_user.name if sender_user else (sender or 'Missatge nou')
+            preview     = (text[:80] + '…') if len(text) > 80 else (text or '📎 Adjunt')
+
+            logger.info(f"[Push] Trigger missatge: conv={norm_conv_id!r} sender={sender_name!r}")
+
+            if norm_conv_id.startswith('private_'):
+                # Conversa privada → notifica únicament el destinatari
+                recipient_un = data.get('recipient_username', '').strip()
+                if recipient_un:
+                    recipient_user = User.query.filter_by(username=recipient_un, active=True).first()
+                    if recipient_user:
+                        send_push_notification(
+                            recipient_user.id,
+                            title=sender_name,
+                            body=preview,
+                            url='/',
+                            tag=f'msg-{norm_conv_id}',
+                        )
+                    else:
+                        logger.warning(f"[Push] ⚠️  Destinatari no trobat: username={recipient_un!r}")
+
+            elif norm_conv_id.startswith('sede_'):
+                # Xat de seu → notifica tots els usuaris actius d'aquella seu (excepte remitent)
+                sede_val = norm_conv_id.replace('sede_', '', 1)
+                sede_users = User.query.filter(
+                    User.sede == sede_val,
+                    User.active == True,
+                    User.id != sender_id,
+                ).all()
+                for u in sede_users:
                     send_push_notification(
-                        recipient_user.id,
-                        title=sender_name,
-                        body=preview or '📎 Adjunt',
+                        u.id,
+                        title=f'{sender_name} · {sede_val.capitalize()}',
+                        body=preview,
                         url='/',
                         tag=f'msg-{norm_conv_id}',
                     )
-                else:
-                    logger.warning(f"[Push] ⚠️  Destinatari no trobat: username={recipient_un!r}")
+
             else:
-                logger.info(f"[Push] No s'envia push: conv privada={norm_conv_id.startswith('private_')} recipient={bool(recipient_un)}")
+                # Xat general → notifica tots els usuaris actius (excepte remitent)
+                all_users = User.query.filter(
+                    User.active == True,
+                    User.id != sender_id,
+                ).all()
+                for u in all_users:
+                    send_push_notification(
+                        u.id,
+                        title=f'{sender_name} · Chat General',
+                        body=preview,
+                        url='/',
+                        tag='msg-general',
+                    )
+
         except Exception as _push_err:
             logger.error(f"[Push] ❌ Error en trigger de missatge: {_push_err!r}")
 
