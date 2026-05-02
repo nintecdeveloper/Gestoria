@@ -7,7 +7,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from datetime import datetime, timedelta
 from dateutil.rrule import rrulestr
-from sqlalchemy import text
+from sqlalchemy import text, func
 from io import BytesIO
 import io
 import requests
@@ -1572,7 +1572,10 @@ def send_message_api(conv_id):
                 # Conversa privada → notifica únicament el destinatari
                 recipient_un = data.get('recipient_username', '').strip()
                 if recipient_un:
-                    recipient_user = User.query.filter_by(username=recipient_un, active=True).first()
+                    recipient_user = User.query.filter(
+                                        func.lower(User.username) == recipient_un.lower(),
+                                        User.active == True
+                                    ).first()
                     if recipient_user:
                         send_push_notification(
                             recipient_user.id,
