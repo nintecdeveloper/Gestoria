@@ -2866,6 +2866,24 @@ def serve_sw():
 # WEB PUSH — Endpoints i funció d'enviament
 # ═══════════════════════════════════════════════════════════════
 
+def get_vapid_private_key():
+    """Retorna la clau privada VAPID en format EC PEM (TraditionalOpenSSL) que pywebpush espera."""
+    from cryptography.hazmat.primitives.serialization import (
+        load_pem_private_key, Encoding, PrivateFormat, NoEncryption
+    )
+    key_str = os.environ.get('VAPID_PRIVATE_KEY', VAPID_PRIVATE_KEY or '').strip()
+    try:
+        key = load_pem_private_key(key_str.encode(), password=None)
+        return key.private_bytes(
+            encoding=Encoding.PEM,
+            format=PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=NoEncryption()
+        ).decode()
+    except Exception as e:
+        logger.error(f"[Push] Error carregant clau VAPID: {e}")
+        return key_str
+
+
 def send_push_notification(user_id, title, body, url='/', tag='ra-push'):
     """Envia una Web Push Notification a tots els dispositius d'un usuari."""
     if not WEBPUSH_AVAILABLE:
@@ -2883,7 +2901,7 @@ def send_push_notification(user_id, title, body, url='/', tag='ra-push'):
         'tag':   tag,
         'icon':  '/static/icon.png',
     })
-    private_key = os.environ.get('VAPID_PRIVATE_KEY', VAPID_PRIVATE_KEY or '').strip()
+    private_key = get_vapid_private_key()
     logger.info(f"[Push] VAPID public_key (primeres 20c): {(VAPID_PUBLIC_KEY or '')[:20]}…")
     expired = []
     for sub in subs:
