@@ -2922,26 +2922,30 @@ def push_test():
 
 @app.route('/api/push/vapid-public-key', methods=['GET'])
 def get_vapid_public_key():
-    """Retorna la VAPID public key per al frontend."""
-    if not WEBPUSH_AVAILABLE:
-        return jsonify({'ok': False, 'error': 'Web Push no disponible'}), 503
-    return jsonify({'ok': True, 'public_key': VAPID_PUBLIC_KEY})
+    """Retorna la VAPID public key (text pla) per al frontend."""
+    if not WEBPUSH_AVAILABLE or not VAPID_PUBLIC_KEY:
+        return ('', 503)
+    return (VAPID_PUBLIC_KEY, 200, {'Content-Type': 'text/plain; charset=utf-8'})
 
 @app.route('/api/push/subscribe', methods=['POST'])
 def push_subscribe():
-    """Desa o actualitza la subscripció push de l'usuari actual."""
+    """Desa o actualitza la subscripció push de l'usuari actual.
+    Accepta tant el format pla {endpoint, p256dh, auth} com el format natiu
+    de subscription.toJSON() {endpoint, keys: {p256dh, auth}}.
+    """
     if not WEBPUSH_AVAILABLE:
         return jsonify({'ok': False, 'error': 'Web Push no disponible'}), 503
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({'ok': False, 'error': 'No autenticat'}), 401
-    data = request.get_json(silent=True) or {}
+    data     = request.get_json(silent=True) or {}
     endpoint = (data.get('endpoint') or '').strip()
-    p256dh   = (data.get('p256dh')   or '').strip()
-    auth     = (data.get('auth')     or '').strip()
+    # subscription.toJSON() posa les claus dins 'keys'; acceptem ambdós formats
+    nested   = data.get('keys') or {}
+    p256dh   = (nested.get('p256dh') or data.get('p256dh') or '').strip()
+    auth     = (nested.get('auth')   or data.get('auth')   or '').strip()
     if not endpoint or not p256dh or not auth:
         return jsonify({'ok': False, 'error': 'Falten camps (endpoint, p256dh, auth)'}), 400
-    # Actualitza si ja existeix l'endpoint, sinó crea nou
     existing = PushSubscription.query.filter_by(endpoint=endpoint).first()
     if existing:
         existing.user_id = user_id

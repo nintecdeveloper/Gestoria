@@ -6005,8 +6005,8 @@
           });
         }
 
-        // Iniciar Web Push (subscripció automàtica amb renovació)
-        initPushNotifications();
+        // Iniciar Web Push
+        initPush();
       }
 
       // ══════════════════════════════════════════
@@ -11715,95 +11715,40 @@ ${dateStr} a les ${eventData.time}`,
         }
       });
       // ══════════════════════════════════════════════════════════════
-      // WEB PUSH — subscripció automàtica amb renovació
+      // WEB PUSH — subscripció neta des de zero
       // ══════════════════════════════════════════════════════════════
 
-      /**
-       * Converteix una VAPID public key en format base64url a Uint8Array
-       * tal com exigeix PushManager.subscribe().
-       */
-      function _urlBase64ToUint8Array(base64String) {
+      function urlBase64ToUint8Array(base64String) {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-        const raw     = window.atob(base64);
-        const output  = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i);
-        return output;
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
       }
 
-      /**
-       * Inicia (o renova) la subscripció Web Push per a l'usuari actual.
-       * Passos:
-       *  1. Comprova suport (serviceWorker + PushManager).
-       *  2. Demana permís si encara no s'ha donat.
-       *  3. Elimina subscripció vella (forçar renovació).
-       *  4. Obté la VAPID public key del backend.
-       *  5. Crea nova subscripció i la registra via POST /api/push/subscribe.
-       */
-      async function initPushNotifications() {
+      async function initPush() {
         try {
-          if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            console.info('[Push] Web Push no suportat en aquest navegador.');
-            return;
-          }
-
-          // Demana permís si cal
+          if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
           const permission = await Notification.requestPermission();
-          if (permission !== 'granted') {
-            console.info('[Push] Permís de notificació denegat:', permission);
-            return;
-          }
-
-          // Registra (o obté) el service worker
-          const reg = await navigator.serviceWorker.register('/static/sw.js');
-          await navigator.serviceWorker.ready;
-
-          // Elimina subscripció existent per forçar renovació amb claus actuals
+          if (permission !== 'granted') return;
+          const reg = await navigator.serviceWorker.ready;
+          // Sempre re-subscriu per garantir claus fresques
           const existing = await reg.pushManager.getSubscription();
-          if (existing) {
-            await existing.unsubscribe();
-            console.info('[Push] Subscripció anterior eliminada.');
-          }
-
-          // Obté la VAPID public key del backend
-          const resp = await fetch('/api/push/vapid-public-key');
-          const json = await resp.json();
-          if (!json.ok) {
-            console.warn('[Push] No s\'ha pogut obtenir la VAPID public key:', json.error);
-            return;
-          }
-          const applicationServerKey = _urlBase64ToUint8Array(json.public_key);
-
-          // Crea nova subscripció
+          if (existing) await existing.unsubscribe();
+          const vapidKey = await fetch('/api/push/vapid-public-key').then(r => r.text());
           const subscription = await reg.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey,
+            applicationServerKey: urlBase64ToUint8Array(vapidKey.trim())
           });
-
-          // Envia la subscripció al backend
-          const sub    = subscription.toJSON();
-          const keys   = sub.keys || {};
-          const postResp = await fetch('/api/push/subscribe', {
+          await fetch('/api/push/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              endpoint: sub.endpoint,
-              p256dh:   keys.p256dh  || '',
-              auth:     keys.auth    || '',
-            }),
+            body: JSON.stringify(subscription.toJSON())
           });
-          const postJson = await postResp.json();
-          if (postJson.ok) {
-            console.info('[Push] ✅ Subscripció Web Push registrada correctament.');
-          } else {
-            console.warn('[Push] Error en registrar subscripció:', postJson.error);
-          }
-        } catch (err) {
-          console.error('[Push] ❌ Error en initPushNotifications:', err);
+          console.log('[Push] Subscripcio activa');
+        } catch (e) {
+          console.warn('[Push] Error:', e.message);
         }
       }
-
-// El permís de notificació es demana a initApp(), just després del login.
 
     </script>
     <div id="chat-toast-container"></div>
