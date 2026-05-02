@@ -11730,6 +11730,7 @@ ${dateStr} a les ${eventData.time}`,
           if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
           const permission = await Notification.requestPermission();
           if (permission !== 'granted') return;
+          await navigator.serviceWorker.register('/sw.js');
           const reg = await navigator.serviceWorker.ready;
           // Sempre re-subscriu per garantir claus fresques
           const existing = await reg.pushManager.getSubscription();
