@@ -33,8 +33,10 @@ try:
     _vapid_pub_env  = os.environ.get('VAPID_PUBLIC_KEY',  '')
 
     if _vapid_priv_env and _vapid_pub_env:
-        VAPID_PRIVATE_KEY = _vapid_priv_env
-        VAPID_PUBLIC_KEY  = _vapid_pub_env
+        VAPID_PRIVATE_KEY = _vapid_priv_env.strip()
+        VAPID_PUBLIC_KEY  = _vapid_pub_env.strip()
+        print(f"[Push] Claus VAPID carregades des de l'entorn. "
+              f"PUBLIC_KEY (20c): {VAPID_PUBLIC_KEY[:20]}…", flush=True)
     else:
         # Auto-genera claus si no estan definides a l'entorn
         _v = Vapid()
@@ -45,6 +47,17 @@ try:
         print(f"\n⚠️  VAPID keys auto-generades (no persistents). Afegeix a l'entorn:\n"
               f"  VAPID_PUBLIC_KEY={VAPID_PUBLIC_KEY}\n"
               f"  VAPID_PRIVATE_KEY={VAPID_PRIVATE_KEY}\n", flush=True)
+
+    # Genera i mostra un parell de claus de referència vàlid a cada arrencada
+    _ref = Vapid()
+    _ref.generate_keys()
+    _ref_pub = base64.urlsafe_b64encode(
+        _ref.public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+    ).rstrip(b'=').decode('ascii')
+    _ref_priv = _ref.private_pem().decode('utf-8')
+    print(f"\n[Push] Claus de referència generades (còpia per a Render si cal):\n"
+          f"  VAPID_PUBLIC_KEY={_ref_pub}\n"
+          f"  VAPID_PRIVATE_KEY={_ref_priv}\n", flush=True)
 
     VAPID_SUBJECT    = os.environ.get('VAPID_SUBJECT', 'mailto:info.nexorasolutionsai@gmail.com')
     WEBPUSH_AVAILABLE = True
@@ -2870,6 +2883,7 @@ def send_push_notification(user_id, title, body, url='/', tag='ra-push'):
         'tag':   tag,
         'icon':  '/static/icon.png',
     })
+    private_key = os.environ.get('VAPID_PRIVATE_KEY', VAPID_PRIVATE_KEY or '').strip()
     logger.info(f"[Push] VAPID public_key (primeres 20c): {(VAPID_PUBLIC_KEY or '')[:20]}…")
     expired = []
     for sub in subs:
@@ -2881,7 +2895,7 @@ def send_push_notification(user_id, title, body, url='/', tag='ra-push'):
                     'keys': {'p256dh': sub.p256dh, 'auth': sub.auth}
                 },
                 data=payload,
-                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_private_key=private_key,
                 vapid_claims={'sub': VAPID_SUBJECT},
                 ttl=86400,
             )
@@ -2897,6 +2911,9 @@ def send_push_notification(user_id, title, body, url='/', tag='ra-push'):
                          f"HTTP={resp_status} body={resp_body!r} exc={exc}")
             if resp_status in (404, 410):
                 expired.append(sub)
+        except ValueError as exc:
+            logger.error(f"[Push] ❌ Error de format de clau VAPID ep=...{ep_short}: {exc!r}")
+            expired.append(sub)
         except Exception as exc:
             logger.error(f"[Push] ❌ Excepció inesperat user={user_id} ep=...{ep_short}: {exc!r}")
     for sub in expired:
