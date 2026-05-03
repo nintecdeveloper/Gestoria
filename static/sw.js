@@ -1,10 +1,5 @@
-// ═══════════════════════════════════════════════════════════════
-// Service Worker — Rodonvergés Associats  v4
-// ═══════════════════════════════════════════════════════════════
-
-self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
 self.addEventListener('activate', e => e.waitUntil(clients.claim()));
-
 self.addEventListener('push', e => {
   let title = 'Gestoria Rodonvergés';
   let body = 'Nou missatge';
@@ -22,7 +17,6 @@ self.addEventListener('push', e => {
     requireInteraction: false
   }));
 });
-
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(clients.openWindow('/'));
