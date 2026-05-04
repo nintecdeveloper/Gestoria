@@ -13,7 +13,7 @@ self.addEventListener('push', e => {
   e.waitUntil(self.registration.showNotification(title, {
     body: body,
     icon: '/static/logo.png',
-    tag: 'gestoria-msg',
+    tag: 'gestoria-msg-' + Date.now(),
     requireInteraction: false
   }));
 });
