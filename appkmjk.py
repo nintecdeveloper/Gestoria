@@ -2898,7 +2898,9 @@ def get_services():
 
 @app.route('/api/services', methods=['POST'])
 def create_service():
-    if session.get('role') != 'admin':
+    caller = User.query.get(session.get('user_id'))
+    logger.info(f"[Services POST] user_id={session.get('user_id')} role={caller.role if caller else 'N/A'}")
+    if not caller or caller.role != 'admin':
         return jsonify({'ok': False, 'error': 'Sense permisos'}), 403
     data  = request.get_json(force=True) or {}
     name  = (data.get('name') or '').strip()
@@ -2912,7 +2914,9 @@ def create_service():
 
 @app.route('/api/services/<int:srv_id>', methods=['PUT'])
 def update_service(srv_id):
-    if session.get('role') != 'admin':
+    caller = User.query.get(session.get('user_id'))
+    logger.info(f"[Services PUT] user_id={session.get('user_id')} role={caller.role if caller else 'N/A'}")
+    if not caller or caller.role != 'admin':
         return jsonify({'ok': False, 'error': 'Sense permisos'}), 403
     s = Service.query.get(srv_id)
     if not s:
@@ -2930,7 +2934,9 @@ def update_service(srv_id):
 
 @app.route('/api/services/<int:srv_id>', methods=['DELETE'])
 def delete_service(srv_id):
-    if session.get('role') != 'admin':
+    caller = User.query.get(session.get('user_id'))
+    logger.info(f"[Services DELETE] user_id={session.get('user_id')} role={caller.role if caller else 'N/A'}")
+    if not caller or caller.role != 'admin':
         return jsonify({'ok': False, 'error': 'Sense permisos'}), 403
     s = Service.query.get(srv_id)
     if not s:
