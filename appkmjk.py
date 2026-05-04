@@ -362,6 +362,23 @@ def recover_pending_jobs():
                     sent_now += 1
 
             logger.info(f"🔄 [Recover] {recovered} jobs re-programats, {sent_now} enviats immediatament.")
+
+            # Recordatoris personals passats no enviats
+            try:
+                pending_past = PersonalReminder.query.filter(
+                    PersonalReminder.is_sent == False,
+                    PersonalReminder.remind_at <= datetime.utcnow()
+                ).all()
+                for r in pending_past:
+                    send_push_notification(r.user_id, 'Recordatori de cita', r.message or 'Tens una cita pròximament')
+                    r.is_sent = True
+                if pending_past:
+                    db.session.commit()
+                    logger.info(f"🔄 [Recover] {len(pending_past)} recordatoris personals enviats en arrencada")
+            except Exception as _re:
+                logger.error(f"❌ [Recover] Error enviant recordatoris personals: {_re}")
+                db.session.rollback()
+
         except Exception as _e:
             logger.error(f"❌ [Recover] Error en recover_pending_jobs: {_e}")
 
@@ -3030,11 +3047,37 @@ with app.app_context():
 # INICIALIZAR SCHEDULER (si está disponible)
 # ═══════════════════════════════════════════════════════════════
 
+def check_personal_reminders():
+    """Comprova recordatoris personals pendents i envia push si és l'hora."""
+    with app.app_context():
+        try:
+            now = datetime.utcnow()
+            pending = PersonalReminder.query.filter(
+                PersonalReminder.is_sent == False,
+                PersonalReminder.remind_at <= now
+            ).all()
+            for r in pending:
+                send_push_notification(r.user_id, 'Recordatori de cita', r.message or 'Tens una cita pròximament')
+                r.is_sent = True
+            if pending:
+                db.session.commit()
+                logger.info(f"[Reminders] {len(pending)} recordatoris enviats")
+        except Exception as _e:
+            logger.error(f"[Reminders] Error en check_personal_reminders: {_e}")
+            db.session.rollback()
+
+
 scheduler = None
 if SCHEDULER_AVAILABLE:
     scheduler = BackgroundScheduler()
     scheduler.start()
     logger.info("✅ APScheduler iniciado")
+    scheduler.add_job(
+        check_personal_reminders,
+        'interval',
+        seconds=60,
+        id='check_personal_reminders',
+    )
     recover_pending_jobs()
 
 # ═══════════════════════════════════════════════════════════════
