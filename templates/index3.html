@@ -11731,13 +11731,20 @@ ${dateStr} a les ${eventData.time}`,
           const permission = await Notification.requestPermission();
           if (permission !== 'granted') return;
 
-          const reg = await navigator.serviceWorker.register('/sw.js');
+          const reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
 
-          // Força activació immediata si hi ha SW en espera
-          if (reg.waiting) {
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            await new Promise(r => setTimeout(r, 500));
-          }
+          // Força skipWaiting si hi ha SW en espera
+          if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+
+          // Escolta canvis d'estat
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
+          });
 
           await navigator.serviceWorker.ready;
 
