@@ -186,6 +186,9 @@ def send_whatsapp_meta(to_phone: str, message: str = '',
     phone = to_phone.strip()
     if not phone.startswith('+'): phone = '+34' + phone.lstrip('0')
 
+    waba_id = META_BUSINESS_ACCOUNT_ID or ''
+    logger.info(f"[Meta API] phone_number_id={META_PHONE_NUMBER_ID} | waba_id={waba_id} | to={phone} | use_template={use_template}")
+
     if use_template:
         payload = {
             "messaging_product": "whatsapp",
@@ -205,6 +208,8 @@ def send_whatsapp_meta(to_phone: str, message: str = '',
                 }]
             }
         }
+        if waba_id:
+            payload["waba_id"] = waba_id
     elif message_type == "text":
         payload = {"messaging_product": "whatsapp", "to": phone.replace('+', ''),
                    "type": "text", "text": {"preview_url": False, "body": message}}
@@ -225,7 +230,7 @@ def send_whatsapp_meta(to_phone: str, message: str = '',
         logger.error(f"❌ [Meta API] Error: {e} | Detall: {error_detail}")
         return {'ok': False, 'error': str(e), 'detail': error_detail}
     result = response.json()
-    logger.info(f"✅ [Meta API] Mensaje enviado a {phone}")
+    logger.info(f"✅ [Meta API] Missatge enviat a {phone}")
     return {'ok': True, 'message_id': result.get('messages', [{}])[0].get('id'), 'phone': phone}
 
 
