@@ -89,6 +89,7 @@ except ImportError:
 META_PHONE_NUMBER_ID = os.environ.get('META_PHONE_NUMBER_ID', None)
 META_ACCESS_TOKEN = os.environ.get('META_ACCESS_TOKEN', None)
 META_BUSINESS_ACCOUNT_ID = os.environ.get('META_BUSINESS_ACCOUNT_ID', None)
+META_WABA_ID             = os.environ.get('META_WABA_ID', None)
 
 GMAIL_USER         = os.environ.get('GMAIL_USER')
 GMAIL_APP_PASSWORD = os.environ.get('GMAIL_APP_PASSWORD')
@@ -186,7 +187,7 @@ def send_whatsapp_meta(to_phone: str, message: str = '',
     phone = to_phone.strip()
     if not phone.startswith('+'): phone = '+34' + phone.lstrip('0')
 
-    waba_id = META_BUSINESS_ACCOUNT_ID or ''
+    waba_id = META_WABA_ID or META_BUSINESS_ACCOUNT_ID or ''
     logger.info(f"[Meta API] phone_number_id={META_PHONE_NUMBER_ID} | waba_id={waba_id} | to={phone} | use_template={use_template}")
 
     if use_template:
