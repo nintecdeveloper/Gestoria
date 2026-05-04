@@ -559,6 +559,21 @@ class PushSubscription(db.Model):
     auth       = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class Service(db.Model):
+    __tablename__ = 'services'
+    id         = db.Column(db.Integer, primary_key=True)
+    name       = db.Column(db.String(100), nullable=False)
+    color      = db.Column(db.String(20), default='#f0c080')
+    active     = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id':    self.id,
+            'name':  self.name,
+            'color': self.color,
+        }
+
 class WaScheduledJob(db.Model):
     """Persisteix els recordatoris WhatsApp programats per poder-los recuperar en restart."""
     __tablename__ = 'wa_scheduled_jobs'
@@ -685,6 +700,24 @@ def seed_users():
     except Exception:
         pass
     logger.info(f"✅ [Seed] {len(SEED_USERS)} usuaris migrats a la BD amb must_change_password=True")
+
+def seed_services():
+    """Insereix els serveis inicials si la taula és buida."""
+    if Service.query.count() > 0:
+        return
+    serveis_inicials = [
+        {'name': 'Assessorament Fiscal',   'color': '#f0c080'},
+        {'name': 'Gestió Laboral',          'color': '#a8d8a8'},
+        {'name': 'Assessorament Mercantil', 'color': '#a8c8f0'},
+        {'name': 'Gestió Comptable',        'color': '#f0a8a8'},
+        {'name': 'Assessorament Jurídic',   'color': '#d4a8f0'},
+        {'name': 'Altres serveis',          'color': '#c0c0c0'},
+    ]
+    for s in serveis_inicials:
+        db.session.add(Service(name=s['name'], color=s['color']))
+    db.session.commit()
+    logger.info(f"✅ [Seed] {len(serveis_inicials)} serveis inicials inserits")
+
 
 def generate_reset_token(user) -> str:
     """Genera un token de reset i el guarda a l'usuari. Retorna el token."""
@@ -2855,6 +2888,58 @@ def delete_reminder(rem_id):
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 # ═══════════════════════════════════════════════════════════════
+# SERVEIS — CRUD
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/services', methods=['GET'])
+def get_services():
+    services = Service.query.filter_by(active=True).order_by(Service.id).all()
+    return jsonify({'ok': True, 'services': [s.to_dict() for s in services]})
+
+@app.route('/api/services', methods=['POST'])
+def create_service():
+    if session.get('role') != 'admin':
+        return jsonify({'ok': False, 'error': 'Sense permisos'}), 403
+    data  = request.get_json(force=True) or {}
+    name  = (data.get('name') or '').strip()
+    color = (data.get('color') or '#f0c080').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'El nom és obligatori'}), 400
+    s = Service(name=name, color=color)
+    db.session.add(s)
+    db.session.commit()
+    return jsonify({'ok': True, 'service': s.to_dict()}), 201
+
+@app.route('/api/services/<int:srv_id>', methods=['PUT'])
+def update_service(srv_id):
+    if session.get('role') != 'admin':
+        return jsonify({'ok': False, 'error': 'Sense permisos'}), 403
+    s = Service.query.get(srv_id)
+    if not s:
+        return jsonify({'ok': False, 'error': 'Servei no trobat'}), 404
+    data  = request.get_json(force=True) or {}
+    name  = (data.get('name') or '').strip()
+    color = (data.get('color') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'El nom és obligatori'}), 400
+    s.name  = name
+    if color:
+        s.color = color
+    db.session.commit()
+    return jsonify({'ok': True, 'service': s.to_dict()})
+
+@app.route('/api/services/<int:srv_id>', methods=['DELETE'])
+def delete_service(srv_id):
+    if session.get('role') != 'admin':
+        return jsonify({'ok': False, 'error': 'Sense permisos'}), 403
+    s = Service.query.get(srv_id)
+    if not s:
+        return jsonify({'ok': False, 'error': 'Servei no trobat'}), 404
+    s.active = False
+    db.session.commit()
+    return jsonify({'ok': True, 'deleted': srv_id})
+
+# ═══════════════════════════════════════════════════════════════
 # MANEJO DE ERRORES
 # ═══════════════════════════════════════════════════════════════
 
@@ -3031,6 +3116,7 @@ with app.app_context():
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS is_recurring_master BOOLEAN DEFAULT FALSE",
             "CREATE TABLE IF NOT EXISTS wa_scheduled_jobs (id SERIAL PRIMARY KEY, job_id VARCHAR(100) UNIQUE NOT NULL, event_id INTEGER, phone VARCHAR(20) NOT NULL, nom VARCHAR(200) NOT NULL, data VARCHAR(20) NOT NULL, hora VARCHAR(10) NOT NULL, seu VARCHAR(100) NOT NULL, send_at TIMESTAMP NOT NULL, sent BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW())",
             "CREATE TABLE IF NOT EXISTS dept_permissions (dept VARCHAR(50) PRIMARY KEY, level INTEGER DEFAULT 2 NOT NULL, access_to_depts TEXT DEFAULT '[]' NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS services (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, color VARCHAR(20) DEFAULT '#f0c080', active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())",
         ]
         for sql in migrations:
             try:
@@ -3040,6 +3126,7 @@ with app.app_context():
                 db.session.rollback()
         db.session.commit()
         seed_users()
+        seed_services()
     except Exception as _e:
         logger.error(f"❌ Error creant taules o seed: {_e}")
 

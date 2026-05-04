@@ -4373,7 +4373,7 @@
         </button>
         <div class="modal-title" id="srv-modal-title">Nou servei</div>
         <div class="modal-sub">
-          Defineix el nom i la descripció del servei
+          Defineix el nom i el color del servei
         </div>
         <div class="form-group">
           <label>Nom del servei *</label
@@ -4383,13 +4383,9 @@
             placeholder="Ex: Consultoria Empresarial"
           />
         </div>
-        <div class="form-group">
-          <label>Descripció</label
-          ><textarea
-            id="srv-desc"
-            rows="4"
-            placeholder="Descripció breu del servei ofert..."
-          ></textarea>
+        <div class="form-group" style="display:flex;align-items:center;gap:12px">
+          <label style="margin:0;white-space:nowrap">Color</label>
+          <input type="color" id="srv-color" value="#f0c080" style="width:48px;height:32px;border:none;cursor:pointer;border-radius:6px" />
         </div>
         <div class="form-err" id="srv-err">
           El nom del servei és obligatori.
@@ -4720,32 +4716,36 @@
       // Admins carregats dinàmicament per als calendaris fixats del menú lateral.
       let PINNED_ADMINS = [];
 
-      let SERVICES = [
-        { id: 1, name: "Assessorament Fiscal",  desc: "Optimització fiscal i compliment normatiu per a particulars i empreses." },
-        { id: 2, name: "Gestió Laboral",         desc: "Nòmines, contractes, altes i baixes a la Seguretat Social." },
-        { id: 3, name: "Comptabilitat",          desc: "Comptabilitat general, balanços i comptes de resultats." },
-        { id: 4, name: "Auditoria",              desc: "Revisió independent d'estats financers i processos interns." },
-        { id: 5, name: "Consultoria Empresarial",desc: "Estratègia, organització i millora de processos de negoci." },
-        { id: 6, name: "Assessorament Jurídic",  desc: "Suport legal en contractes mercantils i disputes empresarials." },
-        { id: 7, name: "Gestió Mercantil",       desc: "Constitució de societats, estatuts i tràmits mercantils." },
-        { id: 8, name: "Altres serveis",         desc: "Altres gestions i assessoraments." },
-      ];
+      let SERVICES = [];
+
+      async function loadServices() {
+        try {
+          const res = await fetch('/api/services');
+          const data = await res.json();
+          if (data.ok) {
+            SERVICES = data.services;
+            renderServices();
+            fillServiceSelect();
+            fillAdminEventServiceSelect();
+            renderServiceLegend();
+          }
+        } catch (e) {
+          console.warn('[Services] Error carregant serveis:', e.message);
+        }
+      }
 
       /**
        * Retorna el color pastel associat a un tipus de servei.
        * Valor de retorn: { bg, border, text }
        */
       function getServiceColor(service) {
-        const s = (service || '').trim().toLowerCase();
-        const MAP = {
-          'assessorament fiscal':  { bg: '#FFD6A5', border: '#c87022', text: '#6b3800' },
-          'gestió laboral':        { bg: '#CAFFBF', border: '#2a9200', text: '#1a5400' },
-          'gestió mercantil':      { bg: '#BDE0FE', border: '#1464b8', text: '#003570' },
-          'assessorament jurídic': { bg: '#FFAFCC', border: '#c4005e', text: '#70003a' },
-          'comptabilitat':         { bg: '#CDB4DB', border: '#7230b0', text: '#3a0a60' },
-          'altres serveis':        { bg: '#FFC8DD', border: '#c0006a', text: '#70003a' },
-        };
-        return MAP[s] || { bg: 'var(--accent-light)', border: 'var(--accent)', text: 'var(--accent)' };
+        const key = (service || '').trim().toLowerCase();
+        const match = SERVICES.find(s => s.name.trim().toLowerCase() === key);
+        if (match && match.color) {
+          const hex = match.color;
+          return { bg: hex + '33', border: hex + '99', text: hex };
+        }
+        return { bg: 'var(--accent-light)', border: 'var(--accent)', text: 'var(--accent)' };
       }
 
       let CLIENTS = [
@@ -5851,13 +5851,9 @@
       function renderServiceLegend() {
         const el = document.getElementById('my-service-legend');
         if (!el) return;
-        const services = [
-          'Assessorament Fiscal', 'Gestió Laboral', 'Gestió Mercantil',
-          'Assessorament Jurídic', 'Comptabilitat', 'Altres serveis',
-        ];
-        el.innerHTML = services.map(s => {
-          const c = getServiceColor(s);
-          return `<span style="background:${c.bg};color:${c.text};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid ${c.border}30">${safeHtml(s)}</span>`;
+        el.innerHTML = SERVICES.map(s => {
+          const bg = s.color || '#f0c080';
+          return `<span style="background:${safeHtml(bg)}33;color:${safeHtml(bg)};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid ${safeHtml(bg)}88">${safeHtml(s.name)}</span>`;
         }).join('');
       }
 
@@ -5985,7 +5981,7 @@
         loadDeptPermissions();
 
         // Renderitzar llegenda de colors de serveis
-        renderServiceLegend();
+        loadServices();
 
         // Carregar events des de la base de dades i iniciar polling en temps real
         loadEvents();
@@ -9004,31 +9000,26 @@ function generarPasswordUsername(username) {
         document.getElementById("services-list").innerHTML = SERVICES.map(
           (s, idx) => `
     <div class="srv-item">
-      <div class="srv-num">${String(idx + 1).padStart(2, "0")}</div>
+      <div class="srv-num" style="background:${safeHtml(s.color||'#f0c080')}22;color:${safeHtml(s.color||'#c87022')};border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">${String(idx + 1).padStart(2, "0")}</div>
+      <div style="width:10px;height:10px;border-radius:50%;background:${safeHtml(s.color||'#f0c080')};flex-shrink:0"></div>
       <div class="srv-info">
         <div class="srv-name">${safeHtml(s.name)}</div>
-        <div class="srv-desc">${safeHtml(s.desc || "")}</div>
       </div>
-      ${
-        isAdmin
-          ? `
+      ${isAdmin ? `
         <div class="action-btns">
           <button class="btn-icon" title="Editar" onclick="editService(${s.id})">Editar</button>
           <button class="btn-icon red" title="Eliminar" onclick="deleteService(${s.id})">Eliminar</button>
-        </div>`
-          : ""
-      }
-    </div>`,
+        </div>` : ""}
+    </div>`
         ).join("");
       }
 
       function openServiceModal() {
         editingSrvId = null;
-        document.getElementById("srv-modal-title").textContent =
-          "Nou servei";
+        document.getElementById("srv-modal-title").textContent = "Nou servei";
         document.getElementById("srv-save-btn").textContent = "Desar";
         document.getElementById("srv-name").value = "";
-        document.getElementById("srv-desc").value = "";
+        document.getElementById("srv-color").value = "#f0c080";
         document.getElementById("srv-err").style.display = "none";
         openModal("service-modal");
       }
@@ -9037,41 +9028,46 @@ function generarPasswordUsername(username) {
         const s = SERVICES.find((x) => x.id === id);
         if (!s) return;
         editingSrvId = id;
-        document.getElementById("srv-modal-title").textContent =
-          "Editar servei";
+        document.getElementById("srv-modal-title").textContent = "Editar servei";
         document.getElementById("srv-save-btn").textContent = "Desar canvis";
         document.getElementById("srv-name").value = s.name;
-        document.getElementById("srv-desc").value = s.desc || "";
+        document.getElementById("srv-color").value = s.color || "#f0c080";
         document.getElementById("srv-err").style.display = "none";
         openModal("service-modal");
       }
 
-      function saveService() {
-        const name = document.getElementById("srv-name").value.trim();
-        const desc = document.getElementById("srv-desc").value.trim();
+      async function saveService() {
+        const name  = document.getElementById("srv-name").value.trim();
+        const color = document.getElementById("srv-color").value;
         const errEl = document.getElementById("srv-err");
-        if (!name) {
-          errEl.style.display = "";
-          return;
-        }
+        if (!name) { errEl.style.display = ""; return; }
         errEl.style.display = "none";
-        if (editingSrvId !== null) {
-          const s = SERVICES.find((x) => x.id === editingSrvId);
-          if (s) {
-            s.name = name;
-            s.desc = desc;
-          }
-        } else {
-          SERVICES.push({ id: nextServiceId++, name, desc });
+        try {
+          const method = editingSrvId !== null ? 'PUT' : 'POST';
+          const url    = editingSrvId !== null ? `/api/services/${editingSrvId}` : '/api/services';
+          const res    = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, color }),
+          });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.error || 'Error desant servei');
+          closeModal("service-modal");
+          await loadServices();
+        } catch (e) {
+          errEl.textContent = e.message;
+          errEl.style.display = "";
         }
-        closeModal("service-modal");
-        renderServices();
       }
 
-      function deleteService(id) {
+      async function deleteService(id) {
         if (!confirm("Vols eliminar aquest servei?")) return;
-        SERVICES = SERVICES.filter((s) => s.id !== id);
-        renderServices();
+        try {
+          await fetch(`/api/services/${id}`, { method: 'DELETE' });
+          await loadServices();
+        } catch (e) {
+          console.warn('[Services] Error eliminant servei:', e.message);
+        }
       }
 
       // ══════════════════════════════════════════
