@@ -11730,13 +11730,16 @@ ${dateStr} a les ${eventData.time}`,
           const reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
 
           // Força skipWaiting si hi ha SW en espera
-          if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            await new Promise(r => setTimeout(r, 1000));
+          }
 
-          // Escolta canvis d'estat
+          // Escolta futures actualitzacions
           reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
             newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              if (newWorker.state === 'installed') {
                 newWorker.postMessage({ type: 'SKIP_WAITING' });
               }
             });
