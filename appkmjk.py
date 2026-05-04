@@ -2290,50 +2290,37 @@ def import_clients_db():
     })
 @app.route('/api/whatsapp/send', methods=['POST'])
 def send_whatsapp():
-    """Envía un mensaje de WhatsApp.
-    Si use_template=True usa la plantilla 'nom_recordatori_cita' amb client/date/time/sede.
-    Si use_template=False (per defecte) envia el camp 'message' com a text lliure.
+    """Envía un mensaje de WhatsApp via la plantilla 'nom_recordatori_cita'.
+    Sempre usa use_template=True amb les 4 variables: client, date, time, sede.
     """
     data = request.get_json(silent=True) or {}
     logger.info(f"[WA /send] Rebut: {data}")
 
-    to_phone     = data.get('to', '').strip()
-    use_template = bool(data.get('use_template', False))
-
+    to_phone = data.get('to', '').strip()
     if not to_phone:
         return jsonify({'ok': False, 'error': 'Falta el campo "to"'}), 400
 
-    if use_template:
-        nom  = data.get('client', '') or ''
-        date = data.get('date',   '') or ''
-        hora = data.get('time',   '') or ''
-        seu  = data.get('sede',   '') or ''
+    nom  = data.get('client', '') or ''
+    date = data.get('date',   '') or ''
+    hora = data.get('time',   '') or ''
+    seu  = data.get('sede',   '') or ''
 
-        # Formatar data: YYYY-MM-DD → "Dilluns 28/04/2026"
-        DIES_CA = ['Dilluns','Dimarts','Dimecres','Dijous','Divendres','Dissabte','Diumenge']
-        try:
-            _d = datetime.strptime(date, '%Y-%m-%d')
-            dia_setmana = DIES_CA[_d.weekday()]
-            data_fmt    = _d.strftime('%d/%m/%Y')
-        except Exception:
-            dia_setmana = ''
-            data_fmt    = date
-        data_var = f"{dia_setmana} {data_fmt}".strip()
+    # Formatar data: YYYY-MM-DD → "Dilluns 28/04/2026"
+    DIES_CA = ['Dilluns','Dimarts','Dimecres','Dijous','Divendres','Dissabte','Diumenge']
+    try:
+        _d = datetime.strptime(date, '%Y-%m-%d')
+        data_var = f"{DIES_CA[_d.weekday()]} {_d.strftime('%d/%m/%Y')}"
+    except Exception:
+        data_var = date
 
-        result = send_whatsapp_meta(
-            to_phone,
-            use_template = True,
-            nom  = nom,
-            data = data_var,
-            hora = hora,
-            seu  = seu,
-        )
-    else:
-        message = data.get('message', '').strip()
-        if not message:
-            return jsonify({'ok': False, 'error': 'Falta el campo "message"'}), 400
-        result = send_whatsapp_meta(to_phone, message=message)
-
+    result = send_whatsapp_meta(
+        to_phone,
+        use_template=True,
+        nom=nom,
+        data=data_var,
+        hora=hora,
+        seu=seu,
+    )
     logger.info(f"[WA /send] Resultat: {result}")
     return jsonify(result)
 
@@ -3123,6 +3110,10 @@ with app.app_context():
             "CREATE TABLE IF NOT EXISTS wa_scheduled_jobs (id SERIAL PRIMARY KEY, job_id VARCHAR(100) UNIQUE NOT NULL, event_id INTEGER, phone VARCHAR(20) NOT NULL, nom VARCHAR(200) NOT NULL, data VARCHAR(20) NOT NULL, hora VARCHAR(10) NOT NULL, seu VARCHAR(100) NOT NULL, send_at TIMESTAMP NOT NULL, sent BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW())",
             "CREATE TABLE IF NOT EXISTS dept_permissions (dept VARCHAR(50) PRIMARY KEY, level INTEGER DEFAULT 2 NOT NULL, access_to_depts TEXT DEFAULT '[]' NOT NULL)",
             "CREATE TABLE IF NOT EXISTS services (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, color VARCHAR(20) DEFAULT '#f0c080', active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())",
+            "ALTER TABLE wa_scheduled_jobs ADD COLUMN IF NOT EXISTS nom VARCHAR(200)",
+            "ALTER TABLE wa_scheduled_jobs ADD COLUMN IF NOT EXISTS data VARCHAR(20)",
+            "ALTER TABLE wa_scheduled_jobs ADD COLUMN IF NOT EXISTS hora VARCHAR(10)",
+            "ALTER TABLE wa_scheduled_jobs ADD COLUMN IF NOT EXISTS seu VARCHAR(100)",
         ]
         for sql in migrations:
             try:
