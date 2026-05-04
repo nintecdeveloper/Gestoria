@@ -11731,13 +11731,17 @@ ${dateStr} a les ${eventData.time}`,
           const permission = await Notification.requestPermission();
           if (permission !== 'granted') return;
 
-          await navigator.serviceWorker.register('/sw.js');
-          const reg = await navigator.serviceWorker.ready;
+          const reg = await navigator.serviceWorker.register('/sw.js');
 
-          // Comprova si ja hi ha una subscripció vàlida
+          // Força activació immediata si hi ha SW en espera
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            await new Promise(r => setTimeout(r, 500));
+          }
+
+          await navigator.serviceWorker.ready;
+
           let subscription = await reg.pushManager.getSubscription();
-
-          // Només re-subscriu si no n'hi ha cap
           if (!subscription) {
             const vapidKey = await fetch('/api/push/vapid-public-key').then(r => r.text());
             subscription = await reg.pushManager.subscribe({
@@ -11746,7 +11750,6 @@ ${dateStr} a les ${eventData.time}`,
             });
           }
 
-          // Sempre registra al backend per assegurar que és a la BD
           await fetch('/api/push/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
