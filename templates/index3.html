@@ -4749,12 +4749,26 @@
         return luminance > 0.5 ? '#000000' : '#ffffff';
       }
 
+      function getLightColor(hex) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r},${g},${b},0.15)`;
+      }
+
+      function getDarkColor(hex) {
+        const r = Math.floor(parseInt(hex.slice(1, 3), 16) * 0.4);
+        const g = Math.floor(parseInt(hex.slice(3, 5), 16) * 0.4);
+        const b = Math.floor(Math.min(255, parseInt(hex.slice(5, 7), 16) * 0.4));
+        return `rgb(${r},${g},${b})`;
+      }
+
       function getServiceColor(service) {
         const key = (service || '').trim().toLowerCase();
         const match = SERVICES.find(s => s.name.trim().toLowerCase() === key);
         if (match && match.color) {
           const hex = match.color;
-          return { bg: hex + '33', border: hex + '99', text: getTextColor(hex) };
+          return { bg: getLightColor(hex), border: hex, text: getDarkColor(hex) };
         }
         return { bg: 'var(--accent-light)', border: 'var(--accent)', text: 'var(--accent)' };
       }
@@ -5863,9 +5877,10 @@
         const el = document.getElementById('my-service-legend');
         if (!el) return;
         el.innerHTML = SERVICES.map(s => {
-          const bg = s.color || '#f0c080';
-          const textColor = getTextColor(bg);
-          return `<span style="background:${safeHtml(bg)};color:${safeHtml(textColor)};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid ${safeHtml(bg)}cc">${safeHtml(s.name)}</span>`;
+          const hex = s.color || '#E8A838';
+          const bg  = getLightColor(hex);
+          const txt = getDarkColor(hex);
+          return `<span style="background:${safeHtml(bg)};color:${safeHtml(txt)};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid ${safeHtml(hex)}">${safeHtml(s.name)}</span>`;
         }).join('');
       }
 
@@ -7026,7 +7041,7 @@
           }
           const timeRange = ev.timeEnd ? `${ev.time}–${ev.timeEnd}` : ev.time;
           const _svc = getServiceColor(ev.service);
-          return `<div class="cell-event${ev.private?' private-event':''}" style="background:${_svc.bg};color:${_svc.text};border-left-color:${_svc.border};" onclick="showEventDetail(${ev.id},event)">${ev.private?'🔒 ':''}${ev.recurrenceMasterId||ev.isRecurringMaster?'🔁 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
+          return `<div class="cell-event${ev.private?' private-event':''}" style="background:${_svc.bg};color:${_svc.text};border-left:3px solid ${_svc.border};border-radius:6px;" onclick="showEventDetail(${ev.id},event)">${ev.private?'🔒 ':''}${ev.recurrenceMasterId||ev.isRecurringMaster?'🔁 ':''}${timeRange} ${safeHtml(ev.client)}</div>`;
         };
 
         // ── VISTA SEMANA ──────────────────────────────────
@@ -7063,7 +7078,7 @@
               </div>`;
             }
             const _dsvc = getServiceColor(ev.service);
-            return `<div class="day-event-block" style="${posStyle}background:${_dsvc.bg};border-left-color:${_dsvc.border};color:${_dsvc.text};"
+            return `<div class="day-event-block" style="${posStyle}background:${_dsvc.bg};border-left:4px solid ${_dsvc.border};border-radius:6px;color:${_dsvc.text};"
                 onclick="showEventDetail(${ev.id},event);event.stopPropagation()">
               <div class="day-event-block-time" style="color:${_dsvc.text};opacity:0.75">${ev.time}${ev.timeEnd?' - '+ev.timeEnd:''}</div>
               <div class="day-event-block-title" style="color:${_dsvc.text}">${ev.private?'🔒 ':''}${safeHtml(ev.client)}</div>
