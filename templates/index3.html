@@ -4383,9 +4383,10 @@
             placeholder="Ex: Consultoria Empresarial"
           />
         </div>
-        <div class="form-group" style="display:flex;align-items:center;gap:12px">
-          <label style="margin:0;white-space:nowrap">Color</label>
-          <input type="color" id="srv-color" value="#f0c080" style="width:48px;height:32px;border:none;cursor:pointer;border-radius:6px" />
+        <div class="form-group">
+          <label>Color</label>
+          <div id="srv-color-palette" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+          <input type="text" id="srv-color" maxlength="7" placeholder="#E8A838" style="width:100px;font-family:monospace;font-size:13px" oninput="syncPaletteSelection(this.value)" />
         </div>
         <div class="form-err" id="srv-err">
           El nom del servei és obligatori.
@@ -9016,13 +9017,39 @@ function generarPasswordUsername(username) {
         ).join("");
       }
 
+      const PALETA_COLORS = [
+        '#E8A838', '#5BA85A', '#4A90D9', '#D95B5B', '#9B59B6', '#7F8C8D',
+        '#E67E22', '#27AE60', '#2980B9', '#E74C3C', '#8E44AD', '#95A5A6',
+        '#F39C12', '#1ABC9C', '#3498DB', '#C0392B', '#6C3483', '#BDC3C7',
+        '#D4AC0D', '#148F77', '#1A5276', '#922B21', '#4A235A', '#626567',
+      ];
+
+      function renderColorPalette(selectedColor) {
+        const palette = document.getElementById('srv-color-palette');
+        if (!palette) return;
+        palette.innerHTML = PALETA_COLORS.map(c => {
+          const sel = c.toLowerCase() === (selectedColor || '').toLowerCase();
+          return `<div onclick="selectPaletteColor('${c}')" title="${c}" style="width:24px;height:24px;border-radius:50%;background:${c};cursor:pointer;border:${sel ? '3px solid #333' : '2px solid transparent'};box-sizing:border-box;flex-shrink:0"></div>`;
+        }).join('');
+      }
+
+      function selectPaletteColor(hex) {
+        document.getElementById('srv-color').value = hex;
+        renderColorPalette(hex);
+      }
+
+      function syncPaletteSelection(val) {
+        if (/^#[0-9a-fA-F]{6}$/.test(val)) renderColorPalette(val);
+      }
+
       function openServiceModal() {
         editingSrvId = null;
         document.getElementById("srv-modal-title").textContent = "Nou servei";
         document.getElementById("srv-save-btn").textContent = "Desar";
         document.getElementById("srv-name").value = "";
-        document.getElementById("srv-color").value = "#f0c080";
+        document.getElementById("srv-color").value = "#E8A838";
         document.getElementById("srv-err").style.display = "none";
+        renderColorPalette("#E8A838");
         openModal("service-modal");
       }
 
@@ -9033,8 +9060,9 @@ function generarPasswordUsername(username) {
         document.getElementById("srv-modal-title").textContent = "Editar servei";
         document.getElementById("srv-save-btn").textContent = "Desar canvis";
         document.getElementById("srv-name").value = s.name;
-        document.getElementById("srv-color").value = s.color || "#f0c080";
+        document.getElementById("srv-color").value = s.color || "#E8A838";
         document.getElementById("srv-err").style.display = "none";
+        renderColorPalette(s.color || "#E8A838");
         openModal("service-modal");
       }
 

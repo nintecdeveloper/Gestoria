@@ -712,12 +712,12 @@ def seed_services():
     if Service.query.count() > 0:
         return
     serveis_inicials = [
-        {'name': 'Assessorament Fiscal',   'color': '#f0c080'},
-        {'name': 'Gestió Laboral',          'color': '#a8d8a8'},
-        {'name': 'Assessorament Mercantil', 'color': '#a8c8f0'},
-        {'name': 'Gestió Comptable',        'color': '#f0a8a8'},
-        {'name': 'Assessorament Jurídic',   'color': '#d4a8f0'},
-        {'name': 'Altres serveis',          'color': '#c0c0c0'},
+        {'name': 'Assessorament Fiscal',   'color': '#E8A838'},
+        {'name': 'Gestió Laboral',          'color': '#5BA85A'},
+        {'name': 'Assessorament Mercantil', 'color': '#4A90D9'},
+        {'name': 'Gestió Comptable',        'color': '#D95B5B'},
+        {'name': 'Assessorament Jurídic',   'color': '#9B59B6'},
+        {'name': 'Altres serveis',          'color': '#7F8C8D'},
     ]
     for s in serveis_inicials:
         db.session.add(Service(name=s['name'], color=s['color']))
