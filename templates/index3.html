@@ -6250,6 +6250,8 @@
         const targetUser = USERS.find(u => u.id === targetUserId);
         if (!targetUser) return false;
         
+        // Els admins sempre es poden veure (apareixen al menú fixat per a tothom)
+        if (targetUser.role === 'admin') return true;
         // No-admin solo ve calendarios de su misma sede
         return targetUser.sede === currentUser.sede;
       }
