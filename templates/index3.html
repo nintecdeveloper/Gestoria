@@ -4739,12 +4739,22 @@
        * Retorna el color pastel associat a un tipus de servei.
        * Valor de retorn: { bg, border, text }
        */
+      function getTextColor(bgColor) {
+        const hex = (bgColor || '').replace('#', '');
+        if (hex.length !== 6) return '#000000';
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance > 0.5 ? '#000000' : '#ffffff';
+      }
+
       function getServiceColor(service) {
         const key = (service || '').trim().toLowerCase();
         const match = SERVICES.find(s => s.name.trim().toLowerCase() === key);
         if (match && match.color) {
           const hex = match.color;
-          return { bg: hex + '33', border: hex + '99', text: hex };
+          return { bg: hex + '33', border: hex + '99', text: getTextColor(hex) };
         }
         return { bg: 'var(--accent-light)', border: 'var(--accent)', text: 'var(--accent)' };
       }
@@ -5854,7 +5864,8 @@
         if (!el) return;
         el.innerHTML = SERVICES.map(s => {
           const bg = s.color || '#f0c080';
-          return `<span style="background:${safeHtml(bg)}33;color:${safeHtml(bg)};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid ${safeHtml(bg)}88">${safeHtml(s.name)}</span>`;
+          const textColor = getTextColor(bg);
+          return `<span style="background:${safeHtml(bg)};color:${safeHtml(textColor)};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid ${safeHtml(bg)}cc">${safeHtml(s.name)}</span>`;
         }).join('');
       }
 
