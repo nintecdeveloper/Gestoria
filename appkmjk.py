@@ -184,8 +184,7 @@ def send_whatsapp_meta(to_phone: str, message: str = '',
     """
     # Si hi ha credencials Twilio, delega a send_whatsapp_twilio()
     if os.environ.get('TWILIO_ACCOUNT_SID') and os.environ.get('TWILIO_AUTH_TOKEN'):
-        ok = send_whatsapp_twilio(to_phone, nom=nom, data=data, hora=hora, seu=seu)
-        return {'ok': ok, 'via': 'twilio'}
+        return send_whatsapp_twilio(to_phone, nom=nom, data=data, hora=hora, seu=seu)
 
     if not META_PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
         return {'ok': False, 'error': 'Credenciales Meta no configuradas.', 'configured': False}
@@ -240,17 +239,17 @@ def send_whatsapp_meta(to_phone: str, message: str = '',
     return {'ok': True, 'message_id': result.get('messages', [{}])[0].get('id'), 'phone': phone}
 
 
-def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str) -> bool:
-    """Envia un WhatsApp de recordatori via Twilio directament."""
+def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str) -> dict:
+    """Envia un WhatsApp via Twilio amb Content SID (plantilla aprovada)."""
     try:
         from twilio.rest import Client as TwilioClient
-        account_sid  = os.environ.get('TWILIO_ACCOUNT_SID')
-        auth_token   = os.environ.get('TWILIO_AUTH_TOKEN')
-        from_number  = os.environ.get('TWILIO_WHATSAPP_NUMBER', '+34684732937')
+        account_sid = os.environ.get('TWILIO_ACCOUNT_SID')
+        auth_token  = os.environ.get('TWILIO_AUTH_TOKEN')
+        from_number = os.environ.get('TWILIO_WHATSAPP_NUMBER', '+34684732937')
 
         if not account_sid or not auth_token:
             logger.error('[Twilio] TWILIO_ACCOUNT_SID o TWILIO_AUTH_TOKEN no configurats')
-            return False
+            return {'ok': False, 'error': 'Credencials Twilio no configurades'}
 
         phone = to_phone.strip()
         if not phone.startswith('+'):
@@ -259,33 +258,32 @@ def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str
         DIES_CA = ['Dilluns','Dimarts','Dimecres','Dijous','Divendres','Dissabte','Diumenge']
         try:
             _d = datetime.strptime(data, '%Y-%m-%d')
-            dia       = DIES_CA[_d.weekday()]
-            data_fmt  = _d.strftime('%d/%m/%Y')
+            dia      = DIES_CA[_d.weekday()]
+            data_fmt = _d.strftime('%d/%m/%Y')
         except Exception:
             dia      = ''
             data_fmt = data
 
-        missatge = (
-            f"Hola {nom},\n\n"
-            f"Et recordem la teva cita a la nostra oficina:\n\n"
-            f"📅 {dia} {data_fmt} a les {hora}h\n"
-            f"📍 Gestoria Rodon Vergés Associats (Oficina de {seu})\n\n"
-            f"📞 Per a dubtes o canvis en la teva cita, contacta'ns al 93 798 45 25 "
-            f"o a info@rodonverges.com\n\n"
-            f"Gràcies per confiar en nosaltres."
-        )
+        telefon = '93 754 29 42' if seu == 'Vilassar' else '93 798 45 25'
 
         client = TwilioClient(account_sid, auth_token)
         msg = client.messages.create(
-            body   = missatge,
-            from_  = f'whatsapp:{from_number}',
-            to     = f'whatsapp:{phone}',
+            content_sid       = 'HXdc97adba49d1e0dc2fbb8aff5cc16453',
+            content_variables = json.dumps({
+                '1': nom,
+                '2': f'{dia} {data_fmt}',
+                '3': hora,
+                '4': seu,
+                '5': telefon,
+            }),
+            from_ = f'whatsapp:{from_number}',
+            to    = f'whatsapp:{phone}',
         )
         logger.info(f"✅ [Twilio] WhatsApp enviat a {phone}: {msg.sid}")
-        return True
+        return {'ok': True, 'message_id': msg.sid, 'via': 'twilio'}
     except Exception as e:
         logger.error(f"❌ [Twilio] Error enviant WhatsApp a {to_phone}: {e}")
-        return False
+        return {'ok': False, 'error': str(e)}
 
 # ═══════════════════════════════════════════════════════════════
 # SCHEDULER — FUNCIONES
@@ -294,7 +292,8 @@ def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str
 def send_whatsapp_job(to_phone: str, nom: str, data: str, hora: str, seu: str, job_id: str):
     """Envia un recordatori WhatsApp via plantilla aprovada i marca el job com a enviat a la BD."""
     with app.app_context():
-        ok = send_whatsapp_twilio(to_phone, nom=nom, data=data, hora=hora, seu=seu)
+        _result = send_whatsapp_twilio(to_phone, nom=nom, data=data, hora=hora, seu=seu)
+        ok = _result.get('ok', False)
 
         # Marcar sent=True a la BD
         try:
@@ -364,8 +363,9 @@ def recover_pending_jobs():
                 else:
                     # Job passat no enviat: enviar ara en thread separat
                     def _send_missed(rec):
-                        ok = send_whatsapp_twilio(rec.phone, nom=rec.nom, data=rec.data,
-                                                  hora=rec.hora, seu=rec.seu)
+                        _res = send_whatsapp_twilio(rec.phone, nom=rec.nom, data=rec.data,
+                                                    hora=rec.hora, seu=rec.seu)
+                        ok = _res.get('ok', False)
                         with app.app_context():
                             try:
                                 r = WaScheduledJob.query.filter_by(job_id=rec.job_id).first()
