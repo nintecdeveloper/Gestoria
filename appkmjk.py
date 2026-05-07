@@ -182,6 +182,11 @@ def send_whatsapp_meta(to_phone: str, message: str = '',
     amb 4 variables: {{1}}=nom, {{2}}=data, {{3}}=hora, {{4}}=seu.
     Si use_template=False (per defecte) envia text lliure.
     """
+    # Si hi ha credencials Twilio, delega a send_whatsapp_twilio()
+    if os.environ.get('TWILIO_ACCOUNT_SID') and os.environ.get('TWILIO_AUTH_TOKEN'):
+        ok = send_whatsapp_twilio(to_phone, nom=nom, data=data, hora=hora, seu=seu)
+        return {'ok': ok, 'via': 'twilio'}
+
     if not META_PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
         return {'ok': False, 'error': 'Credenciales Meta no configuradas.', 'configured': False}
     phone = to_phone.strip()
@@ -236,39 +241,50 @@ def send_whatsapp_meta(to_phone: str, message: str = '',
 
 
 def send_whatsapp_twilio(to_phone: str, nom: str, data: str, hora: str, seu: str) -> bool:
-    """Adaptador: prepara les 4 variables de la plantilla i crida send_whatsapp_meta().
-    Retorna True si l'enviament ha tingut èxit, False en cas d'error.
-    """
-    # Normalitzar telèfon: assegurar prefix internacional
-    phone = to_phone.strip()
-    if not phone.startswith('+'):
-        phone = '+34' + phone.lstrip('0')
-
-    # Formatar data: YYYY-MM-DD → "Dilluns 28/04/2026" per a la variable {{2}}
-    DIES_CA = ['Dilluns','Dimarts','Dimecres','Dijous','Divendres','Dissabte','Diumenge']
+    """Envia un WhatsApp de recordatori via Twilio directament."""
     try:
-        _d = datetime.strptime(data, '%Y-%m-%d')
-        dia_setmana = DIES_CA[_d.weekday()]
-        data_fmt    = _d.strftime('%d/%m/%Y')
-    except Exception:
-        dia_setmana = ''
-        data_fmt    = data
+        from twilio.rest import Client as TwilioClient
+        account_sid  = os.environ.get('TWILIO_ACCOUNT_SID')
+        auth_token   = os.environ.get('TWILIO_AUTH_TOKEN')
+        from_number  = os.environ.get('TWILIO_WHATSAPP_NUMBER', '+34684732937')
 
-    data_var = f"{dia_setmana} {data_fmt}".strip()
+        if not account_sid or not auth_token:
+            logger.error('[Twilio] TWILIO_ACCOUNT_SID o TWILIO_AUTH_TOKEN no configurats')
+            return False
 
-    result = send_whatsapp_meta(
-        phone,
-        use_template = True,
-        nom  = nom,
-        data = data_var,
-        hora = hora,
-        seu  = seu,
-    )
-    if result.get('ok'):
-        logger.info(f"✅ [WA] Recordatori enviat a {phone}")
+        phone = to_phone.strip()
+        if not phone.startswith('+'):
+            phone = '+34' + phone.lstrip('0')
+
+        DIES_CA = ['Dilluns','Dimarts','Dimecres','Dijous','Divendres','Dissabte','Diumenge']
+        try:
+            _d = datetime.strptime(data, '%Y-%m-%d')
+            dia       = DIES_CA[_d.weekday()]
+            data_fmt  = _d.strftime('%d/%m/%Y')
+        except Exception:
+            dia      = ''
+            data_fmt = data
+
+        missatge = (
+            f"Hola {nom},\n\n"
+            f"Et recordem la teva cita a la nostra oficina:\n\n"
+            f"📅 {dia} {data_fmt} a les {hora}h\n"
+            f"📍 Gestoria Rodon Vergés Associats (Oficina de {seu})\n\n"
+            f"📞 Per a dubtes o canvis en la teva cita, contacta'ns al 93 798 45 25 "
+            f"o a info@rodonverges.com\n\n"
+            f"Gràcies per confiar en nosaltres."
+        )
+
+        client = TwilioClient(account_sid, auth_token)
+        msg = client.messages.create(
+            body   = missatge,
+            from_  = f'whatsapp:{from_number}',
+            to     = f'whatsapp:{phone}',
+        )
+        logger.info(f"✅ [Twilio] WhatsApp enviat a {phone}: {msg.sid}")
         return True
-    else:
-        logger.error(f"❌ [WA] Error enviant recordatori: {result.get('error')}")
+    except Exception as e:
+        logger.error(f"❌ [Twilio] Error enviant WhatsApp a {to_phone}: {e}")
         return False
 
 # ═══════════════════════════════════════════════════════════════
@@ -2450,22 +2466,25 @@ def cancel_whatsapp(job_id):
 
 @app.route('/api/whatsapp/status', methods=['GET'])
 def whatsapp_status():
-    """Comprova si Meta Cloud API i el Scheduler estan a punt."""
+    """Comprova si Twilio (o Meta) i el Scheduler estan a punt."""
+    twilio_ok    = bool(os.environ.get('TWILIO_ACCOUNT_SID') and os.environ.get('TWILIO_AUTH_TOKEN'))
     meta_ok      = bool(META_ACCESS_TOKEN and META_PHONE_NUMBER_ID)
+    wa_ok        = twilio_ok or meta_ok
     scheduler_ok = SCHEDULER_AVAILABLE and scheduler is not None
 
     reasons = []
-    if not meta_ok:
-        reasons.append("Variables d'entorn Meta no configurades (META_ACCESS_TOKEN, META_PHONE_NUMBER_ID)")
+    if not twilio_ok and not meta_ok:
+        reasons.append("Cap sistema WhatsApp configurat (TWILIO_ACCOUNT_SID/AUTH_TOKEN o META_ACCESS_TOKEN/PHONE_NUMBER_ID)")
     if not SCHEDULER_AVAILABLE:
         reasons.append("APScheduler no instal·lat (pip install apscheduler)")
     elif not scheduler_ok:
         reasons.append("Scheduler no inicialitzat")
 
     return jsonify({
+        'twilio_ready':    twilio_ok,
         'meta_ready':      meta_ok,
         'scheduler_ready': scheduler_ok,
-        'fully_ready':     meta_ok and scheduler_ok,
+        'fully_ready':     wa_ok and scheduler_ok,
         'reason': ' · '.join(reasons) if reasons else 'Tot configurat correctament'
     })
 
@@ -2533,6 +2552,7 @@ def api_status():
         'version': '3.0',
         'timestamp': datetime.now().isoformat(),
         'environment': app.config['ENV'],
+        'twilio_ready': bool(os.environ.get('TWILIO_ACCOUNT_SID') and os.environ.get('TWILIO_AUTH_TOKEN')),
         'meta_ready': bool(META_ACCESS_TOKEN and META_PHONE_NUMBER_ID),
         'scheduler_ready': SCHEDULER_AVAILABLE and scheduler is not None,
         'websocket_ready': True,

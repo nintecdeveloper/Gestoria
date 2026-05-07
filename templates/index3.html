@@ -5352,7 +5352,7 @@
         try {
           const res  = await fetch('/api/whatsapp/status');
           const data = await res.json();
-          WA_CONFIG.twilioReady    = data.meta_ready        === true;
+          WA_CONFIG.twilioReady    = (data.twilio_ready || data.meta_ready) === true;
           WA_CONFIG.schedulerReady = data.scheduler_ready  === true;
           WA_CONFIG.serverReady    = data.fully_ready      === true;
           WA_CONFIG.tokenExpired   = data.token_expired    === true;
