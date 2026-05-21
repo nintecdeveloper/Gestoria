@@ -2870,11 +2870,16 @@ def create_reminder():
             remind_at = datetime.fromisoformat(remind_at_str.replace('Z', '+00:00')) if remind_at_str else datetime.utcnow()
         except Exception:
             remind_at = datetime.utcnow()
+        event = Event.query.get(data.get('eventId'))
+        notes_text = ""
+        if event and event.notes and event.notes.strip():
+            notes_text = f"\n📝 {event.notes.strip()}"
+        reminder_message = (data.get('message', '') or '') + notes_text
         r = PersonalReminder(
             event_id  = data.get('eventId') or None,
             user_id   = int(data.get('userId', 0)),
             remind_at = remind_at,
-            message   = data.get('message') or None,
+            message   = reminder_message or None,
             is_sent   = False,
         )
         db.session.add(r)
